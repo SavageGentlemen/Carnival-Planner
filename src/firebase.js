@@ -4,12 +4,13 @@ import { getFirestore } from "firebase/firestore";
 
 // PASTE YOUR REAL CONFIG HERE
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef"
+  apiKey: "AIzaSyCWp0X6bLJBsyYKTjUaVsXBSuVD8KeeEqY",
+  authDomain: "carnival-planner.firebaseapp.com",
+  projectId: "carnival-planner",
+  storageBucket: "carnival-planner.firebasestorage.app",
+  messagingSenderId: "1036340118282",
+  appId: "1:1036340118282:web:809dc12c298ff1b8f2f0f3",
+  measurementId: "G-XC1K69PSVC"
 };
 
 const app = initializeApp(firebaseConfig);
