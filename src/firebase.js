@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// PASTE YOUR REAL CONFIG HERE
+
 const firebaseConfig = {
   apiKey: "AIzaSyCWp0X6bLJBsyYKTjUaVsXBSuVD8KeeEqY",
   authDomain: "carnival-planner.firebaseapp.com",
