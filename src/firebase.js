@@ -4,14 +4,6 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
-// 🔴 IMPORTANT: replace this entire object with the Config from
-// Firebase Console -> Project settings -> Your apps -> Web app -> Config.
-//
-// For your project it will look more like:
-//   projectId: "carnival-planner-49626964",
-//   authDomain: "carnival-planner-49626964.firebaseapp.com",
-//   storageBucket: "carnival-planner-49626964.appspot.com",
-// etc.
 const firebaseConfig = {
   apiKey: "AIzaSyCWp0X6bLJBsyYKTjUaVsXBSuVD8KeeEqY",
   authDomain: "carnival-planner.firebaseapp.com",
