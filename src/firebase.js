@@ -1,8 +1,17 @@
+// src/firebase.js
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-
-
+// 🔴 IMPORTANT: replace this entire object with the Config from
+// Firebase Console -> Project settings -> Your apps -> Web app -> Config.
+//
+// For your project it will look more like:
+//   projectId: "carnival-planner-49626964",
+//   authDomain: "carnival-planner-49626964.firebaseapp.com",
+//   storageBucket: "carnival-planner-49626964.appspot.com",
+// etc.
 const firebaseConfig = {
   apiKey: "AIzaSyCWp0X6bLJBsyYKTjUaVsXBSuVD8KeeEqY",
   authDomain: "carnival-planner-49626964.firebaseapp.com",
@@ -13,6 +22,26 @@ const firebaseConfig = {
   measurementId: "G-XC1K69PSVC"
 };
 
+// Optional: log what we're actually using at runtime
+console.log("Firebase config at runtime:", firebaseConfig);
 
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+// If you want analytics in the browser (optional)
+let analytics = null;
+if (typeof window !== "undefined") {
+  isSupported()
+    .then((yes) => {
+      if (yes) {
+        analytics = getAnalytics(app);
+      }
+    })
+    .catch(() => {
+      // ignore analytics errors in dev
+    });
+}
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+export { app, auth, db, analytics };
