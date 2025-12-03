@@ -2,16 +2,17 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {},
   },
   safelist: [
     {
+      // allows dynamic bg/text/border colors like bg-teal-600, text-orange-500, etc.
       pattern: /(bg|text|border)-(teal|yellow|blue|orange|red|green|slate)-(50|100|200|500|600|700|800)/,
-      variants: ['hover', 'focus'],
+      variants: ["hover", "focus"],
     },
   ],
   plugins: [],
-}
+};
