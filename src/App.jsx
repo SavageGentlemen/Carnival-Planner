@@ -21,7 +21,7 @@ import {
 } from "firebase/firestore";
 
 // --- CRITICAL FIX: Import from your local file ---
-import { auth, db, appId } from './firebase';
+import { app, auth, db } from './firebase';
 
 // --- Multi-Island Data ---
 const CARNIVALS = {
