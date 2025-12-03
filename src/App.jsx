@@ -23,7 +23,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-// --- Firebase (use the centralized instance) ---
+// --- Firebase (centralized instance) ---
 import { auth, db } from "./firebase";
 import { 
   signInWithCustomToken, 
@@ -231,7 +231,7 @@ const getPath = (userId, carnivalId, collectionName) => {
   return ['artifacts', appId, 'users', userId, 'carnivals', carnivalId, collectionName];
 };
 
-// --- UI Components (unchanged from your version) ---
+// --- UI Components ---
 
 const StatPill = ({ label, value, color }) => {
   const colors = {
@@ -250,11 +250,426 @@ const StatPill = ({ label, value, color }) => {
   );
 };
 
-// ... [KEEP all your Dashboard, Budget, Packing, Schedule, Vault components EXACTLY as they are]
-// I haven’t changed their internals – only the imports and Firebase wiring at the top.
-// (You can paste them straight from your existing file below this comment.)
+const Dashboard = ({ user, activeCarnival, daysLeft, stats, priorities, setPriorities }) => {
+  const [editMode, setEditMode] = useState(false);
+  const [tempPriorities, setTempPriorities] = useState(priorities);
 
-// --- App Root Component ---
+  useEffect(() => { setTempPriorities(priorities); }, [priorities]);
+
+  const handleSave = () => {
+    setPriorities(tempPriorities);
+    setEditMode(false);
+  };
+
+  const gradients = {
+    teal: 'from-teal-600 to-emerald-600',
+    yellow: 'from-yellow-500 to-amber-600',
+    blue: 'from-blue-600 to-cyan-500',
+    orange: 'from-orange-500 to-red-500',
+    red: 'from-red-600 to-rose-600',
+    green: 'from-green-600 to-emerald-600',
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Hero Card */}
+      <div className={`bg-gradient-to-r ${gradients[activeCarnival.color] || gradients.teal} rounded-2xl p-6 text-white shadow-lg relative overflow-hidden`}>
+        <div className="relative z-10">
+          <h2 className="text-xs font-medium uppercase tracking-wider opacity-90 flex items-center gap-1">
+            <Clock size={14} className="opacity-90" /> Countdown to {activeCarnival.name}
+          </h2>
+          <div className="flex items-baseline mt-2">
+            <span className="text-5xl font-extrabold leading-none">{daysLeft}</span>
+            <span className="ml-2 text-xl opacity-90">days left</span>
+          </div>
+          <p className="mt-3 text-xs font-light italic opacity-90">
+            {activeCarnival.country} • {new Date(activeCarnival.date).toDateString()}
+          </p>
+        </div>
+        <div className="absolute -right-4 -bottom-8 w-32 h-32 bg-white opacity-10 rounded-full blur-xl"></div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-semibold text-slate-600">Budget</span>
+            <CreditCard size={14} className={`text-${activeCarnival.color}-500`} />
+          </div>
+          <p className="font-bold text-slate-800 text-xs">
+            {formatCurrency(stats.paid)} / {formatCurrency(stats.total)}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-semibold text-slate-600">Packing</span>
+            <CheckSquare size={14} className={`text-${activeCarnival.color}-500`} />
+          </div>
+          <p className="font-bold text-slate-800 text-xs">
+            {stats.packed} / {stats.packTotal} items
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-semibold text-slate-600">Fetes</span>
+            <Ticket size={14} className={`text-${activeCarnival.color}-500`} />
+          </div>
+          <p className="font-bold text-slate-800 text-xs">
+            {stats.events} events
+          </p>
+        </div>
+      </div>
+
+      {/* Local Ad Space */}
+      <div className="bg-white border-l-4 border-slate-800 rounded-r-xl p-4 shadow-sm flex justify-between items-center">
+        <div>
+          <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <MapPin size={14} /> Local Plug
+          </h4>
+          <p className="text-xs text-slate-500 mt-0.5">{activeCarnival.ad.text}</p>
+        </div>
+        <button className="text-[10px] bg-slate-800 text-white px-3 py-1.5 rounded-lg font-bold">
+          View
+        </button>
+      </div>
+
+      {/* Priorities */}
+      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <AlertCircle size={16} className="text-orange-500" />
+            Priorities
+          </h3>
+          <button 
+            onClick={() => editMode ? handleSave() : setEditMode(true)}
+            className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full"
+          >
+            {editMode ? 'Save' : 'Edit'}
+          </button>
+        </div>
+        <div className="space-y-3">
+          {tempPriorities.map((p, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-[10px] font-bold">
+                {i + 1}
+              </span>
+              {editMode ? (
+                <input 
+                  type="text" 
+                  value={p} 
+                  onChange={(e) => {
+                    const n = [...tempPriorities];
+                    n[i] = e.target.value;
+                    setTempPriorities(n);
+                  }}
+                  className="flex-1 border-b border-slate-200 text-sm py-1 outline-none"
+                  placeholder="Add priority..."
+                />
+              ) : (
+                <span className={`text-sm ${!p ? 'text-slate-400 italic' : 'text-slate-700'}`}>
+                  {p || 'Tap edit to add...'}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Budget = ({ items, onAdd, onDelete, color }) => {
+  const [newItem, setNewItem] = useState({ category: '', amount: '', paid: '' });
+  const [isAdding, setIsAdding] = useState(false);
+
+  const total = items.reduce((s, i) => s + (parseFloat(i.amount)||0), 0);
+  const paid = items.reduce((s, i) => s + (parseFloat(i.paid)||0), 0);
+
+  const handleAdd = () => {
+    if(!newItem.category) return;
+    onAdd({...newItem, id: Date.now().toString()});
+    setNewItem({category:'', amount:'', paid:''});
+    setIsAdding(false);
+  };
+
+  return (
+    <div className="space-y-4 pb-20">
+      <div className={`bg-${color}-50 p-4 rounded-xl border border-${color}-100 flex justify-between items-center`}>
+        <div>
+          <p className={`text-xs font-bold text-${color}-600 uppercase`}>Total Budget</p>
+          <p className={`text-xl font-black text-${color}-800`}>{formatCurrency(total)}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-slate-500">Balance Due</p>
+          <p className="text-lg font-bold text-slate-700">{formatCurrency(total - paid)}</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {items.map(item => (
+          <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 flex justify-between items-center">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{item.category}</p>
+              <p className="text-xs text-slate-500">
+                Paid: {formatCurrency(item.paid)} <span className="text-slate-300">|</span> Due: <span className="text-orange-600">{formatCurrency(item.amount - item.paid)}</span>
+              </p>
+            </div>
+            <button onClick={() => onDelete(item.id)} className="text-slate-300 hover:text-red-500">
+              <Trash2 size={16}/>
+            </button>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <div className="text-center py-10 text-slate-400 text-sm">
+            No expenses yet. Add your costume or flight!
+          </div>
+        )}
+      </div>
+
+      <button onClick={() => setIsAdding(true)} className={`fixed bottom-20 right-4 p-4 rounded-full shadow-lg bg-${color}-600 text-white`}>
+        <Plus size={24} />
+      </button>
+
+      {isAdding && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
+           <div className="bg-white w-full rounded-xl p-4 space-y-3">
+             <h3 className="font-bold">Add Expense</h3>
+             <input
+               className="w-full p-2 border rounded"
+               placeholder="Category"
+               value={newItem.category}
+               onChange={e=>setNewItem({...newItem, category:e.target.value})}
+             />
+             <div className="flex gap-2">
+               <input
+                 className="w-1/2 p-2 border rounded"
+                 type="number"
+                 placeholder="Cost"
+                 value={newItem.amount}
+                 onChange={e=>setNewItem({...newItem, amount:e.target.value})}
+               />
+               <input
+                 className="w-1/2 p-2 border rounded"
+                 type="number"
+                 placeholder="Paid"
+                 value={newItem.paid}
+                 onChange={e=>setNewItem({...newItem, paid:e.target.value})}
+               />
+             </div>
+             <button
+               onClick={handleAdd}
+               className={`w-full py-3 rounded-lg font-bold text-white bg-${color}-600`}
+             >
+               Add
+             </button>
+             <button
+               onClick={()=>setIsAdding(false)}
+               className="w-full py-2 text-slate-500"
+             >
+               Cancel
+             </button>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Packing = ({ items, onToggle, color }) => {
+  return (
+    <div className="space-y-4 pb-20">
+      <div className="flex justify-between items-center">
+        <h3 className="font-bold text-slate-700">Packing List</h3>
+        <span className={`text-xs bg-${color}-50 text-${color}-700 px-2 py-1 rounded-full font-bold`}>
+          {items.filter(i=>i.checked).length}/{items.length} Ready
+        </span>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 divide-y divide-slate-50">
+        {items.map(item => (
+          <div key={item.id} className="p-4 flex items-center justify-between group">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => onToggle(item.id)}>
+              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${item.checked ? `bg-${color}-500 border-${color}-500` : 'border-slate-300'}`}>
+                {item.checked && <CheckSquare size={14} className="text-white" />}
+              </div>
+              <span className={`text-sm ${item.checked ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{item.item}</span>
+            </div>
+            {item.affiliate && (
+              <a
+                href={item.affiliate}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded flex items-center gap-1"
+              >
+                Buy <ExternalLink size={10} />
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const Schedule = ({ events, onAdd, onDelete, color, activeCarnival }) => {
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newEvent, setNewEvent] = useState({ title: '', time: '', type: 'fete' });
+
+  const dates = useMemo(() => getCarnivalDates(activeCarnival.date), [activeCarnival]);
+
+  useEffect(() => {
+    if (dates.length > 0 && !selectedDate) setSelectedDate(dates[2].date);
+  }, [dates, selectedDate]);
+
+  const filteredEvents = events
+    .filter(e => e.date === selectedDate)
+    .sort((a,b) => (a.time || '').localeCompare(b.time || ''));
+
+  const handleAdd = () => {
+    if (!newEvent.title) return;
+    onAdd({ ...newEvent, date: selectedDate, id: Date.now().toString() });
+    setNewEvent({ title: '', time: '', type: 'fete' });
+    setIsAdding(false);
+  };
+
+  return (
+    <div className="flex flex-col h-full space-y-4">
+      {/* Date Scroller */}
+      <div className="flex overflow-x-auto pb-2 gap-2 scrollbar-hide -mx-4 px-4">
+        {dates.map((day) => (
+          <button
+            key={day.date}
+            onClick={() => setSelectedDate(day.date)}
+            className={`flex-shrink-0 flex flex-col items-center justify-center w-14 h-16 rounded-xl transition-all border ${
+              selectedDate === day.date 
+                ? `bg-${color}-600 text-white border-${color}-600 shadow-md scale-105` 
+                : day.isMain ? `bg-${color}-50 text-${color}-800 border-${color}-200` : 'bg-white text-slate-500 border-slate-100'
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase">
+              {day.label.split(' ')[0]}
+            </span>
+            <span className="text-lg font-bold">
+              {day.label.split(' ')[1]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 bg-white rounded-2xl p-4 shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+        <div className="mb-4 flex items-center justify-between">
+           <h3 className="font-bold text-slate-800">
+             {dates.find(d => d.date === selectedDate)?.dayName || 'Events'}
+           </h3>
+           <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">
+             {filteredEvents.length} Events
+           </span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-3 pb-20">
+          {filteredEvents.map(event => (
+            <div key={event.id} className="flex gap-3 group">
+              <div className="w-14 pt-2 text-right text-xs font-medium text-slate-400">
+                {event.time || 'TBA'}
+              </div>
+              <div className={`flex-1 p-3 rounded-lg border-l-4 shadow-sm relative ${
+                event.type === 'fete' ? 'bg-purple-50 border-purple-400' : 
+                event.type === 'mas' ? `bg-${color}-50 border-${color}-400` : 'bg-slate-50 border-slate-400'
+              }`}>
+                <div className="flex justify-between items-start">
+                  <span className="font-semibold text-slate-700 text-sm">
+                    {event.title}
+                  </span>
+                  <button
+                    onClick={() => onDelete(event.id)}
+                    className="text-slate-300 hover:text-red-500"
+                  >
+                    <Trash2 size={14}/>
+                  </button>
+                </div>
+                <span className="text-[10px] uppercase tracking-wide text-slate-400 mt-1 block">
+                  {event.type}
+                </span>
+              </div>
+            </div>
+          ))}
+          {filteredEvents.length === 0 && (
+            <div className="text-center py-8 text-slate-400 text-sm italic">
+              No plans for this day.<br/>Tap + to add a fete.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={() => setIsAdding(true)}
+        className={`fixed bottom-20 right-4 p-4 rounded-full shadow-lg bg-${color}-600 text-white`}
+      >
+        <Plus size={24} />
+      </button>
+
+      {isAdding && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
+          <div className="bg-white w-full rounded-xl p-4 space-y-4 animate-in slide-in-from-bottom-10">
+            <h3 className="font-bold text-slate-800">Add Event</h3>
+            <input 
+              className="w-full p-2 border rounded-lg text-sm" 
+              placeholder="Event Name (e.g. Soca Brainwash)"
+              value={newEvent.title}
+              onChange={e => setNewEvent({...newEvent, title: e.target.value})} 
+            />
+            <div className="flex gap-2">
+              <input 
+                type="time" 
+                className="w-1/2 p-2 border rounded-lg text-sm"
+                value={newEvent.time}
+                onChange={e => setNewEvent({...newEvent, time: e.target.value})} 
+              />
+              <select 
+                className="w-1/2 p-2 border rounded-lg bg-white text-sm"
+                value={newEvent.type}
+                onChange={e => setNewEvent({...newEvent, type: e.target.value})}
+              >
+                <option value="fete">Fete</option>
+                <option value="mas">Mas / Road</option>
+                <option value="logistics">Transport</option>
+              </select>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setIsAdding(false)}
+                className="flex-1 py-2 text-slate-500 font-medium text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdd}
+                className={`flex-1 py-2 bg-${color}-600 text-white rounded-lg font-bold text-sm`}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Vault = ({ logistics, color }) => (
+  <div className="space-y-4">
+    <div className="p-4 bg-slate-100 rounded-lg text-xs text-slate-600 flex gap-2">
+      <Lock size={16} />
+      <p>Pro Feature: Upload photos of your receipts & tickets securely.</p>
+    </div>
+    <button className={`w-full py-3 rounded-xl border-2 border-dashed border-${color}-200 text-${color}-600 font-bold text-sm flex items-center justify-center gap-2`}>
+       <Lock size={16} /> Unlock Vault ($4.99/yr)
+    </button>
+  </div>
+);
+
+// --- Root App Component ---
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -262,14 +677,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(TABS.DASHBOARD);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Data
   const [budgetItems, setBudgetItems] = useState([]);
   const [packingList, setPackingList] = useState([]);
   const [events, setEvents] = useState([]);
   const [priorities, setPriorities] = useState(['', '', '']);
   
   const activeCarnival = CARNIVALS[activeCarnivalId];
-  const daysLeft = useMemo(() => getDaysUntil(activeCarnival.date), [activeCarnivalId, activeCarnival.date]);
+  const daysLeft = useMemo(
+    () => getDaysUntil(activeCarnival.date),
+    [activeCarnivalId, activeCarnival.date]
+  );
 
   // Auth
   useEffect(() => {
@@ -310,7 +727,6 @@ export default function App() {
       collection(db, ...getPath(uid, activeCarnivalId, 'packing')), 
       async s => {
         if(s.empty) {
-          // Seed default packing list for new carnival
           for(const i of DEFAULT_PACKING_LIST) {
             await setDoc(doc(db, ...getPath(uid, activeCarnivalId, 'packing'), i.id), i);
           }
@@ -347,25 +763,34 @@ export default function App() {
     };
   }, [user, activeCarnivalId]);
 
-  // Actions
   const addBudgetItem = async (item) => {
     if(!user) return;
-    await setDoc(doc(db, ...getPath(user.uid, activeCarnivalId, 'budget'), item.id), item);
+    await setDoc(
+      doc(db, ...getPath(user.uid, activeCarnivalId, 'budget'), item.id),
+      item
+    );
   };
 
   const deleteBudgetItem = async (id) => {
     if(!user) return;
-    await deleteDoc(doc(db, ...getPath(user.uid, activeCarnivalId, 'budget'), id));
+    await deleteDoc(
+      doc(db, ...getPath(user.uid, activeCarnivalId, 'budget'), id)
+    );
   };
 
   const addEvent = async (event) => {
     if(!user) return;
-    await setDoc(doc(db, ...getPath(user.uid, activeCarnivalId, 'events'), event.id), event);
+    await setDoc(
+      doc(db, ...getPath(user.uid, activeCarnivalId, 'events'), event.id),
+      event
+    );
   };
 
   const deleteEvent = async (id) => {
     if(!user) return;
-    await deleteDoc(doc(db, ...getPath(user.uid, activeCarnivalId, 'events'), id));
+    await deleteDoc(
+      doc(db, ...getPath(user.uid, activeCarnivalId, 'events'), id)
+    );
   };
 
   const togglePacking = async (id) => {
@@ -373,7 +798,7 @@ export default function App() {
     const item = packingList.find(i=>i.id===id);
     if(item) {
       await setDoc(
-        doc(db, ...getPath(user.uid, activeCarnivalId, 'packing'), id), 
+        doc(db, ...getPath(user.uid, activeCarnivalId, 'packing'), id),
         {...item, checked: !item.checked}
       );
     }
@@ -383,7 +808,7 @@ export default function App() {
     setPriorities(list);
     if(user) {
       await setDoc(
-        doc(db, ...getPath(user.uid, activeCarnivalId, 'meta'), 'priorities'), 
+        doc(db, ...getPath(user.uid, activeCarnivalId, 'meta'), 'priorities'),
         {list}
       );
     }
@@ -417,9 +842,10 @@ export default function App() {
             >
               {activeCarnival.name} <ChevronDown size={18} />
             </button>
-            <p className="text-xs text-slate-400 font-medium">Digital Planner</p>
+            <p className="text-xs text-slate-400 font-medium">
+              Digital Planner
+            </p>
 
-            {/* Dropdown Menu */}
             {isMenuOpen && (
               <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
                 <div className="max-h-64 overflow-y-auto">
@@ -445,43 +871,43 @@ export default function App() {
       {/* Content */}
       <main className="flex-1 overflow-y-auto p-4 scrollbar-hide">
         {activeTab === TABS.DASHBOARD && (
-          <Dashboard 
-            user={user} 
-            activeCarnival={activeCarnival} 
-            daysLeft={daysLeft} 
-            stats={stats} 
-            priorities={priorities} 
-            setPriorities={savePriority} 
+          <Dashboard
+            user={user}
+            activeCarnival={activeCarnival}
+            daysLeft={daysLeft}
+            stats={stats}
+            priorities={priorities}
+            setPriorities={savePriority}
           />
         )}
         {activeTab === TABS.BUDGET && (
-          <Budget 
-            items={budgetItems} 
-            onAdd={addBudgetItem} 
-            onDelete={deleteBudgetItem} 
-            color={activeCarnival.color} 
+          <Budget
+            items={budgetItems}
+            onAdd={addBudgetItem}
+            onDelete={deleteBudgetItem}
+            color={activeCarnival.color}
           />
         )}
         {activeTab === TABS.PACKING && (
-          <Packing 
-            items={packingList} 
-            onToggle={togglePacking} 
-            color={activeCarnival.color} 
+          <Packing
+            items={packingList}
+            onToggle={togglePacking}
+            color={activeCarnival.color}
           />
         )}
         {activeTab === TABS.SCHEDULE && (
-          <Schedule 
-            events={events} 
-            onAdd={addEvent} 
-            onDelete={deleteEvent} 
-            color={activeCarnival.color} 
-            activeCarnival={activeCarnival} 
+          <Schedule
+            events={events}
+            onAdd={addEvent}
+            onDelete={deleteEvent}
+            color={activeCarnival.color}
+            activeCarnival={activeCarnival}
           />
         )}
         {activeTab === TABS.VAULT && (
-          <Vault 
-            logistics={{}} 
-            color={activeCarnival.color} 
+          <Vault
+            logistics={{}}
+            color={activeCarnival.color}
           />
         )}
       </main>
