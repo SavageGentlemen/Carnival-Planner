@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+
 const firebaseConfig = {
   apiKey: "AIzaSyCWp0X6bLJBsyYKTjUaVsXBSuVD8KeeEqY",
   authDomain: "carnival-planner.firebaseapp.com",
@@ -13,9 +14,13 @@ const firebaseConfig = {
   measurementId: "G-XC1K69PSVC"
 };
 
-// Optional: log what we're actually using at runtime
 console.log("Firebase config at runtime:", firebaseConfig);
 
+// Ensure only ONE Firebase app exists
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
+// Create ready-to-use exports
+const auth = getAuth(app);
+const db = getFirestore(app);
 
+export { app, auth, db };
