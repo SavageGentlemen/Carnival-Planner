@@ -1,6 +1,7 @@
 {
   "functions": {
-    "source": "functions2"
+    "source": "functions2",
+    "runtime": "nodejs20"
   },
   "hosting": {
     "public": "dist",

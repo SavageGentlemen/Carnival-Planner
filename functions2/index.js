@@ -37,8 +37,9 @@ exports.createCheckoutSession = functions.https.onCall(
     }
 
     // Read Stripe secret from functions config *inside* the handler
-    const stripeSecret = functions.config().stripe &&
-      functions.config().stripe.secret_key;
+    const cfg = functions.config();
+    const stripeSecret =
+      cfg.stripe && cfg.stripe.secret_key ? cfg.stripe.secret_key : null;
 
     if (!stripeSecret) {
       // This prevents runtime crashes if config is missing
