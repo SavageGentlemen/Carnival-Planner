@@ -15,6 +15,7 @@ import {
   onSnapshot,
   Timestamp,
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { auth, db, appId } from './firebase';
 import logo from './assets/carnival-logo.png';
 
@@ -53,14 +54,46 @@ export default function App() {
   const premiumEmails = ['djkrss1@gmail.com'];
   const [isPremium, setIsPremium] = useState(false);
 
-  // Initiates the subscription flow.  In production this would call
-  // a backend endpoint (e.g. a Firebase Cloud Function) to create
-  // a Stripe Checkout session and redirect the user.  Here we
-  // display a placeholder alert to remind you to implement this.
-  const handleSubscribe = () => {
-    alert(
-      'Premium subscription is not implemented in this demo. Set up a backend endpoint to create a Stripe Checkout session.'
-    );
+  // Stripe Functions + Price IDs
+  const functions = getFunctions();
+  const STRIPE_MONTHLY_PRICE_ID = 'prod_TXt3DBvp73kQaV';
+  const STRIPE_YEARLY_PRICE_ID = 'prod_TXt89PGnD4Pttn';
+
+  // Initiates the subscription flow by calling the Cloud Function that
+  // creates a Stripe Checkout session.  `billingInterval` controls
+  // whether we use the monthly or yearly price.
+  const handleSubscribe = async (billingInterval = 'monthly') => {
+    if (!user) {
+      alert('Please sign in first to upgrade to Premium.');
+      return;
+    }
+
+    const priceId =
+      billingInterval === 'yearly'
+        ? STRIPE_YEARLY_PRICE_ID
+        : STRIPE_MONTHLY_PRICE_ID;
+
+    try {
+      const createCheckoutSession = httpsCallable(
+        functions,
+        'createCheckoutSession',
+      );
+
+      const result = await createCheckoutSession({ priceId });
+      const data = result?.data || {};
+
+      // Backend can return either a full Checkout URL or just a sessionId.
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else if (data.sessionId) {
+        window.location.href = `https://checkout.stripe.com/pay/${data.sessionId}`;
+      } else {
+        alert('Unable to start checkout. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error starting Stripe checkout:', err);
+      alert('There was a problem starting your checkout. Please try again.');
+    }
   };
 
   // Control whether the landing page (splash screen) is visible.  The
@@ -71,24 +104,24 @@ export default function App() {
   const [showLanding, setShowLanding] = useState(true);
 
   // Define the available carnivals with descriptive names, unique
-  // identifiers and the month they occur in (0‑based month index).
+  // identifiers and the month they occur in (0-based month index).
   // The `id` field is used as the Firestore document slug, while
   // `name` is displayed to the user.  `monthIndex` is used to
   // calculate the countdown to the next carnival.
   const carnivalOptions = [
     { id: 'trinidad', name: 'Trinidad Carnival', monthIndex: 1 }, // February
-    { id: 'stkitts-sugar-mas', name: 'St. Kitts & Nevis (Sugar Mas)', monthIndex: 0 }, // January
+    { id: 'stkitts-sugar-mas', name: 'St. Kitts & Nevis (Sugar Mas)', monthIndex: 0 }, // January
     { id: 'aruba', name: 'Aruba Carnival', monthIndex: 1 }, // February
     { id: 'guyana-mashramani', name: 'Guyana Mashramani', monthIndex: 1 }, // February
     { id: 'guyana-independence', name: 'Guyana Independence Carnival', monthIndex: 4 }, // May
     { id: 'jamaica', name: 'Jamaica Carnival', monthIndex: 3 }, // April
-    { id: 'stmaarten', name: 'St. Maarten Carnival', monthIndex: 3 }, // April/May – approximate to April
+    { id: 'stmaarten', name: 'St. Maarten Carnival', monthIndex: 3 }, // April/May – approximate to April
     { id: 'bahamas', name: 'Bahamas Carnival', monthIndex: 5 }, // June
     { id: 'bermuda', name: 'Bermuda Carnival', monthIndex: 5 }, // June
-    { id: 'vincymas', name: 'Vincy Mas (St. Vincent)', monthIndex: 6 }, // July
+    { id: 'vincymas', name: 'Vincy Mas (St. Vincent)', monthIndex: 6 }, // July
     { id: 'antigua', name: 'Antigua Carnival', monthIndex: 7 }, // August
     { id: 'tobago', name: 'Tobago Carnival', monthIndex: 9 }, // October
-    { id: 'stlucia', name: 'St. Lucia Carnival', monthIndex: 6 }, // July
+    { id: 'stlucia', name: 'St. Lucia Carnival', monthIndex: 6 }, // July
   ];
 
   // Colourful gradient classes applied to the island cards.  These
@@ -103,7 +136,7 @@ export default function App() {
     'bg-gradient-to-r from-purple-600 to-indigo-600',
   ];
 
-  // Month names for display.  Used to derive a human‑readable label
+  // Month names for display.  Used to derive a human-readable label
   // from the monthIndex stored in carnivalOptions.
   const monthNames = [
     'January',
@@ -136,7 +169,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // On mount, handle the result of a redirect sign‑in.  If there is an
+  // On mount, handle the result of a redirect sign-in.  If there is an
   // error during the OAuth redirect flow, it will be caught here and
   // logged to the console.  Otherwise, onAuthStateChanged will fire
   // once the user is signed in.
@@ -156,7 +189,14 @@ export default function App() {
       return undefined;
     }
     // The carnivals subcollection is stored under users/{uid}/apps/{appId}/carnivals.
-    const carnivalsRef = collection(db, 'users', user.uid, 'apps', appId, 'carnivals');
+    const carnivalsRef = collection(
+      db,
+      'users',
+      user.uid,
+      'apps',
+      appId,
+      'carnivals',
+    );
     const unsubscribe = onSnapshot(carnivalsRef, (snapshot) => {
       const map = {};
       snapshot.forEach((docSnap) => {
@@ -171,7 +211,7 @@ export default function App() {
   }, [user]);
 
   // Sign in with Google.  Using redirect instead of popup avoids
-  // issues with blocked pop‑ups and cross‑origin restrictions during
+  // issues with blocked pop-ups and cross-origin restrictions during
   // development.  If redirect fails (e.g. because of an invalid
   // configuration), the error will be logged to the console.
   const handleSignIn = async () => {
@@ -200,7 +240,15 @@ export default function App() {
     setActiveCarnivalId(id);
     if (!carnivals[id]) {
       try {
-        const carnivalRef = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', id);
+        const carnivalRef = doc(
+          db,
+          'users',
+          user.uid,
+          'apps',
+          appId,
+          'carnivals',
+          id,
+        );
         await setDoc(
           carnivalRef,
           {
@@ -232,7 +280,15 @@ export default function App() {
       ? [...carnival.budget, newItem]
       : [newItem];
     try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+      const ref = doc(
+        db,
+        'users',
+        user.uid,
+        'apps',
+        appId,
+        'carnivals',
+        activeCarnivalId,
+      );
       await updateDoc(ref, { budget: updatedBudget });
       setNewBudgetName('');
       setNewBudgetCost('');
@@ -248,7 +304,15 @@ export default function App() {
     if (!carnival || !Array.isArray(carnival.budget)) return;
     const updatedBudget = carnival.budget.filter((item) => item.id !== itemId);
     try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+      const ref = doc(
+        db,
+        'users',
+        user.uid,
+        'apps',
+        appId,
+        'carnivals',
+        activeCarnivalId,
+      );
       await updateDoc(ref, { budget: updatedBudget });
     } catch (err) {
       console.error('Error removing budget item:', err);
@@ -270,7 +334,15 @@ export default function App() {
       ? [...carnival.schedule, newItem]
       : [newItem];
     try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+      const ref = doc(
+        db,
+        'users',
+        user.uid,
+        'apps',
+        appId,
+        'carnivals',
+        activeCarnivalId,
+      );
       await updateDoc(ref, { schedule: updatedSchedule });
       setNewScheduleName('');
       setNewScheduleDate('');
@@ -285,9 +357,19 @@ export default function App() {
     if (!user || !activeCarnivalId) return;
     const carnival = carnivals[activeCarnivalId];
     if (!carnival || !Array.isArray(carnival.schedule)) return;
-    const updatedSchedule = carnival.schedule.filter((item) => item.id !== itemId);
+    const updatedSchedule = carnival.schedule.filter(
+      (item) => item.id !== itemId,
+    );
     try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+      const ref = doc(
+        db,
+        'users',
+        user.uid,
+        'apps',
+        appId,
+        'carnivals',
+        activeCarnivalId,
+      );
       await updateDoc(ref, { schedule: updatedSchedule });
     } catch (err) {
       console.error('Error removing schedule item:', err);
@@ -308,7 +390,15 @@ export default function App() {
       ? [...carnival.packing, newItem]
       : [newItem];
     try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+      const ref = doc(
+        db,
+        'users',
+        user.uid,
+        'apps',
+        appId,
+        'carnivals',
+        activeCarnivalId,
+      );
       await updateDoc(ref, { packing: updatedPacking });
       setNewPackingItem('');
     } catch (err) {
@@ -325,7 +415,15 @@ export default function App() {
       item.id === itemId ? { ...item, checked: !item.checked } : item,
     );
     try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+      const ref = doc(
+        db,
+        'users',
+        user.uid,
+        'apps',
+        appId,
+        'carnivals',
+        activeCarnivalId,
+      );
       await updateDoc(ref, { packing: updatedPacking });
     } catch (err) {
       console.error('Error toggling packing item:', err);
@@ -339,7 +437,15 @@ export default function App() {
     if (!carnival || !Array.isArray(carnival.packing)) return;
     const updatedPacking = carnival.packing.filter((item) => item.id !== itemId);
     try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+      const ref = doc(
+        db,
+        'users',
+        user.uid,
+        'apps',
+        appId,
+        'carnivals',
+        activeCarnivalId,
+      );
       await updateDoc(ref, { packing: updatedPacking });
     } catch (err) {
       console.error('Error removing packing item:', err);
@@ -350,9 +456,11 @@ export default function App() {
   const currentCarnival = activeCarnivalId ? carnivals[activeCarnivalId] : null;
 
   // Compute budget total
-  const budgetTotal = currentCarnival && Array.isArray(currentCarnival.budget)
-    ? currentCarnival.budget.reduce((sum, item) => sum + (item.cost || 0), 0)
-    : 0;
+  const budgetTotal =
+    currentCarnival && Array.isArray(currentCarnival.budget)
+      ? currentCarnival.budget.reduce((sum, item) => sum + (item.cost || 0), 0)
+      : 0;
+
   // Render a simple splash screen with the logo before showing the
   // rest of the application.  The splash is suppressed when the
   // visitor clicks "Get Started" or if a user is already logged in.
@@ -383,7 +491,9 @@ export default function App() {
         {user && (
           <div className="flex items-center gap-4">
             {isPremium && (
-              <span className="px-2 py-1 text-xs bg-yellow-300 text-yellow-800 rounded-full">Premium</span>
+              <span className="px-2 py-1 text-xs bg-yellow-300 text-yellow-800 rounded-full">
+                Premium
+              </span>
             )}
             <button
               onClick={handleSignOut}
@@ -420,14 +530,22 @@ export default function App() {
                 <p className="font-semibold mb-1">Unlock Premium Features</p>
                 <p className="text-sm mb-2">
                   Export itineraries, store travel documents, enjoy offline access and plan with
-                  friends.  Premium is just $4.99/month or $39.99/year.
+                  friends. Premium is just $4.99/month or $39.99/year.
                 </p>
-                <button
-                  onClick={handleSubscribe}
-                  className="mt-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Upgrade Now
-                </button>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <button
+                    onClick={() => handleSubscribe('monthly')}
+                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Go Monthly – $4.99
+                  </button>
+                  <button
+                    onClick={() => handleSubscribe('yearly')}
+                    className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  >
+                    Go Yearly – $39.99
+                  </button>
+                </div>
               </div>
             )}
             <div className="mb-6">
@@ -439,22 +557,39 @@ export default function App() {
                   const gradient = gradientClasses[idx % gradientClasses.length];
                   // Compute days remaining until the next occurrence of this carnival.
                   const now = new Date();
-                  let year = now.getMonth() <= c.monthIndex ? now.getFullYear() : now.getFullYear() + 1;
+                  const year =
+                    now.getMonth() <= c.monthIndex
+                      ? now.getFullYear()
+                      : now.getFullYear() + 1;
                   const eventDate = new Date(year, c.monthIndex, 1);
                   const diffMs = eventDate.getTime() - now.getTime();
-                  const diffDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+                  const diffDays = Math.max(
+                    0,
+                    Math.ceil(diffMs / (1000 * 60 * 60 * 24)),
+                  );
                   return (
                     <div
                       key={c.id}
-                      onClick={() => selectCarnival(c.id, `${c.name} - ${monthNames[c.monthIndex]}`)}
-                      className={`min-w-[220px] cursor-pointer rounded-xl p-4 shadow-md transition-transform transform hover:scale-105 ${gradient} ${isActive ? 'ring-4 ring-yellow-300' : ''}`}
+                      onClick={() =>
+                        selectCarnival(
+                          c.id,
+                          `${c.name} - ${monthNames[c.monthIndex]}`,
+                        )
+                      }
+                      className={`min-w-[220px] cursor-pointer rounded-xl p-4 shadow-md transition-transform transform hover:scale-105 ${gradient} ${
+                        isActive ? 'ring-4 ring-yellow-300' : ''
+                      }`}
                     >
                       <div className="flex items-center mb-2">
                         <img src={logo} alt="logo" className="w-6 h-6 mr-2" />
                         <h4 className="text-white font-bold text-lg">{c.name}</h4>
                       </div>
-                      <p className="text-white text-sm opacity-80">{monthNames[c.monthIndex]}</p>
-                      <p className="text-white text-xs opacity-80 mt-1">{diffDays} days left</p>
+                      <p className="text-white text-sm opacity-80">
+                        {monthNames[c.monthIndex]}
+                      </p>
+                      <p className="text-white text-xs opacity-80 mt-1">
+                        {diffDays} days left
+                      </p>
                     </div>
                   );
                 })}
@@ -487,10 +622,14 @@ export default function App() {
                 {activeTab === 'Budget' && (
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Budget Items</h3>
-                    {Array.isArray(currentCarnival.budget) && currentCarnival.budget.length > 0 ? (
+                    {Array.isArray(currentCarnival.budget) &&
+                    currentCarnival.budget.length > 0 ? (
                       <ul className="mb-4 divide-y divide-gray-200">
                         {currentCarnival.budget.map((item) => (
-                          <li key={item.id} className="py-2 flex justify-between items-center">
+                          <li
+                            key={item.id}
+                            className="py-2 flex justify-between items-center"
+                          >
                             <span>
                               {item.name} - ${item.cost.toFixed(2)}
                             </span>
@@ -528,19 +667,21 @@ export default function App() {
                         Add Item
                       </button>
                     </div>
-                    <p className="font-semibold">
-                      Total: ${budgetTotal.toFixed(2)}
-                    </p>
+                    <p className="font-semibold">Total: ${budgetTotal.toFixed(2)}</p>
                   </div>
                 )}
                 {activeTab === 'Schedule' && (
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Schedule</h3>
-                    {Array.isArray(currentCarnival.schedule) && currentCarnival.schedule.length > 0 ? (
+                    {Array.isArray(currentCarnival.schedule) &&
+                    currentCarnival.schedule.length > 0 ? (
                       <ul className="mb-4 divide-y divide-gray-200">
                         {currentCarnival.schedule
                           .slice()
-                          .sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+                          .sort(
+                            (a, b) =>
+                              new Date(a.datetime) - new Date(b.datetime),
+                          )
                           .map((event) => (
                             <li
                               key={event.id}
@@ -549,7 +690,8 @@ export default function App() {
                               <div className="mb-1 sm:mb-0">
                                 <div className="font-medium">{event.title}</div>
                                 <div className="text-sm text-gray-600">
-                                  {new Date(event.datetime).toLocaleString()} {event.note ? ' - ' + event.note : ''}
+                                  {new Date(event.datetime).toLocaleString()}{' '}
+                                  {event.note ? ' - ' + event.note : ''}
                                 </div>
                               </div>
                               <button
@@ -562,7 +704,9 @@ export default function App() {
                           ))}
                       </ul>
                     ) : (
-                      <p className="text-gray-600 mb-4">No events scheduled yet.</p>
+                      <p className="text-gray-600 mb-4">
+                        No events scheduled yet.
+                      </p>
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-2">
                       <input
@@ -597,10 +741,14 @@ export default function App() {
                 {activeTab === 'Packing' && (
                   <div>
                     <h3 className="text-lg font-semibold mb-3">Packing List</h3>
-                    {Array.isArray(currentCarnival.packing) && currentCarnival.packing.length > 0 ? (
+                    {Array.isArray(currentCarnival.packing) &&
+                    currentCarnival.packing.length > 0 ? (
                       <ul className="mb-4 divide-y divide-gray-200">
                         {currentCarnival.packing.map((item) => (
-                          <li key={item.id} className="py-2 flex items-center justify-between">
+                          <li
+                            key={item.id}
+                            className="py-2 flex items-center justify-between"
+                          >
                             <div className="flex items-center gap-2">
                               <input
                                 type="checkbox"
@@ -608,7 +756,13 @@ export default function App() {
                                 onChange={() => togglePackingItem(item.id)}
                                 className="form-checkbox h-5 w-5 text-blue-600"
                               />
-                              <span className={item.checked ? 'line-through text-gray-500' : ''}>
+                              <span
+                                className={
+                                  item.checked
+                                    ? 'line-through text-gray-500'
+                                    : ''
+                                }
+                              >
                                 {item.item}
                               </span>
                             </div>
@@ -622,7 +776,9 @@ export default function App() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-gray-600 mb-4">Your packing list is empty.</p>
+                      <p className="text-gray-600 mb-4">
+                        Your packing list is empty.
+                      </p>
                     )}
                     <div className="flex gap-2">
                       <input
