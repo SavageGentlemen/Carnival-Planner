@@ -9,74 +9,97 @@ admin.initializeApp();
 // Keep this in sync with the appId used in your frontend Firestore paths.
 const APP_ID = "carnival-planner-v1";
 
-// ----- Stripe setup -----
+// ----- Stripe setup (v7 compatible — NO functions.config) -----
+// These MUST be set in your environment using:
+//   firebase functions:secrets:set STRIPE_SECRET_KEY
+//   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
 
-// Set these from the project root:
-//   firebase functions:config:set stripe.secret_key="sk_live_..." stripe.webhook_secret="whsec_..."
-const stripeSecretKey = functions.config().stripe.secret_key;
-const webhookSecret = functions.config().stripe.webhook_secret;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
 
-if (!stripeSecretKey) {
-  throw new Error(
-    "Missing Stripe secret key. Set with: firebase functions:config:set stripe.secret_key=\"sk_live_...\""
+let stripe = null;
+if (stripeSecretKey) {
+  stripe = new Stripe(stripeSecretKey, {
+    apiVersion: "2024-04-10",
+  });
+} else {
+  console.warn(
+    "Stripe secret key is not set. Run:\n" +
+      "firebase functions:secrets:set STRIPE_SECRET_KEY"
   );
 }
 
 if (!webhookSecret) {
   console.warn(
-    "WARNING: stripe.webhook_secret is not set. Webhook verification will fail until you configure it."
+    "Stripe webhook secret not set. Run:\n" +
+      "firebase functions:secrets:set STRIPE_WEBHOOK_SECRET"
   );
 }
 
-const stripe = Stripe(stripeSecretKey, {
-  apiVersion: "2024-04-10",
-});
+// Convenience for Firestore
+const db = admin.firestore();
+const { FieldValue } = admin.firestore;
 
-// ----- Helpers -----
+// ----- Helper: update premium status in Firestore -----
 
-/**
- * Write premium flags to Firestore under:
- *   users/{uid}/apps/{APP_ID}
- */
-async function setPremiumStatus(uid, data) {
-  const db = admin.firestore();
-  const appDocRef = db.collection("users").doc(uid).collection("apps").doc(APP_ID);
+async function setPremiumStatus(uid, info) {
+  const {
+    active,
+    priceId,
+    customerId,
+    subscriptionId,
+    currentPeriodEnd,
+    status,
+  } = info;
 
-  await appDocRef.set(
-    {
-      premiumActive: data.active,
-      premiumPriceId: data.priceId || null,
-      stripeCustomerId: data.customerId || null,
-      stripeSubscriptionId: data.subscriptionId || null,
-      premiumCurrentPeriodEnd: data.currentPeriodEnd || null,
-      premiumUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const userAppRef = db.doc(`users/${uid}/apps/${APP_ID}`);
+
+  const update = {
+    premiumActive: !!active,
+    premiumUpdatedAt: FieldValue.serverTimestamp(),
+  };
+
+  if (priceId !== undefined) update.premiumPriceId = priceId;
+  if (customerId !== undefined) update.stripeCustomerId = customerId;
+  if (subscriptionId !== undefined) update.stripeSubscriptionId = subscriptionId;
+  if (currentPeriodEnd !== undefined)
+    update.premiumCurrentPeriodEnd = currentPeriodEnd;
+  if (status !== undefined) update.subscriptionStatus = status;
+
+  await userAppRef.set(update, { merge: true });
 }
 
 // ----- Callable: createCheckoutSession -----
+// NOTE: .region("us-central1") removed – not supported in firebase-functions v7
 
-/**
- * Callable function: createCheckoutSession
- *
- * Client usage (frontend):
- *   const createSession = httpsCallable(functions, "createCheckoutSession");
- *   const { sessionId } = await createSession({ priceId });
- *   await stripe.redirectToCheckout({ sessionId });
- */
-exports.createCheckoutSession = functions
-  .region("us-central1")
-  .https.onCall(async (data, context) => {
-    // Require auth
-    if (!context.auth) {
+exports.createCheckoutSession = functions.https.onCall(
+  async (data, context) => {
+    const { priceId, uid: uidFromClient, email: emailFromClient } = data || {};
+
+    // Prefer Firebase Auth, but fall back to explicit uid/email from client
+    const uid = (context.auth && context.auth.uid) || uidFromClient;
+    const email =
+      (context.auth &&
+        context.auth.token &&
+        context.auth.token.email) ||
+      emailFromClient;
+
+    // Debug logging so we can see what the client is sending
+    console.log("createCheckoutSession incoming:", {
+      data,
+      hasAuth: !!context.auth,
+      uid,
+      email,
+    });
+
+    // ✅ Only require uid (user must be logged in); email is optional
+    if (!uid) {
       throw new functions.https.HttpsError(
         "unauthenticated",
         "You must be logged in to start a checkout session."
       );
     }
 
-    const { priceId } = data || {};
     if (!priceId || typeof priceId !== "string") {
       throw new functions.https.HttpsError(
         "invalid-argument",
@@ -84,21 +107,25 @@ exports.createCheckoutSession = functions
       );
     }
 
-    const uid = context.auth.uid;
-    const email = context.auth.token.email;
+    if (!stripe) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Stripe is not configured on the server."
+      );
+    }
 
     try {
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
-        customer_email: email,
+        // email is optional – Stripe will ask on the checkout page if we don't send it
+        customer_email: email || undefined,
         line_items: [
           {
             price: priceId,
             quantity: 1,
           },
         ],
-        // Metadata used later in webhooks
         metadata: {
           firebaseUid: uid,
           priceId,
@@ -116,7 +143,10 @@ exports.createCheckoutSession = functions
         cancel_url: "https://carnival-planner.web.app/premium-cancel",
       });
 
-      return { sessionId: session.id };
+      return {
+        sessionId: session.id,
+        checkoutUrl: session.url,
+      };
     } catch (err) {
       console.error("Error creating Stripe Checkout session:", err);
       throw new functions.https.HttpsError(
@@ -124,126 +154,108 @@ exports.createCheckoutSession = functions
         "Unable to create Stripe Checkout session."
       );
     }
-  });
+  }
+);
 
 // ----- Webhook: handleStripeWebhook -----
+// NOTE: .region("us-central1") removed – we keep runWith for memory settings
 
-/**
- * HTTP endpoint for Stripe webhooks.
- *
- * Configure in Stripe Dashboard:
- *   URL: https://us-central1-YOUR_PROJECT.cloudfunctions.net/handleStripeWebhook
- *   Events:
- *     - checkout.session.completed
- *     - customer.subscription.deleted
- *     - customer.subscription.updated (optional)
- *
- * IMPORTANT: In firebase.json you must allow rawBody for this function:
- *
- *   "functions": {
- *     "source": "functions2",
- *     "runtime": "nodejs20",
- *     "ignore": ["node_modules"],
- *     "serviceAccount": "default",
- *     "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run lint || exit 0"],
- *     "endpoints": {
- *       "handleStripeWebhook": {
- *         "region": "us-central1"
- *       }
- *     }
- *   }
- */
-exports.handleStripeWebhook = functions
-  .region("us-central1")
-  .https.onRequest(async (req, res) => {
+exports.handleStripeWebhook = functions.https.onRequest(
+  async (req, res) => {
+
     if (req.method !== "POST") {
-      return res.status(405).send("Method Not Allowed");
+      res.status(405).send("Method Not Allowed");
+      return;
     }
 
-    let event;
+    if (!stripe || !webhookSecret) {
+      console.error("Stripe not configured. Cannot handle webhook.");
+      res.status(500).send("Stripe not configured.");
+      return;
+    }
+
     const sig = req.headers["stripe-signature"];
+    let event;
 
     try {
       event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
     } catch (err) {
       console.error("Webhook signature verification failed:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
     }
 
     try {
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object;
-
           const meta = session.metadata || {};
           const uid = meta.firebaseUid;
-          const priceId = meta.priceId;
-          const appId = meta.appId || APP_ID;
+          const priceId = meta.priceId || null;
 
-          if (!uid || appId !== APP_ID) {
-            console.warn("checkout.session.completed missing uid/appId metadata");
-            break;
+          if (!uid) break;
+
+          const subscriptionId = session.subscription;
+          const customerId = session.customer;
+          let currentPeriodEnd = null;
+          let status = "active";
+
+          if (subscriptionId) {
+            const sub = await stripe.subscriptions.retrieve(subscriptionId);
+            status = sub.status;
+            currentPeriodEnd = sub.current_period_end
+              ? new Date(sub.current_period_end * 1000)
+              : null;
           }
 
           await setPremiumStatus(uid, {
             active: true,
             priceId,
-            customerId: session.customer || null,
-            subscriptionId: session.subscription || null,
-            currentPeriodEnd: null, // we’ll update this on subscription.updated
-          });
-          break;
-        }
-
-        case "customer.subscription.updated": {
-          const subscription = event.data.object;
-          const meta = subscription.metadata || {};
-          const uid = meta.firebaseUid;
-          const appId = meta.appId || APP_ID;
-
-          if (!uid || appId !== APP_ID) break;
-
-          const currentPeriodEnd = subscription.current_period_end
-            ? admin.firestore.Timestamp.fromMillis(
-                subscription.current_period_end * 1000
-              )
-            : null;
-
-          await setPremiumStatus(uid, {
-            active: subscription.status === "active",
-            priceId: meta.priceId || subscription.items?.data?.[0]?.price?.id,
-            customerId: subscription.customer || null,
-            subscriptionId: subscription.id || null,
+            customerId,
+            subscriptionId,
             currentPeriodEnd,
+            status,
           });
+
           break;
         }
 
+        case "customer.subscription.updated":
         case "customer.subscription.deleted": {
           const subscription = event.data.object;
           const meta = subscription.metadata || {};
           const uid = meta.firebaseUid;
-          const appId = meta.appId || APP_ID;
+          const priceId = meta.priceId || null;
 
-          if (!uid || appId !== APP_ID) break;
+          if (!uid) break;
+
+          const active =
+            subscription.status === "active" ||
+            subscription.status === "trialing";
+
+          const currentPeriodEnd = subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000)
+            : null;
 
           await setPremiumStatus(uid, {
-            active: false,
-            priceId: meta.priceId || null,
-            customerId: subscription.customer || null,
-            subscriptionId: subscription.id || null,
-            currentPeriodEnd: null,
+            active,
+            priceId,
+            customerId: subscription.customer,
+            subscriptionId: subscription.id,
+            currentPeriodEnd,
+            status: subscription.status,
           });
+
           break;
         }
 
         default:
-          console.log(`Unhandled Stripe event type: ${event.type}`);
+          console.log(`Unhandled event type ${event.type}`);
       }
 
       res.json({ received: true });
     } catch (err) {
-      console.error("Error handling Stripe webhook:", err);
+      console.error("Webhook handler error:", err);
       res.status(500).send("Webhook handler failed.");
     }
   });

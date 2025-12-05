@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { auth, db, appId } from './firebase';
+import { auth, db, appId, app } from './firebase';
 import logo from './assets/carnival-logo.png';
 
 /**
@@ -31,6 +31,7 @@ import logo from './assets/carnival-logo.png';
 export default function App() {
   // Authentication state
   const [user, setUser] = useState(null);
+  const [route, setRoute] = useState(window.location.pathname);
   // Map of carnivalId -> carnival object
   const [carnivals, setCarnivals] = useState({});
   // Currently selected carnival ID (slug)
@@ -47,17 +48,12 @@ export default function App() {
   // Local form state for packing list
   const [newPackingItem, setNewPackingItem] = useState('');
 
-  // List of email addresses that should be treated as premium users.
-  // In a production app you would determine premium status via
-  // custom claims or a field in Firestore.  For demonstration
-  // purposes we hard code the premium email(s) here.
-  const premiumEmails = ['djkrss1@gmail.com'];
   const [isPremium, setIsPremium] = useState(false);
 
   // Stripe Functions + Price IDs
   const functions = getFunctions();
-  const STRIPE_MONTHLY_PRICE_ID = 'prod_TXt3DBvp73kQaV';
-  const STRIPE_YEARLY_PRICE_ID = 'prod_TXt89PGnD4Pttn';
+  const STRIPE_MONTHLY_PRICE_ID = 'price_1SanHUJR9xpdRiXijLesRPVt';
+  const STRIPE_YEARLY_PRICE_ID = 'price_1SanMhJR9xpdRiXinv2F9knM';
 
   // Initiates the subscription flow by calling the Cloud Function that
   // creates a Stripe Checkout session.  `billingInterval` controls
@@ -79,20 +75,28 @@ export default function App() {
         'createCheckoutSession',
       );
 
-      const result = await createCheckoutSession({ priceId });
+      // 👇 send uid + email explicitly so backend can fall back when context.auth is null
+      const result = await createCheckoutSession({
+        priceId,
+        uid: user.uid,
+        email: user.email,
+      });
+
       const data = result?.data || {};
 
-      // Backend can return either a full Checkout URL or just a sessionId.
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else if (data.sessionId) {
+        // Fallback in case you ever return only a sessionId
         window.location.href = `https://checkout.stripe.com/pay/${data.sessionId}`;
       } else {
         alert('Unable to start checkout. Please try again.');
       }
     } catch (err) {
       console.error('Error starting Stripe checkout:', err);
-      alert('There was a problem starting your checkout. Please try again.');
+      alert(
+        `Checkout error:\ncode=${err.code || 'n/a'}\nmessage=${err.message || ''}`,
+      );
     }
   };
 
@@ -153,21 +157,47 @@ export default function App() {
     'December',
   ];
 
+  // Simple route handling for Stripe return URLs
+  useEffect(() => {
+    const handler = () => {
+      setRoute(window.location.pathname);
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
+
+  const goHome = () => {
+    window.history.pushState({}, '', '/');
+    setRoute('/');
+  };
+
   // Listen to authentication changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
-      // Determine premium status based on the user's email.  If the
-      // authenticated user's email is in the premiumEmails list,
-      // enable premium features.
-      if (u && u.email) {
-        setIsPremium(premiumEmails.includes(u.email));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Listen for premium status in Firestore, as written by Stripe webhooks
+  useEffect(() => {
+    if (!user) {
+      setIsPremium(false);
+      return;
+    }
+
+    const appRef = doc(db, 'users', user.uid, 'apps', appId);
+    const unsub = onSnapshot(appRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setIsPremium(Boolean(data.premiumActive));
       } else {
         setIsPremium(false);
       }
     });
-    return () => unsubscribe();
-  }, []);
+
+    return () => unsub();
+  }, [user]);
 
   // On mount, handle the result of a redirect sign-in.  If there is an
   // error during the OAuth redirect flow, it will be caught here and
@@ -460,6 +490,43 @@ export default function App() {
     currentCarnival && Array.isArray(currentCarnival.budget)
       ? currentCarnival.budget.reduce((sum, item) => sum + (item.cost || 0), 0)
       : 0;
+
+  // Handle Stripe return routes before showing the main app
+  if (route === '/premium-success') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
+        <img src={logo} alt="Carnival Planner logo" className="w-20 h-20 mb-4" />
+        <h1 className="text-3xl font-extrabold mb-2">Welcome to Premium 🎉</h1>
+        <p className="text-center text-lg mb-6 max-w-md">
+          Your Carnival Planner Premium subscription is active. You now unlock advanced features as they roll out.
+        </p>
+        <button
+          onClick={goHome}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Back to Carnival Planner
+        </button>
+      </div>
+    );
+  }
+
+  if (route === '/premium-cancel') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
+        <img src={logo} alt="Carnival Planner logo" className="w-20 h-20 mb-4" />
+        <h1 className="text-3xl font-extrabold mb-2">Checkout Cancelled</h1>
+        <p className="text-center text-lg mb-6 max-w-md">
+          No worries—your free planner still works great. You can upgrade to Premium anytime from inside the app.
+        </p>
+        <button
+          onClick={goHome}
+          className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800"
+        >
+          Back to Carnival Planner
+        </button>
+      </div>
+    );
+  }
 
   // Render a simple splash screen with the logo before showing the
   // rest of the application.  The splash is suppressed when the
