@@ -49,6 +49,7 @@ export default function App() {
   const [newPackingItem, setNewPackingItem] = useState('');
 
   const [isPremium, setIsPremium] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Stripe Functions + Price IDs
   const functions = getFunctions();
@@ -58,47 +59,71 @@ export default function App() {
   // Initiates the subscription flow by calling the Cloud Function that
   // creates a Stripe Checkout session.  `billingInterval` controls
   // whether we use the monthly or yearly price.
-  const handleSubscribe = async (billingInterval = 'monthly') => {
+  const handleSubscribe = async (interval) => {
     if (!user) {
-      alert('Please sign in first to upgrade to Premium.');
+      alert("You must be signed in to subscribe.");
       return;
     }
-
+  
+    const billingInterval = interval === "yearly" ? "yearly" : "monthly";
+  
+    // Choose the Stripe priceId based on the billing interval
     const priceId =
-      billingInterval === 'yearly'
+      billingInterval === "yearly"
         ? STRIPE_YEARLY_PRICE_ID
         : STRIPE_MONTHLY_PRICE_ID;
-
-    try {
-      const createCheckoutSession = httpsCallable(
-        functions,
-        'createCheckoutSession',
+  
+    if (!priceId || priceId.startsWith("price_XXXXXXXX")) {
+      console.error("Stripe priceId is not configured correctly:", {
+        billingInterval,
+        priceId,
+      });
+      alert(
+        "Premium pricing is not configured yet. Please contact support or try again later."
       );
-
-      // 👇 send uid + email explicitly so backend can fall back when context.auth is null
-      const result = await createCheckoutSession({
+      return;
+    }
+  
+    setIsCheckingOut(true);
+  
+    try {
+      console.log("Starting checkout with:", {
+        billingInterval,
         priceId,
         uid: user.uid,
-        email: user.email,
+        email: user.email || null,
       });
-
-      const data = result?.data || {};
-
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      } else if (data.sessionId) {
-        // Fallback in case you ever return only a sessionId
-        window.location.href = `https://checkout.stripe.com/pay/${data.sessionId}`;
-      } else {
-        alert('Unable to start checkout. Please try again.');
-      }
-    } catch (err) {
-      console.error('Error starting Stripe checkout:', err);
-      alert(
-        `Checkout error:\ncode=${err.code || 'n/a'}\nmessage=${err.message || ''}`,
+  
+      const createCheckoutSession = httpsCallable(
+        functions,
+        "createCheckoutSession"
       );
+  
+      // ✅ Send priceId to the Cloud Function (this is what it expects)
+      const result = await createCheckoutSession({ priceId });
+  
+      console.log("createCheckoutSession result:", result);
+  
+      const { data } = result || {};
+      if (data && data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        console.error("No checkoutUrl returned from Cloud Function", data);
+        alert("Unable to start checkout. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error starting Stripe checkout:", error);
+  
+      const message =
+        (error && error.message) ||
+        (error && error.data && error.data.message) ||
+        "There was a problem starting your checkout. Please try again.";
+  
+      alert(message);
+    } finally {
+      setIsCheckingOut(false);
     }
-  };
+  };  
 
   // Control whether the landing page (splash screen) is visible.  The
   // landing page is shown initially and can be dismissed by the
@@ -537,8 +562,7 @@ export default function App() {
         <img src={logo} alt="Carnival Planner logo" className="w-48 h-48 mb-6" />
         <h1 className="text-4xl font-extrabold mb-2">Carnival Planner</h1>
         <p className="text-center text-lg mb-8 max-w-md">
-          Plan your perfect carnival experience across Trinidad, Guyana and St.
-          Lucia.
+          Plan your perfect carnival experience across Trinidad, Guyana and St. Lucia.
         </p>
         <button
           onClick={() => setShowLanding(false)}

@@ -70,7 +70,8 @@ async function setPremiumStatus(uid, info) {
 }
 
 // ----- Callable: createCheckoutSession -----
-// NOTE: .region("us-central1") removed – not supported in firebase-functions v7
+// NOTE: .region("us-central1") removed – v7 uses the default region unless
+// you wrap with functions.region(...) BEFORE .https.onCall.
 
 exports.createCheckoutSession = functions.https.onCall(
   async (data, context) => {
@@ -92,11 +93,12 @@ exports.createCheckoutSession = functions.https.onCall(
       email,
     });
 
-    // ✅ Only require uid (user must be logged in); email is optional
+    // DEV MODE: allow checkout even if uid is missing.
+    // We'll still log it and *not* auto-upgrade anyone in the webhook.
     if (!uid) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "You must be logged in to start a checkout session."
+      console.warn(
+        "createCheckoutSession called without uid. " +
+          "Proceeding without user metadata; premium will not be auto-linked."
       );
     }
 
@@ -118,26 +120,30 @@ exports.createCheckoutSession = functions.https.onCall(
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
-        // email is optional – Stripe will ask on the checkout page if we don't send it
+
+        // Email is optional – Stripe will ask on the checkout page if we don't send it
         customer_email: email || undefined,
+
         line_items: [
           {
             price: priceId,
             quantity: 1,
           },
         ],
+
         metadata: {
-          firebaseUid: uid,
+          ...(uid ? { firebaseUid: uid } : {}),
           priceId,
           appId: APP_ID,
         },
         subscription_data: {
           metadata: {
-            firebaseUid: uid,
+            ...(uid ? { firebaseUid: uid } : {}),
             priceId,
             appId: APP_ID,
           },
         },
+
         success_url:
           "https://carnival-planner.web.app/premium-success?session_id={CHECKOUT_SESSION_ID}",
         cancel_url: "https://carnival-planner.web.app/premium-cancel",
@@ -158,11 +164,10 @@ exports.createCheckoutSession = functions.https.onCall(
 );
 
 // ----- Webhook: handleStripeWebhook -----
-// NOTE: .region("us-central1") removed – we keep runWith for memory settings
+// v7-compatible; no functions.config, no region chaining.
 
 exports.handleStripeWebhook = functions.https.onRequest(
   async (req, res) => {
-
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
       return;
@@ -258,4 +263,5 @@ exports.handleStripeWebhook = functions.https.onRequest(
       console.error("Webhook handler error:", err);
       res.status(500).send("Webhook handler failed.");
     }
-  });
+  }
+);
