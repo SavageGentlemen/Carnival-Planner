@@ -70,8 +70,7 @@ async function setPremiumStatus(uid, info) {
 }
 
 // ----- Callable: createCheckoutSession -----
-// NOTE: .region("us-central1") removed – v7 uses the default region unless
-// you wrap with functions.region(...) BEFORE .https.onCall.
+// NOTE: .region("us-central1") removed – not supported in firebase-functions v7
 
 exports.createCheckoutSession = functions.https.onCall(
   async (data, context) => {
@@ -120,17 +119,14 @@ exports.createCheckoutSession = functions.https.onCall(
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
-
-        // Email is optional – Stripe will ask on the checkout page if we don't send it
+        // email is optional – Stripe will ask on the checkout page if we don't send it
         customer_email: email || undefined,
-
         line_items: [
           {
             price: priceId,
             quantity: 1,
           },
         ],
-
         metadata: {
           ...(uid ? { firebaseUid: uid } : {}),
           priceId,
@@ -143,7 +139,6 @@ exports.createCheckoutSession = functions.https.onCall(
             appId: APP_ID,
           },
         },
-
         success_url:
           "https://carnival-planner.web.app/premium-success?session_id={CHECKOUT_SESSION_ID}",
         cancel_url: "https://carnival-planner.web.app/premium-cancel",
@@ -164,10 +159,11 @@ exports.createCheckoutSession = functions.https.onCall(
 );
 
 // ----- Webhook: handleStripeWebhook -----
-// v7-compatible; no functions.config, no region chaining.
+// NOTE: .region("us-central1") removed – we keep runWith for memory settings
 
 exports.handleStripeWebhook = functions.https.onRequest(
   async (req, res) => {
+
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
       return;
@@ -263,5 +259,4 @@ exports.handleStripeWebhook = functions.https.onRequest(
       console.error("Webhook handler error:", err);
       res.status(500).send("Webhook handler failed.");
     }
-  }
-);
+  });

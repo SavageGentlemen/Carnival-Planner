@@ -1,11 +1,14 @@
+/* index.css */
+/* Tailwind base/components/utilities imports here */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-.scrollbar-hide::-webkit-scrollbar {
-    display: none;
-}
-.scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+/* Custom scrollbar hide (if any)... */
+
+body {
+  /* New background gradient for glassmorphism backdrop */
+  background: linear-gradient(135deg, #3a1c71, #d76d77, #ffaf7b);
+  background-size: cover;
+  background-attachment: fixed;
 }
