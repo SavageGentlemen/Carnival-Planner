@@ -70,11 +70,17 @@ async function setPremiumStatus(uid, info) {
 }
 
 // ----- Callable: createCheckoutSession -----
-// NOTE: .region("us-central1") removed – not supported in firebase-functions v7
 
 exports.createCheckoutSession = functions.https.onCall(
   async (data, context) => {
-    const { priceId, uid: uidFromClient, email: emailFromClient } = data || {};
+    // 1. Extract params, including the new URLs from the client
+    const { 
+      priceId, 
+      uid: uidFromClient, 
+      email: emailFromClient,
+      success_url, // <--- New param from client
+      cancel_url   // <--- New param from client
+    } = data || {};
 
     // Prefer Firebase Auth, but fall back to explicit uid/email from client
     const uid = (context.auth && context.auth.uid) || uidFromClient;
@@ -84,20 +90,17 @@ exports.createCheckoutSession = functions.https.onCall(
         context.auth.token.email) ||
       emailFromClient;
 
-    // Debug logging so we can see what the client is sending
     console.log("createCheckoutSession incoming:", {
-      data,
       hasAuth: !!context.auth,
       uid,
       email,
+      priceId,
+      success_url // Log this to debug if needed
     });
 
-    // DEV MODE: allow checkout even if uid is missing.
-    // We'll still log it and *not* auto-upgrade anyone in the webhook.
     if (!uid) {
       console.warn(
-        "createCheckoutSession called without uid. " +
-          "Proceeding without user metadata; premium will not be auto-linked."
+        "createCheckoutSession called without uid. Proceeding without user metadata."
       );
     }
 
@@ -115,11 +118,23 @@ exports.createCheckoutSession = functions.https.onCall(
       );
     }
 
+    // 2. LOGIC FIX: Determine the Redirect URLs
+    // If client sends an origin (e.g. http://localhost:5173), use it.
+    // If client sends nothing, fallback to the production URL.
+    const DEFAULT_ORIGIN = "https://carnival-planner.web.app";
+    
+    // We treat the inputs as "Origins" because App.jsx sends window.location.origin
+    const origin = success_url || DEFAULT_ORIGIN;
+    const cancelOrigin = cancel_url || DEFAULT_ORIGIN;
+
+    // Construct the full Stripe required format
+    const finalSuccessUrl = `${origin}/premium-success?session_id={CHECKOUT_SESSION_ID}`;
+    const finalCancelUrl = `${cancelOrigin}/premium-cancel`;
+
     try {
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
-        // email is optional – Stripe will ask on the checkout page if we don't send it
         customer_email: email || undefined,
         line_items: [
           {
@@ -139,27 +154,28 @@ exports.createCheckoutSession = functions.https.onCall(
             appId: APP_ID,
           },
         },
-        success_url:
-          "https://carnival-planner.web.app/premium-success?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url: "https://carnival-planner.web.app/premium-cancel",
+        // 3. USE THE DYNAMIC URLs
+        success_url: finalSuccessUrl,
+        cancel_url: finalCancelUrl,
       });
 
       return {
         sessionId: session.id,
         checkoutUrl: session.url,
+        url: session.url // Return both just in case
       };
     } catch (err) {
       console.error("Error creating Stripe Checkout session:", err);
+      // Return the specific error message to the client to help debugging
       throw new functions.https.HttpsError(
         "internal",
-        "Unable to create Stripe Checkout session."
+        `Unable to create Stripe Checkout session: ${err.message}`
       );
     }
   }
 );
 
 // ----- Webhook: handleStripeWebhook -----
-// NOTE: .region("us-central1") removed – we keep runWith for memory settings
 
 exports.handleStripeWebhook = functions.https.onRequest(
   async (req, res) => {
