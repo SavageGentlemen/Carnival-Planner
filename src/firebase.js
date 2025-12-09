@@ -1,3 +1,4 @@
+/// File: src/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -14,12 +15,12 @@ const firebaseConfig = {
 };
 // ----------------------------
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
 // EXPORT these services so App.jsx can use them
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-// App ID used for Firestore paths
-export const appId = 'carnival-planner-v1';
 
+// Default export of the app instance is crucial for Cloud Functions usage on client
 export default app;

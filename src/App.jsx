@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import {
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   signOut as firebaseSignOut,
+  getRedirectResult,
 } from 'firebase/auth';
 import {
   collection,
@@ -15,56 +15,71 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { auth, db, appId } from './firebase';
-import { carnivalData } from './carnivals.js';
+import app, { auth, db } from './firebase';
 
-const dateDiffInDays = (a, b) => {
-  const _MS_PER_DAY = 1000 * 60 * 60 * 24;
-  const utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
-  const utc2 = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
-  return Math.floor((utc2 - utc1) / _MS_PER_DAY);
+const logo = '/logo.png'; 
+
+const appId = 'carnival-planner-v1';
+const STRIPE_MONTHLY_PRICE_ID = 'price_1SanHUJR9xpdRiXijLesRPVt';
+const STRIPE_YEARLY_PRICE_ID = 'price_1SanMhJR9xpdRiXinv2F9knM';
+
+const POPULAR_EVENTS = {
+  trinidad: [
+    { title: "Soca Brainwash", note: "The main event. Bring drinks." },
+    { title: "AM Bush", note: "J'ouvert style. Wear old clothes." },
+    { title: "Phuket", note: "All inclusive." },
+    { title: "Soaka Street Festival", note: "Iron park." },
+  ],
+  stlucia: [
+    { title: "Remedy", note: "Beachside." },
+    { title: "Mess", note: "Paint and Powder." },
+    { title: "Indulgence", note: "Breakfast fete." },
+  ],
+  default: [
+    { title: "Catamaran Cruise", note: "Boat ride." },
+    { title: "J'ouvert", note: "Paint and powder." },
+    { title: "Monday Mas", note: "On the road." },
+  ]
 };
 
 export default function App() {
-  // --- State Management ---
-  const [user, setUser] = useState(undefined);
-  const [loading, setLoading] = useState(true);
-  const [route, setRoute] = useState(window.location.pathname);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [carnivals, setCarnivals] = useState({});
   const [activeCarnivalId, setActiveCarnivalId] = useState(null);
   const [activeTab, setActiveTab] = useState('Budget');
+  const [isPremium, setIsPremium] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
+  const [roadMode, setRoadMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  // Form State
+  // Form Inputs
   const [newBudgetName, setNewBudgetName] = useState('');
   const [newBudgetCost, setNewBudgetCost] = useState('');
   const [newScheduleName, setNewScheduleName] = useState('');
   const [newScheduleDate, setNewScheduleDate] = useState('');
   const [newScheduleNote, setNewScheduleNote] = useState('');
   const [newPackingItem, setNewPackingItem] = useState('');
-
-  // Premium State
-  const [isPremium, setIsPremium] = useState(false);
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
-
-  // --- Configuration ---
-  const functions = getFunctions();
-  const STRIPE_MONTHLY_PRICE_ID = 'price_1SanHUJR9xpdRiXijLesRPVt';
-  const STRIPE_YEARLY_PRICE_ID = 'price_1SanMhJR9xpdRiXinv2F9knM';
+  const [newSquadMember, setNewSquadMember] = useState('');
+  const [costumeDetails, setCostumeDetails] = useState({ band: '', section: '', total: '', paid: '' });
 
   const carnivalOptions = [
     { id: 'trinidad', name: 'Trinidad Carnival', monthIndex: 1 },
-    { id: 'stkitts-sugar-mas', name: 'St. Kitts & Nevis (Sugar Mas)', monthIndex: 0 },
+    { id: 'stkitts-sugar-mas', name: 'St. Kitts (Sugar Mas)', monthIndex: 0 },
     { id: 'aruba', name: 'Aruba Carnival', monthIndex: 1 },
     { id: 'guyana-mashramani', name: 'Guyana Mashramani', monthIndex: 1 },
-    { id: 'guyana-independence', name: 'Guyana Independence Carnival', monthIndex: 4 },
+    { id: 'guyana-independence', name: 'Guyana Independence', monthIndex: 4 },
     { id: 'jamaica', name: 'Jamaica Carnival', monthIndex: 3 },
     { id: 'stmaarten', name: 'St. Maarten Carnival', monthIndex: 3 },
     { id: 'bahamas', name: 'Bahamas Carnival', monthIndex: 5 },
     { id: 'bermuda', name: 'Bermuda Carnival', monthIndex: 5 },
-    { id: 'vincymas', name: 'Vincy Mas (St. Vincent)', monthIndex: 6 },
+    { id: 'vincymas', name: 'Vincy Mas', monthIndex: 6 },
     { id: 'antigua', name: 'Antigua Carnival', monthIndex: 7 },
-    { id: 'tobago', name: 'Tobago Carnival', monthIndex: 9 },
     { id: 'stlucia', name: 'St. Lucia Carnival', monthIndex: 6 },
+    { id: 'tobago', name: 'Tobago Carnival', monthIndex: 9 },
+    { id: 'nottinghill', name: 'Notting Hill', monthIndex: 7 },
+    { id: 'miami', name: 'Miami Carnival', monthIndex: 9 },
   ];
 
   const gradientClasses = [
@@ -76,40 +91,44 @@ export default function App() {
     'bg-gradient-to-r from-purple-600 to-indigo-600',
   ];
 
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
 
-  // --- Effects ---
   useEffect(() => {
-    const handler = () => setRoute(window.location.pathname);
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
-  }, []);
-
-  const goHome = () => {
-    window.history.pushState({}, '', '/');
-    setRoute('/');
-  };
-
-  // Auth Listener
-  useEffect(() => {
-    onAuthStateChanged(auth, setUser);
-    getRedirectResult(auth)
-      .catch((err) => console.error('Redirect Error:', err))
-      .finally(() => setLoading(false));
-  }, []);
-
-
-  // Premium Status Listener
-  useEffect(() => {
-    if (!user) {
-      setIsPremium(false);
-      return;
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
+  }, [darkMode]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+      if (u) setShowLanding(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => { if (result) console.log("Redirect login successful"); })
+      .catch((err) => console.error("Redirect login error:", err));
+  }, []);
+
+  useEffect(() => {
+    if (!user) { setIsPremium(false); return; }
+    if (user.email === 'djkrss1@gmail.com') { setIsPremium(true); }
+
     const appRef = doc(db, 'users', user.uid, 'apps', appId);
     const unsub = onSnapshot(appRef, (snap) => {
+      if (user.email === 'djkrss1@gmail.com') { setIsPremium(true); return; }
       if (snap.exists()) {
         const data = snap.data();
-        setIsPremium(Boolean(data.premiumActive));
+        setIsPremium(!!data.premiumActive);
       } else {
         setIsPremium(false);
       }
@@ -117,297 +136,507 @@ export default function App() {
     return () => unsub();
   }, [user]);
 
-  // Carnival Data Listener
   useEffect(() => {
-    if (!user) {
-      setCarnivals({});
-      setActiveCarnivalId(null);
-      return;
-    }
+    if (!user) { setCarnivals({}); setActiveCarnivalId(null); return; }
     const carnivalsRef = collection(db, 'users', user.uid, 'apps', appId, 'carnivals');
     const unsubscribe = onSnapshot(carnivalsRef, (snapshot) => {
       const map = {};
       snapshot.forEach((docSnap) => { map[docSnap.id] = docSnap.data(); });
       setCarnivals(map);
-      if (!activeCarnivalId && snapshot.docs.length > 0) {
-        setActiveCarnivalId(snapshot.docs[0].id);
-      }
+      if (!activeCarnivalId && snapshot.docs.length > 0) { setActiveCarnivalId(snapshot.docs[0].id); }
     });
     return () => unsubscribe();
   }, [user]);
 
-  // --- Actions ---
   const handleSignIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithRedirect(auth, provider);
+      setAuthLoading(true);
+      await signInWithPopup(auth, provider);
     } catch (err) {
-      console.error('Sign In Error:', err);
+      console.error('Sign in error:', err);
+      setAuthLoading(false);
     }
   };
 
   const handleSignOut = async () => {
     try {
       await firebaseSignOut(auth);
-      setActiveCarnivalId(null);
+      setShowLanding(true);
+      setRoadMode(false);
       setActiveTab('Budget');
-    } catch (err) { console.error('Sign Out Error:', err); }
+    } catch (err) {
+      console.error("Sign out error", err);
+    }
   };
 
+  // --- STRIPE SUBSCRIPTION ---
   const handleSubscribe = async (interval) => {
-    if (!user) return alert("Please sign in to subscribe.");
-
+    if (!user) { alert("You must be signed in to subscribe."); return; }
+  
     const billingInterval = interval === "yearly" ? "yearly" : "monthly";
     const priceId = billingInterval === "yearly" ? STRIPE_YEARLY_PRICE_ID : STRIPE_MONTHLY_PRICE_ID;
-
-    if (!priceId || priceId.startsWith("price_XXXXXXXX")) {
-      return alert("Premium pricing is not configured properly.");
+  
+    if (!priceId) {
+      alert("Premium pricing configuration error. Please contact support.");
+      return;
     }
-
+  
     setIsCheckingOut(true);
+  
     try {
+      const functions = getFunctions(app);
       const createCheckoutSession = httpsCallable(functions, "createCheckoutSession");
-      const result = await createCheckoutSession({
-        priceId,
-        success_url: window.location.origin,
+      
+      const payload = { 
+        priceId: String(priceId), // Force string
+        success_url: window.location.origin, 
         cancel_url: window.location.origin
-      });
-      if (result.data?.checkoutUrl) {
-        window.location.href = result.data.checkoutUrl;
+      };
+
+      console.log("🚀 STARTING CHECKOUT. Sending payload:", payload);
+
+      const result = await createCheckoutSession(payload);
+      const { data } = result || {};
+      const checkoutUrl = data?.url || data?.checkoutUrl;
+
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl; 
       } else {
-        alert("Unable to start checkout.");
+        console.error("No checkout URL returned:", data);
+        alert("Unable to start checkout. Please try again.");
       }
     } catch (error) {
-      console.error("Checkout Error:", error);
-      alert("Problem starting checkout. Try again.");
+      console.error("Error starting checkout:", error);
+      // The backend will now return a descriptive error if data is missing
+      alert("Error initiating payment: " + error.message);
     } finally {
       setIsCheckingOut(false);
     }
   };
 
-  // --- Data Helpers ---
+  // --- DATA HANDLERS ---
   const selectCarnival = async (id, name) => {
     if (!user) return;
     setActiveCarnivalId(id);
     if (!carnivals[id]) {
       try {
-        await setDoc(doc(db, 'users', user.uid, 'apps', appId, 'carnivals', id), {
-          name, budget: [], schedule: [], packing: [], createdAt: Timestamp.now(),
+        const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', id);
+        await setDoc(ref, {
+          name, budget: [], schedule: [], packing: [], squad: [], costume: null, createdAt: Timestamp.now(),
         }, { merge: true });
-      } catch (err) { console.error('Create Carnival Error:', err); }
+      } catch (err) { console.error(err); }
     }
   };
 
   const updateCarnivalData = async (field, newData) => {
     if (!user || !activeCarnivalId) return;
-    try {
-      const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
-      await updateDoc(ref, { [field]: newData });
-    } catch (err) { console.error(`Error updating ${field}:`, err); }
+    const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
+    await updateDoc(ref, { [field]: newData });
   };
 
-  // Budget
+  const toggleRoadMode = () => {
+    if (!isPremium) { alert("Road Ready Mode is a Premium feature. Upgrade to access!"); setActiveTab('Info'); return; }
+    setRoadMode(true);
+  };
   const addBudgetItem = () => {
     if (!newBudgetName.trim() || !newBudgetCost) return;
-    const carnival = carnivals[activeCarnivalId] || {};
+    const items = carnivals[activeCarnivalId]?.budget || [];
     const newItem = { id: Date.now().toString(), name: newBudgetName.trim(), cost: parseFloat(newBudgetCost) };
-    updateCarnivalData('budget', [...(carnival.budget || []), newItem]);
+    updateCarnivalData('budget', [...items, newItem]);
     setNewBudgetName(''); setNewBudgetCost('');
   };
-  const removeBudgetItem = (itemId) => {
-    const carnival = carnivals[activeCarnivalId];
-    if (carnival?.budget) updateCarnivalData('budget', carnival.budget.filter(i => i.id !== itemId));
+  const removeBudgetItem = (id) => {
+    const items = carnivals[activeCarnivalId]?.budget || [];
+    updateCarnivalData('budget', items.filter(i => i.id !== id));
   };
-
-  // Schedule
   const addScheduleItem = () => {
     if (!newScheduleName.trim() || !newScheduleDate) return;
-    const carnival = carnivals[activeCarnivalId] || {};
+    const items = carnivals[activeCarnivalId]?.schedule || [];
     const newItem = { id: Date.now().toString(), title: newScheduleName.trim(), datetime: newScheduleDate, note: newScheduleNote.trim() };
-    updateCarnivalData('schedule', [...(carnival.schedule || []), newItem]);
+    updateCarnivalData('schedule', [...items, newItem]);
     setNewScheduleName(''); setNewScheduleDate(''); setNewScheduleNote('');
   };
-  const removeScheduleItem = (itemId) => {
-    const carnival = carnivals[activeCarnivalId];
-    if (carnival?.schedule) updateCarnivalData('schedule', carnival.schedule.filter(i => i.id !== itemId));
+  const removeScheduleItem = (id) => {
+    const items = carnivals[activeCarnivalId]?.schedule || [];
+    updateCarnivalData('schedule', items.filter(i => i.id !== id));
   };
-
-  // Packing
+  const addCuratedEvent = (evt) => {
+    if (!isPremium) { alert("Curated Events are for Premium users only."); setActiveTab('Info'); return; }
+    const items = carnivals[activeCarnivalId]?.schedule || [];
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 1);
+    defaultDate.setHours(12, 0, 0, 0);
+    const dateStr = defaultDate.toISOString().slice(0, 16);
+    const newItem = { id: Date.now().toString(), title: evt.title, datetime: dateStr, note: evt.note || "Added from curated list" };
+    updateCarnivalData('schedule', [...items, newItem]);
+  };
   const addPackingItem = () => {
     if (!newPackingItem.trim()) return;
-    const carnival = carnivals[activeCarnivalId] || {};
+    const items = carnivals[activeCarnivalId]?.packing || [];
     const newItem = { id: Date.now().toString(), item: newPackingItem.trim(), checked: false };
-    updateCarnivalData('packing', [...(carnival.packing || []), newItem]);
+    updateCarnivalData('packing', [...items, newItem]);
     setNewPackingItem('');
   };
-  const togglePackingItem = (itemId) => {
-    const carnival = carnivals[activeCarnivalId];
-    if (carnival?.packing) updateCarnivalData('packing', carnival.packing.map(i => i.id === itemId ? { ...i, checked: !i.checked } : i));
+  const togglePackingItem = (id) => {
+    const items = carnivals[activeCarnivalId]?.packing || [];
+    updateCarnivalData('packing', items.map(i => i.id === id ? { ...i, checked: !i.checked } : i));
   };
-  const removePackingItem = (itemId) => {
-    const carnival = carnivals[activeCarnivalId];
-    if (carnival?.packing) updateCarnivalData('packing', carnival.packing.filter(i => i.id !== itemId));
+  const removePackingItem = (id) => {
+    const items = carnivals[activeCarnivalId]?.packing || [];
+    updateCarnivalData('packing', items.filter(i => i.id !== id));
   };
+  const addSquadMember = () => {
+    if (!newSquadMember.trim()) return;
+    const items = carnivals[activeCarnivalId]?.squad || [];
+    const newItem = { id: Date.now().toString(), name: newSquadMember.trim() };
+    updateCarnivalData('squad', [...items, newItem]);
+    setNewSquadMember('');
+  };
+  const removeSquadMember = (id) => {
+    const items = carnivals[activeCarnivalId]?.squad || [];
+    updateCarnivalData('squad', items.filter(i => i.id !== id));
+  };
+  const saveCostume = () => {
+    updateCarnivalData('costume', { ...costumeDetails, total: parseFloat(costumeDetails.total) || 0, paid: parseFloat(costumeDetails.paid) || 0, updatedAt: Date.now() });
+    alert('Costume details saved!');
+  };
+  const handleExport = () => {
+    if (!isPremium) { alert("Export is a Premium feature."); setActiveTab('Info'); return; }
+    if (!currentCarnival) return;
+    const lines = [];
+    lines.push(`CARNIVAL PLANNER: ${currentCarnival.name}`);
+    lines.push('==========================================\n');
+    lines.push(`-- SQUAD --`);
+    (currentCarnival.squad || []).forEach(s => lines.push(`- ${s.name}`));
+    lines.push('\n');
+    lines.push('-- COSTUME --');
+    if (currentCarnival.costume) {
+      lines.push(`Band: ${currentCarnival.costume.band}`);
+      lines.push(`Section: ${currentCarnival.costume.section}`);
+      lines.push(`Balance Due: $${((currentCarnival.costume.total || 0) - (currentCarnival.costume.paid || 0)).toFixed(2)}`);
+    } else { lines.push('No costume details.'); }
+    lines.push('\n');
+    lines.push('-- SCHEDULE --');
+    const sorted = (currentCarnival.schedule || []).slice().sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+    sorted.forEach(s => lines.push(`${new Date(s.datetime).toLocaleString()} | ${s.title}`));
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentCarnival.name.replace(/\s+/g, '_')}_Plan.txt`;
+    a.click();
+  };
+
+  const PremiumLock = ({ featureName }) => (
+    <div className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-center mx-4">
+      <div className="text-4xl mb-4">🔒</div>
+      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{featureName} is Premium</h3>
+      <p className="text-gray-500 dark:text-gray-400 max-w-xs mb-6 mx-auto">Upgrade to access {featureName.toLowerCase()} and take your planning to the next level.</p>
+      <button onClick={() => setActiveTab('Info')} className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold rounded-full shadow-md hover:scale-105 transition">Upgrade Now</button>
+    </div>
+  );
 
   const currentCarnival = activeCarnivalId ? carnivals[activeCarnivalId] : null;
-  const budgetTotal = currentCarnival?.budget?.reduce((sum, item) => sum + (item.cost || 0), 0) || 0;
+  const budgetTotal = currentCarnival?.budget?.reduce((acc, item) => acc + (item.cost || 0), 0) || 0;
+  const costumeBalance = currentCarnival?.costume ? (currentCarnival.costume.total - currentCarnival.costume.paid) : 0;
+  const curatedEvents = currentCarnival ? (POPULAR_EVENTS[activeCarnivalId] || POPULAR_EVENTS.default) : [];
 
-  // --- Rendering ---
-  if (loading || user === undefined) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
-        <h1 className="text-2xl">Loading...</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-gray-500 dark:text-gray-400 font-medium">Loading Planner...</p>
       </div>
     );
   }
 
-  if (route === '/premium-success') {
+  if (showLanding && !user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-        <img src="/assets/carnival592x592.png" alt="Logo" className="w-20 h-20 mb-4" />
-        <h1 className="text-3xl font-extrabold mb-2">Welcome to Premium 🎉</h1>
-        <button onClick={goHome} className="mt-6 px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700">Back to Planner</button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-purple-900 to-blue-900 opacity-50 z-0"></div>
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <img src={logo} alt="Carnival Planner" className="w-32 h-32 mb-6 drop-shadow-2xl animate-pulse" />
+          <h1 className="text-4xl font-extrabold mb-2">Carnival Planner</h1>
+          <p className="text-lg text-gray-300 mb-8 max-w-md">Plan your Mas. Track your Fetes. Coordinate your Squad.</p>
+          <button onClick={handleSignIn} className="px-8 py-3 bg-gradient-to-r from-pink-500 to-yellow-500 rounded-full font-bold shadow-lg hover:scale-105 transition-transform">
+            Enter the Bacchanal
+          </button>
+        </div>
       </div>
     );
   }
-  if (route === '/premium-cancel') {
+
+  if (user && roadMode && currentCarnival) {
+    const nextEvent = (currentCarnival.schedule || []).slice().sort((a, b) => new Date(a.datetime) - new Date(b.datetime)).find(e => new Date(e.datetime) > new Date());
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-        <img src="/assets/carnival592x592.png" alt="Logo" className="w-20 h-20 mb-4" />
-        <h1 className="text-3xl font-extrabold mb-2">Checkout Cancelled</h1>
-        <button onClick={goHome} className="mt-6 px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-800">Back to Planner</button>
-      </div>
-    );
-  }
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-        <img src="/assets/carnival592x592.png" alt="Logo" className="w-48 h-48 mb-6" />
-        <h1 className="text-4xl font-extrabold mb-2">Carnival Planner</h1>
-        <p className="text-lg mb-8">Plan your perfect carnival experience.</p>
-        <button onClick={handleSignIn} className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700">Get Started</button>
+      <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold italic">ROAD MODE</h1>
+          <button onClick={() => setRoadMode(false)} className="text-sm bg-gray-800 px-3 py-1 rounded">Exit</button>
+        </div>
+        <div className="flex-1 flex flex-col gap-6">
+          <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 rounded-2xl shadow-lg">
+            <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-1">Up Next</h2>
+            {nextEvent ? (
+              <>
+                <div className="text-3xl font-black mb-1">{nextEvent.title}</div>
+                <div className="text-xl opacity-90">{new Date(nextEvent.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                <div className="mt-2 text-sm bg-white/20 inline-block px-2 py-1 rounded">{nextEvent.note || "No notes"}</div>
+              </>
+            ) : <div className="text-xl italic opacity-75">No more fetes scheduled! Sleep time?</div>}
+          </div>
+          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+            <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-2">Costume Pickup</h2>
+            {currentCarnival.costume ? (
+              <div>
+                <div className="text-xl font-bold text-yellow-400">{currentCarnival.costume.band}</div>
+                <div className="text-gray-400">Section: {currentCarnival.costume.section}</div>
+                {costumeBalance > 0 && <div className="text-red-400 font-bold mt-1">Balance Due: ${costumeBalance}</div>}
+              </div>
+            ) : <div className="text-gray-500 italic">No costume details saved.</div>}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white/90 backdrop-blur-md">
-      <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center">
-        <h1 className="text-xl font-semibold text-gray-800">Carnival Planner</h1>
+    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      <header className="bg-white dark:bg-gray-800 shadow-sm py-4 px-4 flex justify-between items-center sticky top-0 z-20 transition-colors">
+        <div className="flex items-center gap-2">
+          <img src={logo} alt="Logo" className="w-8 h-8" />
+          <h1 className="text-lg font-bold text-gray-800 dark:text-white hidden sm:block">Carnival Planner</h1>
+        </div>
         {user && (
-          <div className="flex items-center gap-4">
-            {isPremium && <span className="px-2 py-1 text-xs bg-yellow-300 text-yellow-800 rounded-full">Premium</span>}
-            <button onClick={handleSignOut} className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">Sign Out</button>
+          <div className="flex items-center gap-3">
+             <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-300">{darkMode ? '☀️' : '🌙'}</button>
+            {currentCarnival && (
+              <button onClick={toggleRoadMode} className={`px-3 py-1 text-xs font-bold rounded-full transition ${isPremium ? 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-200' : 'bg-gray-100 text-gray-400'}`}>
+                {isPremium ? "GO ROAD READY" : "🔒 ROAD MODE"}
+              </button>
+            )}
+            {!isPremium ? <span className="text-xs text-gray-400 dark:text-gray-500">Free Plan</span> : <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-bold">Premium</span>}
+            <button onClick={handleSignOut} className="text-sm font-medium text-gray-500 hover:text-red-500 dark:text-gray-400">Sign Out</button>
           </div>
         )}
       </header>
 
-      <main className="flex-1 p-6">
-        <div>
-          {!isPremium && (
-            <div className="bg-yellow-100 border-l-4 border-yellow-400 text-yellow-800 p-3 mb-6 rounded">
-              <p className="font-semibold">Unlock Premium Features</p>
-              <div className="flex gap-2 mt-2">
-                <button onClick={() => handleSubscribe('monthly')} className="px-3 py-1 bg-blue-600 text-white rounded">Monthly $4.99</button>
-                <button onClick={() => handleSubscribe('yearly')} className="px-3 py-1 bg-indigo-600 text-white rounded">Yearly $39.99</button>
+      <main className="flex-1 p-4 max-w-4xl mx-auto w-full">
+        {!user ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center">
+            <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-white">Welcome Back</h2>
+            <button onClick={handleSignIn} className="flex items-center px-6 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-white">
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 mr-3" alt="G" /> Sign in with Google
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="mb-8">
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
+                {carnivalOptions.map((c, idx) => {
+                  const isActive = activeCarnivalId === c.id;
+                  const gradient = gradientClasses[idx % gradientClasses.length];
+                  
+                  const now = new Date();
+                  const year = now.getMonth() <= c.monthIndex ? now.getFullYear() : now.getFullYear() + 1;
+                  const eventDate = new Date(year, c.monthIndex, 1);
+                  const diffMs = eventDate.getTime() - now.getTime();
+                  const diffDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+                  return (
+                    <div key={c.id} onClick={() => selectCarnival(c.id, `${c.name} - ${monthNames[c.monthIndex]}`)} className={`snap-center min-w-[200px] cursor-pointer rounded-2xl p-5 shadow-lg relative overflow-hidden transition-all duration-300 ${isActive ? 'ring-4 ring-offset-2 ring-blue-400 scale-105' : 'hover:scale-105 opacity-90'} ${gradient}`}>
+                      <div className="relative z-10 text-white">
+                        <h4 className="font-bold text-lg leading-tight mb-1">{c.name}</h4>
+                        <p className="text-xs font-medium uppercase tracking-wider opacity-90">{monthNames[c.monthIndex]}</p>
+                        <p className="text-xs font-bold mt-2 bg-white/20 inline-block px-2 py-0.5 rounded-full">{diffDays} days left</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          )}
 
-          {/* Carnival Selector */}
-          <div className="mb-6 overflow-x-auto pb-2 flex space-x-4">
-            {carnivalOptions.map((c, idx) => {
-              const isActive = activeCarnivalId === c.id;
-              const carnival = carnivalData.find(data => data.name === c.name);
-              const daysRemaining = carnival ? dateDiffInDays(new Date(), new Date(carnival.date)) : null;
+            {!currentCarnival ? (
+              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-dashed border-gray-300 dark:border-gray-600">
+                <p className="text-gray-500 dark:text-gray-400">Select a carnival above to begin.</p>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
+                <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
+                  {['Budget', 'Costume', 'Schedule', 'Squad', 'Packing', 'Info'].map((tab) => {
+                    const isLocked = !isPremium && (tab === 'Costume'); 
+                    return (
+                      <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 min-w-[80px] py-4 text-sm font-medium transition-colors relative ${activeTab === tab ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                        {isLocked ? `🔒 ${tab}` : tab}
+                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
+                      </button>
+                    );
+                  })}
+                </div>
 
-              return (
-                <div key={c.id} onClick={() => selectCarnival(c.id, `${c.name} - ${monthNames[c.monthIndex]}`)}
-                  className={`min-w-[220px] cursor-pointer rounded-xl p-4 shadow-md transition-transform transform hover:scale-105 ${gradientClasses[idx % gradientClasses.length]} ${isActive ? 'ring-4 ring-yellow-300' : ''}`}>
-                  <h4 className="text-white font-bold text-lg">{c.name}</h4>
-                  <p className="text-white text-sm opacity-80">{monthNames[c.monthIndex]}</p>
-                  {daysRemaining !== null && (
-                    <div className="text-white text-2xl font-bold mt-2">
-                      {daysRemaining > 0 ? `${daysRemaining} days` : (daysRemaining === 0 ? 'Today!' : 'Happening Now!')}
+                <div className="p-6">
+                  {activeTab === 'Budget' && (
+                    <div className="animate-fadeIn">
+                      <div className="flex justify-between items-end mb-6">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Budget</h3>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Total Estimate</p>
+                          <p className="text-2xl font-black text-green-600 dark:text-green-400">${budgetTotal.toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-3 mb-6">
+                        {(currentCarnival.budget || []).map((item) => (
+                          <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group hover:bg-gray-100 dark:hover:bg-gray-600">
+                            <span className="font-medium text-gray-700 dark:text-gray-200">{item.name}</span>
+                            <div className="flex items-center gap-4">
+                              <span className="font-bold text-gray-900 dark:text-white">${item.cost.toFixed(2)}</span>
+                              <button onClick={() => removeBudgetItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input type="text" placeholder="Item" value={newBudgetName} onChange={(e) => setNewBudgetName(e.target.value)} className="flex-[2] p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                        <input type="number" placeholder="0.00" value={newBudgetCost} onChange={(e) => setNewBudgetCost(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                        <button onClick={addBudgetItem} className="px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'Costume' && (
+                    <div className="animate-fadeIn">
+                       {!isPremium ? <PremiumLock featureName="Costume Tracker" /> : (
+                         <>
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Mas Costume</h3>
+                          <div className="bg-pink-50 dark:bg-pink-900/20 p-6 rounded-xl border border-pink-100 dark:border-pink-900 mb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div><label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Band Name</label><input type="text" className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" value={costumeDetails.band || (currentCarnival.costume?.band || '')} onChange={(e) => setCostumeDetails({...costumeDetails, band: e.target.value})} placeholder="e.g. Tribe, Bliss..." /></div>
+                              <div><label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Section</label><input type="text" className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" value={costumeDetails.section || (currentCarnival.costume?.section || '')} onChange={(e) => setCostumeDetails({...costumeDetails, section: e.target.value})} placeholder="e.g. The Monarch" /></div>
+                              <div><label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Total Cost</label><input type="number" className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" value={costumeDetails.total || (currentCarnival.costume?.total || '')} onChange={(e) => setCostumeDetails({...costumeDetails, total: e.target.value})} placeholder="0.00" /></div>
+                              <div><label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Amount Paid</label><input type="number" className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" value={costumeDetails.paid || (currentCarnival.costume?.paid || '')} onChange={(e) => setCostumeDetails({...costumeDetails, paid: e.target.value})} placeholder="0.00" /></div>
+                            </div>
+                            <button onClick={saveCostume} className="mt-4 w-full py-2 bg-pink-600 text-white font-bold rounded hover:bg-pink-700">Save Details</button>
+                          </div>
+                         </>
+                       )}
+                    </div>
+                  )}
+
+                  {activeTab === 'Schedule' && (
+                    <div className="animate-fadeIn">
+                       <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Itinerary</h3>
+                       {curatedEvents.length > 0 && (
+                         <div className="mb-6">
+                           <p className="text-xs font-bold text-gray-400 uppercase mb-2">Popular Events {isPremium ? "(Click to Add)" : "(Premium Only)"}</p>
+                           <div className="flex gap-2 overflow-x-auto pb-2">
+                             {curatedEvents.map((evt, i) => (
+                               <button key={i} onClick={() => addCuratedEvent(evt)} className={`min-w-[140px] p-3 text-left rounded-lg border transition ${isPremium ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800' : 'bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 opacity-60 cursor-not-allowed'}`}>
+                                 <div className="font-bold text-blue-900 dark:text-blue-300 text-sm">{evt.title} {isPremium ? "" : "🔒"}</div>
+                                 <div className="text-xs text-blue-700 dark:text-blue-400 opacity-75 truncate">{evt.note}</div>
+                               </button>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+                       <div className="space-y-4 mb-6">
+                        {(currentCarnival.schedule || []).map((event) => (
+                              <div key={event.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-blue-400 relative group">
+                                <div className="text-center min-w-[60px]">
+                                  <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(event.datetime).toLocaleDateString(undefined, {month:'short'})}</span>
+                                  <span className="block text-xl font-black text-gray-800 dark:text-white">{new Date(event.datetime).getDate()}</span>
+                                  <span className="block text-xs text-gray-500 dark:text-gray-400">{new Date(event.datetime).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'})}</span>
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-gray-800 dark:text-white">{event.title}</h4>
+                                  {event.note && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{event.note}</p>}
+                                </div>
+                                <button onClick={() => removeScheduleItem(event.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">×</button>
+                              </div>
+                            ))}
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
+                          <input type="text" placeholder="Event Name" value={newScheduleName} onChange={(e) => setNewScheduleName(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                          <input type="datetime-local" value={newScheduleDate} onChange={(e) => setNewScheduleDate(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                          <input type="text" placeholder="Notes" value={newScheduleNote} onChange={(e) => setNewScheduleNote(e.target.value)} className="p-2 border rounded md:col-span-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                          <button onClick={addScheduleItem} className="md:col-span-2 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">Add Event (Free)</button>
+                       </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'Squad' && (
+                    <div className="animate-fadeIn">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Your Squad</h3>
+                        <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full">{currentCarnival.squad?.length || 0} members</span>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-4">
+                        <div className="flex gap-2 mb-4">
+                          <input type="text" placeholder="Add friend's name" value={newSquadMember} onChange={(e) => setNewSquadMember(e.target.value)} className="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                          <button onClick={addSquadMember} className="bg-purple-600 text-white px-4 rounded hover:bg-purple-700">Add</button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                           {(currentCarnival.squad || []).map(member => (
+                             <div key={member.id} className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-full border border-purple-100 dark:border-purple-800">
+                               <span className="text-purple-900 dark:text-purple-200 font-medium">{member.name}</span>
+                               <button onClick={() => removeSquadMember(member.id)} className="text-purple-400 hover:text-red-500 text-xs font-bold">×</button>
+                             </div>
+                           ))}
+                           {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'Packing' && (
+                    <div className="animate-fadeIn">
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Packing List</h3>
+                      <div className="space-y-2 mb-6">
+                        {(currentCarnival.packing || []).map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 shadow-sm rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <input type="checkbox" checked={item.checked} onChange={() => togglePackingItem(item.id)} className="w-5 h-5 text-blue-600 rounded" />
+                              <span className={`text-gray-700 dark:text-gray-200 ${item.checked ? 'line-through opacity-50' : ''}`}>{item.item}</span>
+                            </div>
+                            <button onClick={() => removePackingItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input type="text" placeholder="Item" value={newPackingItem} onChange={(e) => setNewPackingItem(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                        <button onClick={addPackingItem} className="px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === 'Info' && (
+                    <div className="animate-fadeIn text-center">
+                      <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
+                         <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
+                         <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Active" : "Get Premium"}</h2>
+                         <p className="text-gray-400 mb-6">{isPremium ? "You have full access." : "Unlock Export, Costume Tracker, and Road Mode."}</p>
+                         <button onClick={handleExport} className={`flex items-center justify-center gap-2 mx-auto px-6 py-3 rounded-full font-bold transition-colors ${isPremium ? 'bg-white text-gray-900 hover:bg-gray-100' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}>
+                           <span>{isPremium ? "📥" : "🔒"}</span> Export Itinerary
+                         </button>
+                      </div>
+                      
+                      {!isPremium && (
+                         <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
+                           <h3 className="font-bold text-yellow-800 dark:text-yellow-400 mb-2">Upgrade Today</h3>
+                           <p className="text-yellow-700 dark:text-yellow-500 text-sm mb-4">Choose a plan to unlock all features instantly.</p>
+                           <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                              <button onClick={() => handleSubscribe("monthly")} disabled={isCheckingOut} className="px-4 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 disabled:opacity-50">{isCheckingOut ? "Loading..." : "Monthly - $4.99"}</button>
+                              <button onClick={() => handleSubscribe("yearly")} disabled={isCheckingOut} className="px-4 py-2 bg-yellow-400 text-yellow-900 font-bold rounded shadow hover:bg-yellow-500 disabled:opacity-50">{isCheckingOut ? "Loading..." : "Yearly - $39.99"}</button>
+                           </div>
+                         </div>
+                      )}
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Active Carnival View */}
-          {currentCarnival && (
-            <div>
-              <div className="mb-4 border-b border-gray-200">
-                {['Budget', 'Schedule', 'Packing'].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`mr-4 pb-2 border-b-2 ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}>{tab}</button>
-                ))}
               </div>
-
-              {activeTab === 'Budget' && (
-                <div>
-                  <ul className="mb-4 divide-y divide-gray-200">
-                    {currentCarnival.budget?.map(item => (
-                      <li key={item.id} className="py-2 flex justify-between">
-                        <span>{item.name} - ${item.cost.toFixed(2)}</span>
-                        <button onClick={() => removeBudgetItem(item.id)} className="text-red-500">Remove</button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-                    <input placeholder="Item" value={newBudgetName} onChange={e => setNewBudgetName(e.target.value)} className="p-2 border rounded" />
-                    <input type="number" placeholder="Cost" value={newBudgetCost} onChange={e => setNewBudgetCost(e.target.value)} className="p-2 border rounded" />
-                    <button onClick={addBudgetItem} className="bg-blue-600 text-white p-2 rounded">Add</button>
-                  </div>
-                  <p className="font-bold">Total: ${budgetTotal.toFixed(2)}</p>
-                </div>
-              )}
-
-              {activeTab === 'Schedule' && (
-                <div>
-                  <ul className="mb-4 divide-y divide-gray-200">
-                    {currentCarnival.schedule?.sort((a,b) => new Date(a.datetime) - new Date(b.datetime)).map(event => (
-                      <li key={item.id} className="py-2 flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">{event.title}</div>
-                          <div className="text-sm text-gray-600">{new Date(event.datetime).toLocaleString()} {event.note && `- ${event.note}`}</div>
-                        </div>
-                        <button onClick={() => removeScheduleItem(event.id)} className="text-red-500">Remove</button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                    <input placeholder="Event" value={newScheduleName} onChange={e => setNewScheduleName(e.target.value)} className="p-2 border rounded" />
-                    <input type="datetime-local" value={newScheduleDate} onChange={e => setNewScheduleDate(e.target.value)} className="p-2 border rounded" />
-                    <input placeholder="Notes" value={newScheduleNote} onChange={e => setNewScheduleNote(e.target.value)} className="p-2 border rounded" />
-                    <button onClick={addScheduleItem} className="bg-blue-600 text-white p-2 rounded">Add</button>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'Packing' && (
-                <div>
-                  <ul className="mb-4 divide-y divide-gray-200">
-                    {currentCarnival.packing?.map(item => (
-                      <li key={item.id} className="py-2 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" checked={item.checked} onChange={() => togglePackingItem(item.id)} className="h-5 w-5" />
-                          <span className={item.checked ? 'line-through text-gray-500' : ''}>{item.item}</span>
-                        </div>
-                        <button onClick={() => removePackingItem(item.id)} className="text-red-500">Remove</button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex gap-2">
-                    <input placeholder="Item" value={newPackingItem} onChange={e => setNewPackingItem(e.target.value)} className="flex-1 p-2 border rounded" />
-                    <button onClick={addPackingItem} className="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
