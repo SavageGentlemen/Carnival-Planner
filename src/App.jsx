@@ -27,7 +27,7 @@ const dateDiffInDays = (a, b) => {
 
 export default function App() {
   // --- State Management ---
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(undefined);
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState(window.location.pathname);
   const [carnivals, setCarnivals] = useState({});
@@ -92,16 +92,12 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    onAuthStateChanged(auth, setUser);
+    getRedirectResult(auth)
+      .catch((err) => console.error('Redirect Error:', err))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    getRedirectResult(auth).catch((err) => console.error('Redirect Error:', err));
-  }, []);
 
   // Premium Status Listener
   useEffect(() => {
@@ -257,7 +253,7 @@ export default function App() {
   const budgetTotal = currentCarnival?.budget?.reduce((sum, item) => sum + (item.cost || 0), 0) || 0;
 
   // --- Rendering ---
-  if (loading) {
+  if (loading || user === undefined) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
         <h1 className="text-2xl">Loading...</h1>
@@ -268,7 +264,7 @@ export default function App() {
   if (route === '/premium-success') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-        <img src="/assets/carnival-logo.png" alt="Logo" className="w-20 h-20 mb-4" />
+        <img src="/assets/carnival592x592.png" alt="Logo" className="w-20 h-20 mb-4" />
         <h1 className="text-3xl font-extrabold mb-2">Welcome to Premium 🎉</h1>
         <button onClick={goHome} className="mt-6 px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700">Back to Planner</button>
       </div>
@@ -277,7 +273,7 @@ export default function App() {
   if (route === '/premium-cancel') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-        <img src="/assets/carnival-logo.png" alt="Logo" className="w-20 h-20 mb-4" />
+        <img src="/assets/carnival592x592.png" alt="Logo" className="w-20 h-20 mb-4" />
         <h1 className="text-3xl font-extrabold mb-2">Checkout Cancelled</h1>
         <button onClick={goHome} className="mt-6 px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-800">Back to Planner</button>
       </div>
@@ -286,7 +282,7 @@ export default function App() {
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-        <img src="/assets/carnival-logo.png" alt="Logo" className="w-48 h-48 mb-6" />
+        <img src="/assets/carnival592x592.png" alt="Logo" className="w-48 h-48 mb-6" />
         <h1 className="text-4xl font-extrabold mb-2">Carnival Planner</h1>
         <p className="text-lg mb-8">Plan your perfect carnival experience.</p>
         <button onClick={handleSignIn} className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700">Get Started</button>
@@ -372,7 +368,7 @@ export default function App() {
                 <div>
                   <ul className="mb-4 divide-y divide-gray-200">
                     {currentCarnival.schedule?.sort((a,b) => new Date(a.datetime) - new Date(b.datetime)).map(event => (
-                      <li key={event.id} className="py-2 flex justify-between items-center">
+                      <li key={item.id} className="py-2 flex justify-between items-center">
                         <div>
                           <div className="font-medium">{event.title}</div>
                           <div className="text-sm text-gray-600">{new Date(event.datetime).toLocaleString()} {event.note && `- ${event.note}`}</div>
