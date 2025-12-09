@@ -11,4 +11,5 @@ body {
   background: linear-gradient(135deg, #3a1c71, #d76d77, #ffaf7b);
   background-size: cover;
   background-attachment: fixed;
+  min-height: 100vh;
 }
