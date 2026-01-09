@@ -50,9 +50,22 @@ service cloud.firestore {
     
     // Carnival Events - scraped data only accessible via Cloud Function (premium validation)
     // Direct reads are blocked; use getScrapedEvents Cloud Function instead
+    // Carnival Events - scraped data only accessible via Cloud Function (premium validation)
+    // Direct reads are blocked; use getScrapedEvents Cloud Function instead
     match /carnivalEvents/{carnivalId} {
       allow read: if false;
       allow write: if isAdmin();
     }
-  }
-}
+
+    // --- SQUAD MODE RULES ---
+    match /squads/{squadId} {
+      // Create: Any authenticated user can create a squad
+      allow create: if request.auth != null;
+      
+      // Read/Update: Only members of the squad can read or update it
+      allow read, update: if request.auth != null && 
+                          (request.auth.uid in resource.data.members || request.auth.uid == resource.data.leaderId);
+                          
+      // Delete: Only the leader can delete the squad
+      allow delete: if request.auth != null && request.auth.uid == resource.data.leaderId;
+    }

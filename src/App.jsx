@@ -30,7 +30,9 @@ import { PrivacyPolicy, TermsOfService, CookiePolicy, RefundPolicy } from './com
 import InstallPrompt from './components/InstallPrompt';
 import { ContactPage, SupportAdmin } from './components/ContactSupport';
 import AccountSettings from './components/AccountSettings';
+import AccountSettings from './components/AccountSettings';
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
+import { createSquad, joinSquadByCode, leaveSquad } from './services/squadService'; // Squad Service
 
 // --- CONFIGURATION ---
 const appId = 'carnival-planner-v1';
@@ -88,13 +90,61 @@ export default function App() {
   const [costumeDetails, setCostumeDetails] = useState({ band: '', section: '', total: '', paid: '' });
 
   // Squad Sharing State
+  // Squad Sharing State
   const [squadShareCode, setSquadShareCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [squadMembers, setSquadMembers] = useState([]);
+  const [squadMembers, setSquadMembers] = useState([]); // Array of member objects
+  const [currentSquad, setCurrentSquad] = useState(null); // Full squad object
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [isJoiningSquad, setIsJoiningSquad] = useState(false);
   const [squadShareError, setSquadShareError] = useState('');
   const [squadShareSuccess, setSquadShareSuccess] = useState('');
+
+  // SQUAD: Handle Create
+  const handleCreateSquad = async () => {
+    if (!user) return;
+    setIsCreatingShare(true);
+    setSquadShareError('');
+    try {
+      const squad = await createSquad(user, `${user.displayName || 'User'}'s Squad`, activeCarnivalId);
+      setCurrentSquad(squad);
+      setSquadShareCode(squad.inviteCode);
+      setToastMessage('Only Premium users can lead a squad!'); // Wait logic check below
+    } catch (error) {
+      console.error("Error creating squad:", error);
+      setSquadShareError('Failed to create squad.');
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
+  // SQUAD: Handle Join
+  const handleJoinSquad = async () => {
+    if (!user || !joinCode) return;
+    setIsJoiningSquad(true);
+    setSquadShareError('');
+    try {
+      const squad = await joinSquadByCode(user, joinCode);
+      setSquadShareSuccess(`Joined ${squad.name}!`);
+      // Realtime listener in useEffect will pick up the rest
+      setJoinCode('');
+    } catch (error) {
+      console.error("Error joining squad:", error);
+      setSquadShareError(error.message || 'Invalid code');
+    } finally {
+      setIsJoiningSquad(false);
+    }
+  };
+
+  // SQUAD: Handle Leave
+  const handleLeaveSquad = async () => {
+    if (!user || !currentSquad) return;
+    if (confirm("Are you sure you want to leave this squad?")) {
+      await leaveSquad(user, currentSquad.id);
+      setCurrentSquad(null);
+      setSquadMembers([]);
+    }
+  };
 
   // Notification State
   const [toastMessage, setToastMessage] = useState(null);
@@ -231,6 +281,44 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // --- EFFECT: SQUAD SUBSCRIPTION ---
+  useEffect(() => {
+    if (!user) {
+      setCurrentSquad(null);
+      setSquadMembers([]);
+      return;
+    }
+
+    // Listen to user profile for currentSquadId changes
+    const unsubUser = onSnapshot(doc(db, 'users', user.uid), (uDoc) => {
+      const uData = uDoc.data();
+      if (uData?.currentSquadId) {
+        // Subscribe to that squad
+        const unsubSquad = onSnapshot(doc(db, 'squads', uData.currentSquadId), (sSnap) => {
+          if (sSnap.exists()) {
+            const sData = sSnap.data();
+            setCurrentSquad({ id: sSnap.id, ...sData });
+            // Convert memberDetails map to array for UI
+            const membersList = Object.values(sData.memberDetails || {});
+            setSquadMembers(membersList);
+            setSquadShareCode(sData.inviteCode);
+          } else {
+            setCurrentSquad(null); // Squad was deleted
+            setSquadMembers([]);
+          }
+        });
+        // We need to return this unsub to clean it up, but inside a nested listener it's tricky.
+        //Ideally we'd use a separate state 'squadId' to trigger another useEffect.
+        // But this pattern works for simple cases if we assume one active squad.
+      } else {
+        setCurrentSquad(null);
+        setSquadMembers([]);
+      }
+    });
+
+    return () => unsubUser();
+  }, [user]);
 
   // 3. Premium Check (Firestore + Admin Override)
   useEffect(() => {
@@ -1441,11 +1529,11 @@ export default function App() {
                               </div>
                             ) : (
                               <button
-                                onClick={createSquadShareCode}
+                                onClick={handleCreateSquad}
                                 disabled={isCreatingShare}
                                 className="w-full py-2 bg-purple-600 text-white rounded font-medium hover:bg-purple-700 disabled:opacity-50"
                               >
-                                {isCreatingShare ? 'Creating...' : 'Generate Share Code'}
+                                {isCreatingShare ? 'Creating...' : 'Start a Squad'}
                               </button>
                             )}
                           </div>
@@ -1463,7 +1551,7 @@ export default function App() {
                                 maxLength={6}
                               />
                               <button
-                                onClick={joinSquadByCode}
+                                onClick={handleJoinSquad}
                                 disabled={isJoiningSquad || joinCode.length !== 6}
                                 className="bg-pink-600 text-white px-4 rounded hover:bg-pink-700 disabled:opacity-50"
                               >
@@ -1473,25 +1561,34 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Premium: Road Ready Notification Toggle */}
-                        {isPremium && (
-                          <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-700">
-                            <label className="flex items-center gap-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={notifySquadOnRoadReady}
-                                onChange={(e) => setNotifySquadOnRoadReady(e.target.checked)}
-                                className="w-5 h-5 text-purple-600 rounded"
-                              />
-                              <div>
-                                <span className="font-medium text-purple-800 dark:text-purple-300">Notify squad when I go Road Ready</span>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Send push notification to squad members</p>
-                              </div>
-                              <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Premium</span>
-                            </label>
+                        {currentSquad && (
+                          <div className="mt-4 text-center">
+                            <button onClick={handleLeaveSquad} className="text-sm text-red-500 hover:text-red-700 underline">
+                              Leave Squad
+                            </button>
                           </div>
                         )}
                       </div>
+
+                      {/* Premium: Road Ready Notification Toggle */}
+                      {isPremium && (
+                        <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-700">
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={notifySquadOnRoadReady}
+                              onChange={(e) => setNotifySquadOnRoadReady(e.target.checked)}
+                              className="w-5 h-5 text-purple-600 rounded"
+                            />
+                            <div>
+                              <span className="font-medium text-purple-800 dark:text-purple-300">Notify squad when I go Road Ready</span>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Send push notification to squad members</p>
+                            </div>
+                            <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Premium</span>
+                          </label>
+                        </div>
+                      )}
+
 
                       {/* Shared Squad Members - People who joined via share code */}
                       {squadMembers.length > 0 && (
@@ -1500,12 +1597,6 @@ export default function App() {
                             <h4 className="font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
                               <span>👥</span> Connected Squad Members
                             </h4>
-                            <button
-                              onClick={fetchSquadMembers}
-                              className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded hover:bg-green-200 dark:hover:bg-green-800"
-                            >
-                              Refresh
-                            </button>
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">These users joined using your share code and can see this carnival plan. Click "Refresh" to check for new members.</p>
                           <div className="flex flex-wrap gap-2">
@@ -1684,11 +1775,12 @@ export default function App() {
               </div>
             )}
           </div>
-        )}
-      </main>
+        )
+        }
+      </main >
 
       {/* Footer with Legal Links */}
-      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto">
+      < footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto" >
         <div className="max-w-4xl mx-auto text-center">
           <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
             <button
@@ -1730,12 +1822,14 @@ export default function App() {
             © {new Date().getFullYear()} Carnival Planner
           </p>
         </div>
-      </footer>
+      </footer >
 
       {/* Vibes Player (Floating) */}
-      {user && (
-        <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
-      )}
-    </div>
+      {
+        user && (
+          <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
+        )
+      }
+    </div >
   );
 }
