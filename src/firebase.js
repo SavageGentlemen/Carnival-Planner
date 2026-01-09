@@ -23,8 +23,11 @@ export const auth = getAuth(app);
 
 // Initialize Firestore with persistent cache and multi-tab support
 // Using 'squad-db' database which is in Native Mode (default is in Datastore Mode)
-// Initialize Firestore (standard)
-export const db = getFirestore(app);
+// Initialize Firestore with long-polling to bypass WebSocket issues
+import { initializeFirestore } from "firebase/firestore";
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 
 export const storage = getStorage(app);
 
