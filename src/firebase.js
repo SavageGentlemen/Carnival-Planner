@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 
@@ -21,10 +21,7 @@ const app = initializeApp(firebaseConfig);
 // EXPORT these services so App.jsx can use them
 export const auth = getAuth(app);
 
-// Initialize Firestore with persistent cache and multi-tab support
-// Using 'squad-db' database which is in Native Mode (default is in Datastore Mode)
-// Initialize Firestore with long-polling to bypass WebSocket issues
-import { initializeFirestore } from "firebase/firestore";
+// Initialize Firestore with long-polling to bypass WebSocket issues (Client Offline error)
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 });
