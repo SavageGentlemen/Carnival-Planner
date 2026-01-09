@@ -4,9 +4,8 @@ import { initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 
-// --- PASTE YOUR KEYS HERE ---
 const firebaseConfig = {
-  apiKey: "AIzaSyCWp0X6bLJBsyYKTjUaVsXBSuVD8KeeEqY",
+  apiKey: "AIzaSyBv2VwFryRZhBDkhy_Yh_NCNRcAWZg9j6Q",
   authDomain: "carnival-planner.firebaseapp.com",
   projectId: "carnival-planner",
   storageBucket: "carnival-planner.firebasestorage.app",
