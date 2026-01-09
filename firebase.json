@@ -1,4 +1,11 @@
 {
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "firestore": {
+    "database": "squad-db",
+    "rules": "firestore.rules"
+  },
   "functions": {
     "source": "functions2",
     "runtime": "nodejs20"

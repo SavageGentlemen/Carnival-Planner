@@ -1,11 +1,7 @@
 export const carnivalData = [
-    // --- December 2025 ---
-    { name: "Sugar Mas (St. Kitts & Nevis)", date: "2025-12-12" },
-    { name: "Montserrat Carnival", date: "2025-12-20" },
-    // Adinkra Carnival (Ghana) is Cancelled, so it is omitted from the countdown.
-  
     // --- January 2026 ---
-    { name: "St. Croix Festival", date: "2026-01-03" },
+    { name: "Sugar Mas (St. Kitts)", date: "2026-01-01" },
+    { name: "St. Croix Carnival", date: "2026-01-03" },
   
     // --- February 2026 ---
     { name: "Carnaval Ponceno (Puerto Rico)", date: "2026-02-12" },
@@ -26,11 +22,12 @@ export const carnivalData = [
   
     // --- April 2026 ---
     { name: "Virgin Gorda Easter Festival", date: "2026-04-05" },
-    { name: "St. Maarten Carnival", date: "2026-04-10" },
     { name: "Jamaica Carnival", date: "2026-04-12" },
-    { name: "Tampa Bay Carnival (USA)", date: "2026-04-17" },
+    { name: "Tampa Bay Carnival (USA)", date: "2026-04-18" },
+    { name: "St. Maarten Carnival", date: "2026-04-30" },
   
     // --- May 2026 ---
+    { name: "St. Thomas Carnival (USVI)", date: "2026-05-02" },
     { name: "Cayman Carnival Batabano", date: "2026-05-09" },
     { name: "Braccanal (Cayman Islands)", date: "2026-05-13" },
     { name: "Berlin Carnival (Germany)", date: "2026-05-22" },
@@ -38,35 +35,40 @@ export const carnivalData = [
     { name: "Aalborg Karneval (Denmark)", date: "2026-05-23" },
     { name: "Orlando Carnival", date: "2026-05-24" },
     { name: "Luton International Carnival (UK)", date: "2026-05-24" },
+    { name: "Guyana Independence", date: "2026-05-26" },
   
     // --- June 2026 ---
     { name: "Munich Carnival (Germany)", date: "2026-06-04" },
     { name: "Bahamas Carnival", date: "2026-06-06" },
-    { name: "Bermuda Carnival", date: "2026-06-10" },
     { name: "South Carolina Carnival", date: "2026-06-11" },
+    { name: "Bermuda Carnival", date: "2026-06-15" },
+    { name: "Hollywood Carnival (USA)", date: "2026-06-20" },
     { name: "Caymas Carnival (Cayman Islands)", date: "2026-06-20" },
     { name: "Philadelphia Carnival", date: "2026-06-20" },
-    { name: "Vincy Mas (St. Vincent)", date: "2026-06-26" },
     { name: "Vienna Carnival (Austria)", date: "2026-06-26" },
   
     // --- July 2026 ---
+    { name: "Vincy Mas (St. Vincent)", date: "2026-07-06" },
     { name: "Saint Lucia Carnival", date: "2026-07-20" },
-    { name: "Nevis Culturama Festival", date: "2026-07-23" },
     { name: "Anguilla Summer Festival", date: "2026-07-24" },
     { name: "Zomercarnaval (Rotterdam)", date: "2026-07-25" },
   
     // --- August 2026 ---
+    { name: "Toronto Caribbean Carnival (Caribana)", date: "2026-08-01" },
     { name: "Crop Over (Barbados)", date: "2026-08-03" },
     { name: "Antigua Carnival", date: "2026-08-03" },
+    { name: "Nevis Culturama Festival", date: "2026-08-04" },
     { name: "Cariwest (Canada)", date: "2026-08-07" },
     { name: "Spice Mas (Grenada)", date: "2026-08-10" },
     { name: "Notting Hill Carnival (London)", date: "2026-08-31" },
   
     // --- September 2026 ---
     { name: "New York Carnival (Labor Day)", date: "2026-09-07" },
-    { name: "Japan Caribbean Carnival", date: "2026-09-19" },
+    { name: "Japan Caribbean Carnival", date: "2026-09-23" },
   
     // --- October 2026 ---
     { name: "Miami Carnival", date: "2026-10-11" },
-    { name: "Tobago Carnival", date: "2026-10-30" }
+
+    // --- November 2026 ---
+    { name: "Tobago Carnival", date: "2026-11-01" }
   ];

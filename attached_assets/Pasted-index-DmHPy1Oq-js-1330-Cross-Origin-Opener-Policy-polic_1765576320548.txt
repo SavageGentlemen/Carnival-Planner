@@ -1,0 +1,133 @@
+index-DmHPy1Oq.js:1330 Cross-Origin-Opener-Policy policy would block the window.closed call.
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+pollUserCancellation @ index-DmHPy1Oq.js:1330
+onExecution @ index-DmHPy1Oq.js:1330
+await in onExecution
+(anonymous) @ index-DmHPy1Oq.js:1315
+await in (anonymous)
+execute @ index-DmHPy1Oq.js:1315
+executeNotNull @ index-DmHPy1Oq.js:1330
+zR @ index-DmHPy1Oq.js:1330
+Jo @ index-DmHPy1Oq.js:4650
+JP @ index-DmHPy1Oq.js:37
+e1 @ index-DmHPy1Oq.js:37
+t1 @ index-DmHPy1Oq.js:37
+Bv @ index-DmHPy1Oq.js:37
+MT @ index-DmHPy1Oq.js:37
+(anonymous) @ index-DmHPy1Oq.js:37
+__ @ index-DmHPy1Oq.js:40
+oT @ index-DmHPy1Oq.js:37
+Ep @ index-DmHPy1Oq.js:37
+Hg @ index-DmHPy1Oq.js:37
+_1 @ index-DmHPy1Oq.js:37Understand this error
+index-DmHPy1Oq.js:1330 Cross-Origin-Opener-Policy policy would block the window.closed call.
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+pollUserCancellation @ index-DmHPy1Oq.js:1330
+onExecution @ index-DmHPy1Oq.js:1330
+await in onExecution
+(anonymous) @ index-DmHPy1Oq.js:1315
+await in (anonymous)
+execute @ index-DmHPy1Oq.js:1315
+executeNotNull @ index-DmHPy1Oq.js:1330
+zR @ index-DmHPy1Oq.js:1330
+Jo @ index-DmHPy1Oq.js:4650
+JP @ index-DmHPy1Oq.js:37
+e1 @ index-DmHPy1Oq.js:37
+t1 @ index-DmHPy1Oq.js:37
+Bv @ index-DmHPy1Oq.js:37
+MT @ index-DmHPy1Oq.js:37
+(anonymous) @ index-DmHPy1Oq.js:37
+__ @ index-DmHPy1Oq.js:40
+oT @ index-DmHPy1Oq.js:37
+Ep @ index-DmHPy1Oq.js:37
+Hg @ index-DmHPy1Oq.js:37
+_1 @ index-DmHPy1Oq.js:37Understand this error
+index-DmHPy1Oq.js:1330 Cross-Origin-Opener-Policy policy would block the window.closed call.
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+pollUserCancellation @ index-DmHPy1Oq.js:1330
+onExecution @ index-DmHPy1Oq.js:1330
+await in onExecution
+(anonymous) @ index-DmHPy1Oq.js:1315
+await in (anonymous)
+execute @ index-DmHPy1Oq.js:1315
+executeNotNull @ index-DmHPy1Oq.js:1330
+zR @ index-DmHPy1Oq.js:1330
+Jo @ index-DmHPy1Oq.js:4650
+JP @ index-DmHPy1Oq.js:37
+e1 @ index-DmHPy1Oq.js:37
+t1 @ index-DmHPy1Oq.js:37
+Bv @ index-DmHPy1Oq.js:37
+MT @ index-DmHPy1Oq.js:37
+(anonymous) @ index-DmHPy1Oq.js:37
+__ @ index-DmHPy1Oq.js:40
+oT @ index-DmHPy1Oq.js:37
+Ep @ index-DmHPy1Oq.js:37
+Hg @ index-DmHPy1Oq.js:37
+_1 @ index-DmHPy1Oq.js:37Understand this error
+index-DmHPy1Oq.js:1330 Cross-Origin-Opener-Policy policy would block the window.closed call.
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+setTimeout
+e @ index-DmHPy1Oq.js:1330
+pollUserCancellation @ index-DmHPy1Oq.js:1330
+onExecution @ index-DmHPy1Oq.js:1330
+await in onExecution
+(anonymous) @ index-DmHPy1Oq.js:1315
+await in (anonymous)
+execute @ index-DmHPy1Oq.js:1315
+executeNotNull @ index-DmHPy1Oq.js:1330
+zR @ index-DmHPy1Oq.js:1330
+Jo @ index-DmHPy1Oq.js:4650
+JP @ index-DmHPy1Oq.js:37
+e1 @ index-DmHPy1Oq.js:37
+t1 @ index-DmHPy1Oq.js:37
+Bv @ index-DmHPy1Oq.js:37
+MT @ index-DmHPy1Oq.js:37
+(anonymous) @ index-DmHPy1Oq.js:37
+__ @ index-DmHPy1Oq.js:40
+oT @ index-DmHPy1Oq.js:37
+Ep @ index-DmHPy1Oq.js:37
+Hg @ index-DmHPy1Oq.js:37
+_1 @ index-DmHPy1Oq.js:37Understand this error
+index-DmHPy1Oq.js:4207  POST https://fcmregistrations.googleapis.com/v1/projects/carnival-planner/registrations 401 (Unauthorized)
+jV @ index-DmHPy1Oq.js:4207
+await in jV
+wx @ index-DmHPy1Oq.js:4222
+BV @ index-DmHPy1Oq.js:4222
+await in BV
+LS @ index-DmHPy1Oq.js:4342
+await in LS
+l4 @ index-DmHPy1Oq.js:4432
+c4 @ index-DmHPy1Oq.js:4432
+await in c4
+(anonymous) @ index-DmHPy1Oq.js:4650
+(anonymous) @ index-DmHPy1Oq.js:4650
+mf @ index-DmHPy1Oq.js:40
+Ya @ index-DmHPy1Oq.js:40
+(anonymous) @ index-DmHPy1Oq.js:40
+W @ index-DmHPy1Oq.js:25
+F @ index-DmHPy1Oq.js:25Understand this error
+index-DmHPy1Oq.js:4432 Error getting FCM token: FirebaseError: Messaging: A problem occurred while subscribing the user to FCM: Request is missing required authentication credential. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project. (messaging/token-subscribe-failed).
+    at jV (index-DmHPy1Oq.js:4207:299)
+    at async wx (index-DmHPy1Oq.js:4222:793)
+    at async c4 (index-DmHPy1Oq.js:4432:1307)
+    at async index-DmHPy1Oq.js:4650:83845
+index-DmHPy1Oq.js:4650 PromoAd [banner]: Loaded 0 ads (from 0 total) []
+index-DmHPy1Oq.js:4650 PromoAd [inline]: Loaded 0 ads (from 0 total) []

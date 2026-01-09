@@ -1,6 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 
 // --- PASTE YOUR KEYS HERE ---
 const firebaseConfig = {
@@ -18,6 +20,83 @@ const app = initializeApp(firebaseConfig);
 
 // EXPORT these services so App.jsx can use them
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize Firestore with persistent cache and multi-tab support
+// Using 'squad-db' database which is in Native Mode (default is in Datastore Mode)
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+}, 'squad-db');
+
+export const storage = getStorage(app);
+
+// Simple promise that resolves when Firestore is initialized
+export const firestoreReady = Promise.resolve(true);
+
+console.log('Firestore initialized');
+
+// Firebase Cloud Messaging for push notifications
+let messaging = null;
+
+// Initialize messaging only if supported
+const initMessaging = async () => {
+  try {
+    const supported = await isSupported();
+    if (supported) {
+      messaging = getMessaging(app);
+      console.log('Firebase Messaging initialized');
+      return messaging;
+    } else {
+      console.log('Firebase Messaging not supported in this browser');
+      return null;
+    }
+  } catch (err) {
+    console.log('Error initializing Firebase Messaging:', err);
+    return null;
+  }
+};
+
+// Request permission and get FCM token
+export const requestNotificationPermission = async (vapidKey) => {
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.log('Notification permission denied');
+      return null;
+    }
+    
+    if (!messaging) {
+      await initMessaging();
+    }
+    
+    if (!messaging) {
+      return null;
+    }
+    
+    const token = await getToken(messaging, { vapidKey });
+    console.log('FCM Token:', token);
+    return token;
+  } catch (err) {
+    console.log('Error getting FCM token:', err);
+    return null;
+  }
+};
+
+// Listen for foreground messages
+export const onForegroundMessage = (callback) => {
+  if (!messaging) {
+    initMessaging().then(() => {
+      if (messaging) {
+        onMessage(messaging, callback);
+      }
+    });
+  } else {
+    onMessage(messaging, callback);
+  }
+};
+
+// Initialize messaging on module load
+initMessaging();
 
 export default app;
