@@ -3,17 +3,21 @@ import { Music, X, Minimize2, Maximize2, ExternalLink } from 'lucide-react';
 
 // curated soca playlists for major carnivals
 const PLAYLISTS = {
-    // Trinidad (2025 Soca) - Verified: Soca 2025 (Official)
+    // Trinidad - 'Soca 2025' (Spotify Official)
     'trinidad': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC',
-    // Jamaica (Dancehall & Soca) - Verified: Dancehall Official
+    // Jamaica - 'Dancehall Official'
     'jamaica': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX82pCGH5USnM',
-    // Miami (International Soca) - Verified: Soca Classics
+    // Miami - 'Soca Classics'
     'miami': 'https://open.spotify.com/embed/playlist/37i9dQZF1DXS1X4r7p38D5',
-    // St. Lucia (Dennery Segment) - Verified: Dennery Segment
+    // St. Lucia - 'Dennery Segment'
     'stlucia': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX62XscWx9t6h',
-    // Barbados (Crop Over / Bashment) - Verified: Bashment Soca
+    // Barbados - 'Bashment Soca'
     'barbados': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX23V8kYg8jC2',
-    // Default (Soca Classics)
+    // St. Kitts, St. Thomas, USVI - 'Soca Anthems'
+    'stkitts': 'https://open.spotify.com/embed/playlist/37i9dQZF1E4v6hGc9x5z4y',
+    'stcroix': 'https://open.spotify.com/embed/playlist/37i9dQZF1E4v6hGc9x5z4y',
+    'stthomas': 'https://open.spotify.com/embed/playlist/37i9dQZF1E4v6hGc9x5z4y',
+    // Default - 'Soca Classics' (Verified Backup)
     'default': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC'
 };
 
@@ -22,14 +26,16 @@ export default function VibesPlayer({ activeCarnivalId, isPremium }) {
     const [isMinimized, setIsMinimized] = useState(false);
 
     // Determine which playlist to show
-    const getPlaylistUrl = () => {
-        // If no specific playlist for this carnival, fallback to default
-        // We try to match partial ID (e.g. 'trinidad' matches 'trinidad')
-        const key = Object.keys(PLAYLISTS).find(k => activeCarnivalId?.includes(k));
-        return PLAYLISTS[key] || PLAYLISTS['default'];
+    const getPlaylistData = () => {
+        if (!activeCarnivalId) return { key: 'default', url: PLAYLISTS['default'] };
+
+        // Find matching key
+        const key = Object.keys(PLAYLISTS).find(k => activeCarnivalId.toLowerCase().includes(k));
+        const url = PLAYLISTS[key] || PLAYLISTS['default'];
+        return { key: key || 'default (fallback)', url };
     };
 
-    const playlistUrl = getPlaylistUrl();
+    const { key: playlistKey, url: playlistUrl } = getPlaylistData();
 
     if (!isOpen) {
         return (
@@ -56,9 +62,16 @@ export default function VibesPlayer({ activeCarnivalId, isPremium }) {
             >
                 <div className="flex items-center gap-2">
                     <Music className="w-5 h-5 animate-pulse" />
-                    <span className="font-bold text-sm">
-                        {isMinimized ? 'Carnival Vibes' : 'Soca Vibes Player'}
-                    </span>
+                    <div className="flex flex-col">
+                        <span className="font-bold text-sm">
+                            {isMinimized ? 'Carnival Vibes' : 'Soca Vibes Player'}
+                        </span>
+                        {!isMinimized && (
+                            <span className="text-[10px] opacity-75 uppercase tracking-wider">
+                                Playing: {playlistKey.replace('default', activeCarnivalId || 'General')}
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-1">
