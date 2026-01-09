@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 
@@ -23,11 +23,8 @@ export const auth = getAuth(app);
 
 // Initialize Firestore with persistent cache and multi-tab support
 // Using 'squad-db' database which is in Native Mode (default is in Datastore Mode)
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
+// Initialize Firestore (standard)
+export const db = getFirestore(app);
 
 export const storage = getStorage(app);
 
