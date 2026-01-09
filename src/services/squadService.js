@@ -47,13 +47,17 @@ export const createSquad = async (user, squadName, carnivalId) => {
     };
 
     // Add to 'squads' collection
+    console.log("Attempting to create squad doc...", squadData);
     const squadRef = await addDoc(collection(db, 'squads'), squadData);
+    console.log("Squad doc created with ID:", squadRef.id);
 
     // Track in user's profile
     const userRef = doc(db, 'users', user.uid);
+    console.log("Updating user profile for squad:", user.uid);
     await setDoc(userRef, {
         currentSquadId: squadRef.id
     }, { merge: true });
+    console.log("User profile updated.");
 
     return { id: squadRef.id, ...squadData };
 };

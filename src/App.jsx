@@ -112,7 +112,7 @@ export default function App() {
       setToastMessage('Only Premium users can lead a squad!'); // Wait logic check below
     } catch (error) {
       console.error("Error creating squad:", error);
-      setSquadShareError('Failed to create squad.');
+      setSquadShareError(`Failed: ${error.message}`);
     } finally {
       setIsCreatingShare(false);
     }
