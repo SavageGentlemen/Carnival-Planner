@@ -13,6 +13,10 @@ const firebaseConfig = {
   appId: "1:1036340118282:web:809dc12c298ff1b8f2f0f3",
   measurementId: "G-XC1K69PSVC"
 };
+const app = initializeApp(firebaseConfig);
+
+// EXPORT these services so App.jsx can use them
+export const auth = getAuth(app);
 // ----------------------------
 
 // Initialize Firestore (standard mode, no long-polling forced)
