@@ -3,7 +3,6 @@
     "rules": "storage.rules"
   },
   "firestore": {
-    "database": "squad-db",
     "rules": "firestore.rules"
   },
   "functions": {
@@ -25,4 +24,3 @@
     ]
   }
 }
-

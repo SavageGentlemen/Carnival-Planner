@@ -27,7 +27,7 @@ export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
   })
-}, 'squad-db');
+});
 
 export const storage = getStorage(app);
 
@@ -65,15 +65,15 @@ export const requestNotificationPermission = async (vapidKey) => {
       console.log('Notification permission denied');
       return null;
     }
-    
+
     if (!messaging) {
       await initMessaging();
     }
-    
+
     if (!messaging) {
       return null;
     }
-    
+
     const token = await getToken(messaging, { vapidKey });
     console.log('FCM Token:', token);
     return token;
