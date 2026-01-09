@@ -30,7 +30,7 @@ import { PrivacyPolicy, TermsOfService, CookiePolicy, RefundPolicy } from './com
 import InstallPrompt from './components/InstallPrompt';
 import { ContactPage, SupportAdmin } from './components/ContactSupport';
 import AccountSettings from './components/AccountSettings';
-import AccountSettings from './components/AccountSettings';
+
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad } from './services/squadService'; // Squad Service
 
