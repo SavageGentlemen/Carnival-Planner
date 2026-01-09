@@ -16,6 +16,7 @@ const firebaseConfig = {
 // ----------------------------
 
 const app = initializeApp(firebaseConfig);
+console.log("🔥 Firebase Init with Key:", firebaseConfig.apiKey); // Debugging Key
 
 // EXPORT these services so App.jsx can use them
 export const auth = getAuth(app);
