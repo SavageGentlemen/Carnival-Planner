@@ -21,6 +21,7 @@ import logo from './assets/carnival-logo.png';
 import { carnivalData } from './carnivals';
 import FeteMap from './components/FeteMap';
 import MediaVault from './components/MediaVault';
+import VibesPlayer from './components/VibesPlayer';
 import PromoAd from './components/PromoAd';
 import AdManager from './components/AdManager';
 import AdminAnalytics from './components/AdminAnalytics';
@@ -61,12 +62,12 @@ const POPULAR_EVENTS = {
 export default function App() {
   // --- STATE ---
   const [user, setUser] = useState(null);
-  
+
   // Data
   const [carnivals, setCarnivals] = useState({});
   const [activeCarnivalId, setActiveCarnivalId] = useState(null);
   const [activeTab, setActiveTab] = useState('Budget');
-  
+
   // UI State
   const [isPremium, setIsPremium] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
@@ -81,7 +82,7 @@ export default function App() {
   const [newScheduleDate, setNewScheduleDate] = useState('');
   const [newScheduleNote, setNewScheduleNote] = useState('');
   const [newPackingItem, setNewPackingItem] = useState('');
-  
+
   // Squad & Costume Forms
   const [newSquadMember, setNewSquadMember] = useState('');
   const [costumeDetails, setCostumeDetails] = useState({ band: '', section: '', total: '', paid: '' });
@@ -168,7 +169,7 @@ export default function App() {
   // 1b. Load and persist theme preference per user
   useEffect(() => {
     if (!user) return;
-    
+
     const loadThemePreference = async () => {
       try {
         const userPrefsRef = doc(db, 'users', user.uid, 'preferences', 'theme');
@@ -183,7 +184,7 @@ export default function App() {
         console.log('Could not load theme preference:', err);
       }
     };
-    
+
     loadThemePreference();
   }, [user]);
 
@@ -208,11 +209,11 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      
+
       // Create/update user document for admin analytics tracking
       if (u) {
         console.log('[Analytics] Creating/updating user doc for:', u.uid, u.email);
-        
+
         // Use setDoc with merge - works offline and syncs when online
         // No need for getDoc first - merge handles both create and update
         try {
@@ -290,12 +291,12 @@ export default function App() {
   // 5. Request notification permission and save FCM token
   useEffect(() => {
     if (!user) return;
-    
+
     const setupNotifications = async () => {
       try {
         const vapidKey = 'BLbW7EjHjQ9_YjKrRbJwgBgRqnkSmZsXMnEWTQZpqYwSRbVgYLmXW5RvXA2_aS3vH9XJpCxHu4VmXnZL2wQxMvI';
         const token = await requestNotificationPermission(vapidKey);
-        
+
         if (token) {
           const functions = getFunctions(app);
           const saveFcmToken = httpsCallable(functions, 'saveFcmToken');
@@ -306,9 +307,9 @@ export default function App() {
         console.log('Error setting up notifications:', err);
       }
     };
-    
+
     setupNotifications();
-    
+
     onForegroundMessage((payload) => {
       console.log('Foreground message:', payload);
       setToastMessage({
@@ -344,38 +345,38 @@ export default function App() {
       alert("You must be signed in to subscribe.");
       return;
     }
-  
+
     // Determine the Price ID
     const billingInterval = interval === "yearly" ? "yearly" : "monthly";
     const priceId = billingInterval === "yearly" ? STRIPE_YEARLY_PRICE_ID : STRIPE_MONTHLY_PRICE_ID;
-  
+
     // Safety Check
     if (!priceId) {
       console.error("Price ID missing for interval:", billingInterval);
       alert("Premium pricing configuration error. Please contact support.");
       return;
     }
-  
+
     setIsCheckingOut(true);
-  
+
     try {
       // ✅ Explicitly use 'app' to ensure correct instance
       const functions = getFunctions(app);
       const createCheckoutSession = httpsCallable(functions, "createCheckoutSession");
-      
+
       console.log(`Starting checkout... Interval: ${billingInterval}, PriceID: ${priceId}`);
 
       // ✅ Send success_url and cancel_url
-      const result = await createCheckoutSession({ 
+      const result = await createCheckoutSession({
         priceId: priceId, // Ensure key is explicitly 'priceId'
-        success_url: window.location.origin, 
+        success_url: window.location.origin,
         cancel_url: window.location.origin
       });
-      
+
       const { data } = result || {};
-      
+
       if (data && (data.url || data.checkoutUrl)) {
-        window.location.href = data.url || data.checkoutUrl; 
+        window.location.href = data.url || data.checkoutUrl;
       } else {
         console.error("No checkout URL returned:", data);
         alert("Unable to start checkout. Please try again.");
@@ -423,12 +424,12 @@ export default function App() {
       setSharedCarnivalData(null);
       return;
     }
-    
+
     setLoadingSharedData(true);
     try {
       const functions = getFunctions(app);
       const getSharedData = httpsCallable(functions, 'getSharedCarnivalData');
-      const result = await getSharedData({ 
+      const result = await getSharedData({
         planId: currentSharedPlanId,
         uid: user.uid
       });
@@ -453,7 +454,7 @@ export default function App() {
   // Update carnival data - uses shared data if in a squad, otherwise personal data
   const updateCarnivalData = async (field, newData, action = 'set') => {
     if (!user || !activeCarnivalId) return;
-    
+
     // If this is a shared carnival, update the shared data
     if (currentSharedPlanId && ['budget', 'schedule', 'packing', 'costume', 'squad'].includes(field)) {
       try {
@@ -467,7 +468,7 @@ export default function App() {
           uid: user.uid,
           userEmail: user.email
         });
-        
+
         // Update local shared data state
         if (result.data?.data) {
           setSharedCarnivalData(result.data.data);
@@ -478,7 +479,7 @@ export default function App() {
         // Fall back to personal data
       }
     }
-    
+
     // Update personal carnival data
     const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
     await updateDoc(ref, { [field]: newData });
@@ -498,14 +499,14 @@ export default function App() {
       setScrapedEvents([]);
       return;
     }
-    
+
     const fetchScrapedEvents = async () => {
       setIsLoadingScrapedEvents(true);
       try {
         const functions = getFunctions(app);
         const getScrapedEvents = httpsCallable(functions, 'getScrapedEvents');
         const result = await getScrapedEvents({ carnivalId: activeCarnivalId });
-        
+
         if (result.data?.success) {
           setScrapedEvents(result.data.events || []);
           setScrapedEventsLastUpdated(result.data.lastScrapedAt);
@@ -520,7 +521,7 @@ export default function App() {
         setIsLoadingScrapedEvents(false);
       }
     };
-    
+
     fetchScrapedEvents();
   }, [user, activeCarnivalId, isPremium]);
 
@@ -528,7 +529,7 @@ export default function App() {
 
   const toggleRoadMode = async () => {
     setRoadMode(true);
-    
+
     if (isPremium && notifySquadOnRoadReady && currentCarnival) {
       setIsSendingRoadReadyAlert(true);
       try {
@@ -539,7 +540,7 @@ export default function App() {
           carnivalName: currentCarnival.name,
           userName: user?.displayName || user?.email?.split('@')[0] || 'Squad Member'
         });
-        
+
         if (result.data?.notified > 0) {
           setToastMessage({
             title: 'Squad Notified!',
@@ -558,7 +559,7 @@ export default function App() {
   const addBudgetItem = () => {
     if (!newBudgetName.trim() || !newBudgetCost) return;
     const newItem = { id: Date.now().toString(), name: newBudgetName.trim(), cost: parseFloat(newBudgetCost) };
-    
+
     if (isCollaborative) {
       updateCarnivalData('budget', [newItem], 'add');
     } else {
@@ -579,13 +580,13 @@ export default function App() {
 
   const addScheduleItem = () => {
     if (!newScheduleName.trim() || !newScheduleDate) return;
-    const newItem = { 
-      id: Date.now().toString(), 
-      title: newScheduleName.trim(), 
-      datetime: newScheduleDate, 
-      note: newScheduleNote.trim() 
+    const newItem = {
+      id: Date.now().toString(),
+      title: newScheduleName.trim(),
+      datetime: newScheduleDate,
+      note: newScheduleNote.trim()
     };
-    
+
     if (isCollaborative) {
       updateCarnivalData('schedule', [newItem], 'add');
     } else {
@@ -617,7 +618,7 @@ export default function App() {
       datetime: dateStr,
       note: evt.note || "Added from curated list"
     };
-    
+
     if (isCollaborative) {
       updateCarnivalData('schedule', [newItem], 'add');
     } else {
@@ -629,7 +630,7 @@ export default function App() {
   const addPackingItem = () => {
     if (!newPackingItem.trim()) return;
     const newItem = { id: Date.now().toString(), item: newPackingItem.trim(), checked: false };
-    
+
     if (isCollaborative) {
       updateCarnivalData('packing', [newItem], 'add');
     } else {
@@ -639,12 +640,12 @@ export default function App() {
     setNewPackingItem('');
   };
   const togglePackingItem = (id) => {
-    const items = isCollaborative 
-      ? (sharedCarnivalData?.packing || []) 
+    const items = isCollaborative
+      ? (sharedCarnivalData?.packing || [])
       : (carnivals[activeCarnivalId]?.packing || []);
     const item = items.find(i => i.id === id);
     if (!item) return;
-    
+
     if (isCollaborative) {
       updateCarnivalData('packing', { id, checked: !item.checked }, 'update');
     } else {
@@ -663,7 +664,7 @@ export default function App() {
   const addSquadMember = () => {
     if (!newSquadMember.trim()) return;
     const newItem = { id: Date.now().toString(), name: newSquadMember.trim() };
-    
+
     if (isCollaborative) {
       updateCarnivalData('squad', [newItem], 'add');
     } else {
@@ -690,8 +691,8 @@ export default function App() {
     try {
       const functions = getFunctions(app);
       const createShare = httpsCallable(functions, 'createSquadShareCode');
-      const result = await createShare({ 
-        carnivalId: activeCarnivalId, 
+      const result = await createShare({
+        carnivalId: activeCarnivalId,
         carnivalName: carnival.name,
         uid: user.uid
       });
@@ -730,15 +731,15 @@ export default function App() {
       setSquadMembers([]);
       return;
     }
-    
+
     try {
       const functions = getFunctions(app);
       const getSharedPlan = httpsCallable(functions, 'getSharedPlanData');
-      const result = await getSharedPlan({ 
+      const result = await getSharedPlan({
         planId: carnival.sharedPlanId,
         uid: user.uid
       });
-      
+
       if (result.data?.members) {
         setSquadMembers(result.data.members);
       }
@@ -765,19 +766,19 @@ export default function App() {
     try {
       const functions = getFunctions(app);
       const joinSquad = httpsCallable(functions, 'joinSquadByCode');
-      const result = await joinSquad({ 
+      const result = await joinSquad({
         shareCode: joinCode.toUpperCase(),
         uid: user.uid,
         email: user.email
       });
       setSquadShareSuccess(`Joined ${result.data.carnivalName} squad!`);
       setJoinCode('');
-      
+
       // Persist the planId for the joiner so they can see squad members
       if (result.data.planId) {
         updateCarnivalData('sharedPlanId', result.data.planId);
       }
-      
+
       // Refresh squad members list after a brief delay for data to persist
       setTimeout(() => {
         fetchSquadMembers();
@@ -827,9 +828,9 @@ export default function App() {
     }
     lines.push('\n');
     lines.push('-- SCHEDULE --');
-    const sorted = (currentCarnival.schedule || []).slice().sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+    const sorted = (currentCarnival.schedule || []).slice().sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
     sorted.forEach(s => lines.push(`${new Date(s.datetime).toLocaleString()} | ${s.title}`));
-    
+
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -841,7 +842,7 @@ export default function App() {
 
   // --- RENDER VARS ---
   const baseCarnival = activeCarnivalId ? carnivals[activeCarnivalId] : null;
-  
+
   // Merge shared data with local carnival data when in collaborative mode
   const currentCarnival = baseCarnival ? {
     ...baseCarnival,
@@ -895,7 +896,7 @@ export default function App() {
             {nextEvent ? (
               <>
                 <div className="text-3xl font-black mb-1">{nextEvent.title}</div>
-                <div className="text-xl opacity-90">{new Date(nextEvent.datetime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                <div className="text-xl opacity-90">{new Date(nextEvent.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                 <div className="mt-2 text-sm bg-white/20 inline-block px-2 py-1 rounded">{nextEvent.note || "No notes"}</div>
               </>
             ) : (
@@ -940,7 +941,7 @@ export default function App() {
 
       {/* PWA INSTALL PROMPT */}
       <InstallPrompt />
-      
+
       {/* HEADER */}
       <header className="bg-white dark:bg-gray-800 shadow-sm py-4 px-4 flex justify-between items-center sticky top-0 z-20 transition-colors">
         <div className="flex items-center gap-2">
@@ -949,12 +950,12 @@ export default function App() {
         </div>
         {user && (
           <div className="flex items-center gap-3">
-             {/* Dark Mode Toggle */}
-             <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-300">
-               {darkMode ? '☀️' : '🌙'}
-             </button>
+            {/* Dark Mode Toggle */}
+            <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-300">
+              {darkMode ? '☀️' : '🌙'}
+            </button>
             {currentCarnival && (
-              <button 
+              <button
                 onClick={toggleRoadMode}
                 disabled={isSendingRoadReadyAlert}
                 className="px-3 py-1 text-xs font-bold rounded-full transition bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-200 disabled:opacity-50"
@@ -965,7 +966,7 @@ export default function App() {
             {!isPremium ? (
               <span className="text-xs text-gray-400 dark:text-gray-500">Free Plan</span>
             ) : (
-               <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-bold">Premium</span>
+              <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-bold">Premium</span>
             )}
             <button onClick={handleSignOut} className="text-sm font-medium text-gray-500 hover:text-red-500 dark:text-gray-400">Sign Out</button>
           </div>
@@ -980,7 +981,7 @@ export default function App() {
         {!user ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
             {showEmailAuth ? (
-              <EmailAuthForm 
+              <EmailAuthForm
                 onBack={() => setShowEmailAuth(false)}
                 onSuccess={() => setShowEmailAuth(false)}
               />
@@ -988,8 +989,8 @@ export default function App() {
               <>
                 <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">Welcome Back</h2>
                 <div className="space-y-3 w-full max-w-sm">
-                  <button 
-                    onClick={handleSignIn} 
+                  <button
+                    onClick={handleSignIn}
                     className="w-full flex items-center justify-center px-6 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-white transition-colors"
                   >
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 mr-3" alt="G" />
@@ -1000,15 +1001,15 @@ export default function App() {
                     <span className="text-sm">or</span>
                     <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
                   </div>
-                  <button 
-                    onClick={() => setShowEmailAuth(true)} 
+                  <button
+                    onClick={() => setShowEmailAuth(true)}
                     className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-pink-500 to-orange-500 rounded-lg shadow-sm hover:opacity-90 text-white font-semibold transition-opacity"
                   >
                     Continue with Email
                   </button>
                 </div>
-                <button 
-                  onClick={() => setShowLanding(true)} 
+                <button
+                  onClick={() => setShowLanding(true)}
                   className="mt-6 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   Back to home
@@ -1052,7 +1053,7 @@ export default function App() {
                     'tobago': 'Tobago Carnival'
                   };
                   const searchName = carnivalNameMap[c.id] || c.name;
-                  const matchingCarnival = carnivalData.find(cd => 
+                  const matchingCarnival = carnivalData.find(cd =>
                     cd.name.toLowerCase().includes(searchName.toLowerCase()) ||
                     searchName.toLowerCase().includes(cd.name.split('(')[0].trim().toLowerCase())
                   );
@@ -1110,7 +1111,7 @@ export default function App() {
                         <p className="text-white/80 text-xs">Go ad-free and get a Premium badge!</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setActiveTab('Info')}
                       className="px-4 py-2 bg-white text-orange-600 font-bold text-sm rounded-full hover:bg-gray-100 transition"
                     >
@@ -1149,7 +1150,7 @@ export default function App() {
                         <p className="text-white/80 text-xs">Changes sync with {squadMembers.length} squad member(s)</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={loadSharedCarnivalData}
                       disabled={loadingSharedData}
                       className="px-3 py-1 bg-white/20 text-white text-xs font-medium rounded-full hover:bg-white/30 transition disabled:opacity-50"
@@ -1212,41 +1213,41 @@ export default function App() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Band Name</label>
-                            <input 
-                              type="text" 
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" 
+                            <input
+                              type="text"
+                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
                               value={costumeDetails.band || (currentCarnival.costume?.band || '')}
-                              onChange={(e) => setCostumeDetails({...costumeDetails, band: e.target.value})}
+                              onChange={(e) => setCostumeDetails({ ...costumeDetails, band: e.target.value })}
                               placeholder="e.g. Tribe, Bliss..."
                             />
                           </div>
                           <div>
                             <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Section</label>
-                            <input 
-                              type="text" 
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" 
+                            <input
+                              type="text"
+                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
                               value={costumeDetails.section || (currentCarnival.costume?.section || '')}
-                              onChange={(e) => setCostumeDetails({...costumeDetails, section: e.target.value})}
+                              onChange={(e) => setCostumeDetails({ ...costumeDetails, section: e.target.value })}
                               placeholder="e.g. The Monarch"
                             />
                           </div>
                           <div>
                             <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Total Cost</label>
-                            <input 
-                              type="number" 
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" 
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
                               value={costumeDetails.total || (currentCarnival.costume?.total || '')}
-                              onChange={(e) => setCostumeDetails({...costumeDetails, total: e.target.value})}
+                              onChange={(e) => setCostumeDetails({ ...costumeDetails, total: e.target.value })}
                               placeholder="0.00"
                             />
                           </div>
                           <div>
                             <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Amount Paid</label>
-                            <input 
-                              type="number" 
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white" 
+                            <input
+                              type="number"
+                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
                               value={costumeDetails.paid || (currentCarnival.costume?.paid || '')}
-                              onChange={(e) => setCostumeDetails({...costumeDetails, paid: e.target.value})}
+                              onChange={(e) => setCostumeDetails({ ...costumeDetails, paid: e.target.value })}
                               placeholder="0.00"
                             />
                           </div>
@@ -1261,140 +1262,140 @@ export default function App() {
                   {/* TAB: SCHEDULE (Free) */}
                   {activeTab === 'Schedule' && (
                     <div className="animate-fadeIn">
-                       <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Itinerary</h3>
-                       
-                       {/* Popular Events - Free for all users */}
-                       {curatedEvents.length > 0 && (
-                         <div className="mb-6">
-                           <p className="text-xs font-bold text-gray-400 uppercase mb-2">Popular Events (Click to Add)</p>
-                           <div className="flex gap-2 overflow-x-auto pb-2">
-                             {curatedEvents.map((evt, i) => (
-                               <button 
-                                 key={i} 
-                                 onClick={() => addCuratedEvent(evt)}
-                                 className="min-w-[140px] p-3 text-left rounded-lg border transition bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800"
-                               >
-                                 <div className="font-bold text-blue-900 dark:text-blue-300 text-sm">{evt.title}</div>
-                                 <div className="text-xs text-blue-700 dark:text-blue-400 opacity-75 truncate">{evt.note}</div>
-                               </button>
-                             ))}
-                           </div>
-                         </div>
-                       )}
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Itinerary</h3>
 
-                       {/* Live Events - Premium Feature */}
-                       {isPremium ? (
-                         <div className="mb-6">
-                           <div className="flex items-center justify-between mb-2">
-                             <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1">
-                               <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                               Live Events from Fete Sites
-                             </p>
-                             {scrapedEventsLastUpdated && (
-                               <span className="text-xs text-gray-400">
-                                 Updated: {new Date(scrapedEventsLastUpdated).toLocaleDateString()}
-                               </span>
-                             )}
-                           </div>
-                           {isLoadingScrapedEvents ? (
-                             <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                               <div className="animate-spin inline-block w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full mb-2"></div>
-                               <p className="text-sm">Loading live events...</p>
-                             </div>
-                           ) : scrapedEvents.length > 0 ? (
-                             <div className="space-y-2 max-h-64 overflow-y-auto">
-                               {scrapedEvents.slice(0, 10).map((evt, i) => (
-                                 <div 
-                                   key={evt.id || i}
-                                   className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:shadow-md transition"
-                                 >
-                                   {evt.image && (
-                                     <img src={evt.image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
-                                   )}
-                                   <div className="flex-1 min-w-0">
-                                     <h5 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate">{evt.title}</h5>
-                                     {evt.date && (
-                                       <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                                         {new Date(evt.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                         {evt.time && ` at ${evt.time}`}
-                                       </p>
-                                     )}
-                                     {evt.venue && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{evt.venue}</p>}
-                                     <p className="text-xs text-gray-400">via {evt.source}</p>
-                                   </div>
-                                   <div className="flex gap-1 flex-shrink-0">
-                                     {evt.url && (
-                                       <a 
-                                         href={evt.url} 
-                                         target="_blank" 
-                                         rel="noopener noreferrer"
-                                         className="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                                       >
-                                         Tickets
-                                       </a>
-                                     )}
-                                     <button
-                                       onClick={() => addCuratedEvent({ title: evt.title, note: evt.venue || `via ${evt.source}` })}
-                                       className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                                     >
-                                       + Add
-                                     </button>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
-                           ) : (
-                             <div className="text-center py-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                               <p className="text-sm text-emerald-700 dark:text-emerald-400">No live events found for this carnival yet.</p>
-                               <p className="text-xs text-gray-500 mt-1">Events are updated daily from fetelist.com & frontlineticketing.com</p>
-                             </div>
-                           )}
-                         </div>
-                       ) : (
-                         <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-                           <div className="flex items-center gap-3">
-                             <span className="text-2xl">🎉</span>
-                             <div className="flex-1">
-                               <p className="font-bold text-amber-900 dark:text-amber-300">Unlock Live Event Listings</p>
-                               <p className="text-xs text-amber-700 dark:text-amber-400">Premium members get daily-updated fete listings from fetelist.com & frontlineticketing.com</p>
-                             </div>
-                             <button 
-                               onClick={() => setActiveTab('Info')}
-                               className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold rounded-lg hover:opacity-90 flex-shrink-0"
-                             >
-                               Upgrade
-                             </button>
-                           </div>
-                         </div>
-                       )}
-
-                       <div className="space-y-4 mb-6">
-                        {(currentCarnival.schedule || []).map((event) => (
-                              <div key={event.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-blue-400 relative group">
-                                <div className="text-center min-w-[60px]">
-                                  <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(event.datetime).toLocaleDateString(undefined, {month:'short'})}</span>
-                                  <span className="block text-xl font-black text-gray-800 dark:text-white">{new Date(event.datetime).getDate()}</span>
-                                  <span className="block text-xs text-gray-500 dark:text-gray-400">{new Date(event.datetime).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'})}</span>
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="font-bold text-gray-800 dark:text-white">{event.title}</h4>
-                                  {event.note && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{event.note}</p>}
-                                  {event.addedBy && isCollaborative && (
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                      Added by {event.addedBy.email?.split('@')[0] || 'squad member'}
-                                    </p>
-                                  )}
-                                </div>
-                                <button onClick={() => removeScheduleItem(event.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">×</button>
-                              </div>
+                      {/* Popular Events - Free for all users */}
+                      {curatedEvents.length > 0 && (
+                        <div className="mb-6">
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-2">Popular Events (Click to Add)</p>
+                          <div className="flex gap-2 overflow-x-auto pb-2">
+                            {curatedEvents.map((evt, i) => (
+                              <button
+                                key={i}
+                                onClick={() => addCuratedEvent(evt)}
+                                className="min-w-[140px] p-3 text-left rounded-lg border transition bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800"
+                              >
+                                <div className="font-bold text-blue-900 dark:text-blue-300 text-sm">{evt.title}</div>
+                                <div className="text-xs text-blue-700 dark:text-blue-400 opacity-75 truncate">{evt.note}</div>
+                              </button>
                             ))}
-                       </div>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
-                          <input type="text" placeholder="Event Name" value={newScheduleName} onChange={(e) => setNewScheduleName(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                          <input type="datetime-local" value={newScheduleDate} onChange={(e) => setNewScheduleDate(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                          <input type="text" placeholder="Notes" value={newScheduleNote} onChange={(e) => setNewScheduleNote(e.target.value)} className="p-2 border rounded md:col-span-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                          <button onClick={addScheduleItem} className="md:col-span-2 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">Add Event</button>
-                       </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Live Events - Premium Feature */}
+                      {isPremium ? (
+                        <div className="mb-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1">
+                              <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                              Live Events from Fete Sites
+                            </p>
+                            {scrapedEventsLastUpdated && (
+                              <span className="text-xs text-gray-400">
+                                Updated: {new Date(scrapedEventsLastUpdated).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          {isLoadingScrapedEvents ? (
+                            <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                              <div className="animate-spin inline-block w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full mb-2"></div>
+                              <p className="text-sm">Loading live events...</p>
+                            </div>
+                          ) : scrapedEvents.length > 0 ? (
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {scrapedEvents.slice(0, 10).map((evt, i) => (
+                                <div
+                                  key={evt.id || i}
+                                  className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:shadow-md transition"
+                                >
+                                  {evt.image && (
+                                    <img src={evt.image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <h5 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate">{evt.title}</h5>
+                                    {evt.date && (
+                                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                                        {new Date(evt.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                        {evt.time && ` at ${evt.time}`}
+                                      </p>
+                                    )}
+                                    {evt.venue && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{evt.venue}</p>}
+                                    <p className="text-xs text-gray-400">via {evt.source}</p>
+                                  </div>
+                                  <div className="flex gap-1 flex-shrink-0">
+                                    {evt.url && (
+                                      <a
+                                        href={evt.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                                      >
+                                        Tickets
+                                      </a>
+                                    )}
+                                    <button
+                                      onClick={() => addCuratedEvent({ title: evt.title, note: evt.venue || `via ${evt.source}` })}
+                                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                    >
+                                      + Add
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                              <p className="text-sm text-emerald-700 dark:text-emerald-400">No live events found for this carnival yet.</p>
+                              <p className="text-xs text-gray-500 mt-1">Events are updated daily from fetelist.com & frontlineticketing.com</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">🎉</span>
+                            <div className="flex-1">
+                              <p className="font-bold text-amber-900 dark:text-amber-300">Unlock Live Event Listings</p>
+                              <p className="text-xs text-amber-700 dark:text-amber-400">Premium members get daily-updated fete listings from fetelist.com & frontlineticketing.com</p>
+                            </div>
+                            <button
+                              onClick={() => setActiveTab('Info')}
+                              className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold rounded-lg hover:opacity-90 flex-shrink-0"
+                            >
+                              Upgrade
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-4 mb-6">
+                        {(currentCarnival.schedule || []).map((event) => (
+                          <div key={event.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-blue-400 relative group">
+                            <div className="text-center min-w-[60px]">
+                              <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(event.datetime).toLocaleDateString(undefined, { month: 'short' })}</span>
+                              <span className="block text-xl font-black text-gray-800 dark:text-white">{new Date(event.datetime).getDate()}</span>
+                              <span className="block text-xs text-gray-500 dark:text-gray-400">{new Date(event.datetime).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-bold text-gray-800 dark:text-white">{event.title}</h4>
+                              {event.note && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{event.note}</p>}
+                              {event.addedBy && isCollaborative && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                  Added by {event.addedBy.email?.split('@')[0] || 'squad member'}
+                                </p>
+                              )}
+                            </div>
+                            <button onClick={() => removeScheduleItem(event.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">×</button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
+                        <input type="text" placeholder="Event Name" value={newScheduleName} onChange={(e) => setNewScheduleName(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                        <input type="datetime-local" value={newScheduleDate} onChange={(e) => setNewScheduleDate(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                        <input type="text" placeholder="Notes" value={newScheduleNote} onChange={(e) => setNewScheduleNote(e.target.value)} className="p-2 border rounded md:col-span-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                        <button onClick={addScheduleItem} className="md:col-span-2 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">Add Event</button>
+                      </div>
                     </div>
                   )}
 
@@ -1411,7 +1412,7 @@ export default function App() {
                         <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
                           <span>🔗</span> Squad Sharing
                         </h4>
-                        
+
                         {/* Status Messages */}
                         {squadShareError && (
                           <div className="mb-3 p-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-sm">
@@ -1431,7 +1432,7 @@ export default function App() {
                             {squadShareCode ? (
                               <div className="flex items-center gap-2">
                                 <span className="text-2xl font-mono font-bold text-purple-600 dark:text-purple-400 tracking-wider">{squadShareCode}</span>
-                                <button 
+                                <button
                                   onClick={copyShareCode}
                                   className="text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-3 py-1 rounded hover:bg-purple-200"
                                 >
@@ -1439,7 +1440,7 @@ export default function App() {
                                 </button>
                               </div>
                             ) : (
-                              <button 
+                              <button
                                 onClick={createSquadShareCode}
                                 disabled={isCreatingShare}
                                 className="w-full py-2 bg-purple-600 text-white rounded font-medium hover:bg-purple-700 disabled:opacity-50"
@@ -1453,15 +1454,15 @@ export default function App() {
                           <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Join a friend's squad:</p>
                             <div className="flex gap-2">
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 placeholder="Enter 6-digit code"
                                 value={joinCode}
                                 onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
                                 className="flex-1 p-2 border rounded font-mono text-center tracking-wider uppercase dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 maxLength={6}
                               />
-                              <button 
+                              <button
                                 onClick={joinSquadByCode}
                                 disabled={isJoiningSquad || joinCode.length !== 6}
                                 className="bg-pink-600 text-white px-4 rounded hover:bg-pink-700 disabled:opacity-50"
@@ -1471,13 +1472,13 @@ export default function App() {
                             </div>
                           </div>
                         </div>
-                        
+
                         {/* Premium: Road Ready Notification Toggle */}
                         {isPremium && (
                           <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-700">
                             <label className="flex items-center gap-3 cursor-pointer">
-                              <input 
-                                type="checkbox" 
+                              <input
+                                type="checkbox"
                                 checked={notifySquadOnRoadReady}
                                 onChange={(e) => setNotifySquadOnRoadReady(e.target.checked)}
                                 className="w-5 h-5 text-purple-600 rounded"
@@ -1499,7 +1500,7 @@ export default function App() {
                             <h4 className="font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
                               <span>👥</span> Connected Squad Members
                             </h4>
-                            <button 
+                            <button
                               onClick={fetchSquadMembers}
                               className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded hover:bg-green-200 dark:hover:bg-green-800"
                             >
@@ -1509,30 +1510,27 @@ export default function App() {
                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">These users joined using your share code and can see this carnival plan. Click "Refresh" to check for new members.</p>
                           <div className="flex flex-wrap gap-2">
                             {squadMembers.map((member, idx) => (
-                              <div 
-                                key={member.uid || idx} 
-                                className={`flex items-center gap-2 px-3 py-2 rounded-full border ${
-                                  member.role === 'owner' 
-                                    ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800' 
-                                    : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800'
-                                }`}
+                              <div
+                                key={member.uid || idx}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-full border ${member.role === 'owner'
+                                  ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800'
+                                  : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800'
+                                  }`}
                               >
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
                                   {(member.email || member.uid || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className={`font-medium text-sm ${
-                                    member.role === 'owner' 
-                                      ? 'text-yellow-800 dark:text-yellow-300' 
-                                      : 'text-green-800 dark:text-green-300'
-                                  }`}>
+                                  <span className={`font-medium text-sm ${member.role === 'owner'
+                                    ? 'text-yellow-800 dark:text-yellow-300'
+                                    : 'text-green-800 dark:text-green-300'
+                                    }`}>
                                     {member.email || `User ${member.uid?.slice(0, 6)}...`}
                                   </span>
-                                  <span className={`text-xs ${
-                                    member.role === 'owner' 
-                                      ? 'text-yellow-600 dark:text-yellow-400' 
-                                      : 'text-green-600 dark:text-green-400'
-                                  }`}>
+                                  <span className={`text-xs ${member.role === 'owner'
+                                    ? 'text-yellow-600 dark:text-yellow-400'
+                                    : 'text-green-600 dark:text-green-400'
+                                    }`}>
                                     {member.role === 'owner' ? '👑 Owner' : '✓ Member'}
                                   </span>
                                 </div>
@@ -1546,9 +1544,9 @@ export default function App() {
                       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-4">
                         <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Quick Add (Offline List)</h4>
                         <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                          <input 
-                            type="text" 
-                            placeholder="Add friend's name" 
+                          <input
+                            type="text"
+                            placeholder="Add friend's name"
                             value={newSquadMember}
                             onChange={(e) => setNewSquadMember(e.target.value)}
                             className="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
@@ -1556,13 +1554,13 @@ export default function App() {
                           <button onClick={addSquadMember} className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 font-medium">Add</button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                           {(currentCarnival.squad || []).map(member => (
-                             <div key={member.id} className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-full border border-purple-100 dark:border-purple-800">
-                               <span className="text-purple-900 dark:text-purple-200 font-medium">{member.name}</span>
-                               <button onClick={() => removeSquadMember(member.id)} className="text-purple-400 hover:text-red-500 text-xs font-bold">×</button>
-                             </div>
-                           ))}
-                           {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
+                          {(currentCarnival.squad || []).map(member => (
+                            <div key={member.id} className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-full border border-purple-100 dark:border-purple-800">
+                              <span className="text-purple-900 dark:text-purple-200 font-medium">{member.name}</span>
+                              <button onClick={() => removeSquadMember(member.id)} className="text-purple-400 hover:text-red-500 text-xs font-bold">×</button>
+                            </div>
+                          ))}
+                          {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
                         </div>
                       </div>
                       {/* Inline Ad for free users */}
@@ -1631,40 +1629,40 @@ export default function App() {
                   {activeTab === 'Info' && (
                     <div className="animate-fadeIn text-center">
                       <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
-                         <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
-                         <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
-                         <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
-                         
-                         <button 
-                           onClick={handleExport} 
-                           className="flex items-center justify-center gap-2 mx-auto px-6 py-3 rounded-full font-bold transition-colors bg-white text-gray-900 hover:bg-gray-100"
-                         >
-                           <span>📥</span> Export Itinerary
-                         </button>
+                        <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
+                        <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
+
+                        <button
+                          onClick={handleExport}
+                          className="flex items-center justify-center gap-2 mx-auto px-6 py-3 rounded-full font-bold transition-colors bg-white text-gray-900 hover:bg-gray-100"
+                        >
+                          <span>📥</span> Export Itinerary
+                        </button>
                       </div>
-                      
+
                       {/* Premium Subscription Buttons (Upsell) */}
                       {!isPremium && (
-                         <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
-                           <h3 className="font-bold text-yellow-800 dark:text-yellow-400 mb-2">Become a Premium Supporter</h3>
-                           <p className="text-yellow-700 dark:text-yellow-500 text-sm mb-4">Get an ad-free experience and a Premium badge to show your support!</p>
-                           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                              <button 
-                                onClick={() => handleSubscribe("monthly")} 
-                                disabled={isCheckingOut}
-                                className="px-4 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {isCheckingOut ? "Loading..." : "Monthly - $4.99"}
-                              </button>
-                              <button 
-                                onClick={() => handleSubscribe("yearly")} 
-                                disabled={isCheckingOut}
-                                className="px-4 py-2 bg-yellow-400 text-yellow-900 font-bold rounded shadow hover:bg-yellow-500 disabled:opacity-50"
-                              >
-                                {isCheckingOut ? "Loading..." : "Yearly - $39.99"}
-                              </button>
-                           </div>
-                         </div>
+                        <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
+                          <h3 className="font-bold text-yellow-800 dark:text-yellow-400 mb-2">Become a Premium Supporter</h3>
+                          <p className="text-yellow-700 dark:text-yellow-500 text-sm mb-4">Get an ad-free experience and a Premium badge to show your support!</p>
+                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <button
+                              onClick={() => handleSubscribe("monthly")}
+                              disabled={isCheckingOut}
+                              className="px-4 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {isCheckingOut ? "Loading..." : "Monthly - $4.99"}
+                            </button>
+                            <button
+                              onClick={() => handleSubscribe("yearly")}
+                              disabled={isCheckingOut}
+                              className="px-4 py-2 bg-yellow-400 text-yellow-900 font-bold rounded shadow hover:bg-yellow-500 disabled:opacity-50"
+                            >
+                              {isCheckingOut ? "Loading..." : "Yearly - $39.99"}
+                            </button>
+                          </div>
+                        </div>
                       )}
 
                       {/* Account Settings */}
@@ -1693,36 +1691,36 @@ export default function App() {
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto">
         <div className="max-w-4xl mx-auto text-center">
           <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-            <button 
-              onClick={() => setActiveLegalPage('privacy')} 
+            <button
+              onClick={() => setActiveLegalPage('privacy')}
               className="hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Privacy
             </button>
             <span>|</span>
-            <button 
-              onClick={() => setActiveLegalPage('terms')} 
+            <button
+              onClick={() => setActiveLegalPage('terms')}
               className="hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Terms
             </button>
             <span>|</span>
-            <button 
-              onClick={() => setActiveLegalPage('cookies')} 
+            <button
+              onClick={() => setActiveLegalPage('cookies')}
               className="hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Cookies
             </button>
             <span>|</span>
-            <button 
-              onClick={() => setActiveLegalPage('refund')} 
+            <button
+              onClick={() => setActiveLegalPage('refund')}
               className="hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Refunds
             </button>
             <span>|</span>
-            <button 
-              onClick={() => setActiveLegalPage('contact')} 
+            <button
+              onClick={() => setActiveLegalPage('contact')}
               className="hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Contact
@@ -1733,6 +1731,11 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {/* Vibes Player (Floating) */}
+      {user && (
+        <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
+      )}
     </div>
   );
 }
