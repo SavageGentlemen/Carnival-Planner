@@ -66,11 +66,6 @@ export default function VibesPlayer({ activeCarnivalId, isPremium }) {
                         <span className="font-bold text-sm">
                             {isMinimized ? 'Carnival Vibes' : 'Soca Vibes Player'}
                         </span>
-                        {!isMinimized && (
-                            <span className="text-[10px] opacity-75 uppercase tracking-wider">
-                                Playing: {playlistKey.replace('default', activeCarnivalId || 'General')}
-                            </span>
-                        )}
                     </div>
                 </div>
 
