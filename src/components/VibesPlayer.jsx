@@ -4,7 +4,7 @@ import { Music, X, Minimize2, Maximize2, ExternalLink } from 'lucide-react';
 // curated soca playlists for major carnivals
 const PLAYLISTS = {
     // Trinidad - 'Soca 2025' (Spotify Official)
-    'trinidad': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC',
+    'trinidad': 'https://open.spotify.com/embed/playlist/2H61cIhlAeFVmreSMqvui3',
     // Jamaica - 'Dancehall Official'
     'jamaica': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX82pCGH5USnM',
     // Miami - 'Soca Classics'
@@ -17,8 +17,8 @@ const PLAYLISTS = {
     'stkitts': 'https://open.spotify.com/embed/playlist/37i9dQZF1E4v6hGc9x5z4y',
     'stcroix': 'https://open.spotify.com/embed/playlist/37i9dQZF1E4v6hGc9x5z4y',
     'stthomas': 'https://open.spotify.com/embed/playlist/37i9dQZF1E4v6hGc9x5z4y',
-    // Default - 'Soca Classics' (Verified Backup)
-    'default': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC'
+    // Default - User Provided Playlist (Soca 2024/2025)
+    'default': 'https://open.spotify.com/embed/playlist/28bCuQ5IhyPbmvJx30ZMea'
 };
 
 export default function VibesPlayer({ activeCarnivalId, isPremium }) {
