@@ -137,7 +137,7 @@ export default function SplashPage({ onGetStarted, logo, onLegalPage }) {
             </span>
             <br />
             <span className="bg-gradient-to-r from-pink-400 via-yellow-300 to-orange-400 bg-clip-text text-transparent">
-              Perfect Carnival (AGENT UPDATE)
+              Perfect Carnival
             </span>
           </h1>
 
