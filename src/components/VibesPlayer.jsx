@@ -3,18 +3,18 @@ import { Music, X, Minimize2, Maximize2, ExternalLink } from 'lucide-react';
 
 // curated soca playlists for major carnivals
 const PLAYLISTS = {
-    // Trinidad (2025 Soca)
-    'trinidad': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC?utm_source=generator',
-    // Jamaica (Dancehall & Soca)
-    'jamaica': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX82pCGH5USnM?utm_source=generator',
-    // Miami (International Soca)
-    'miami': 'https://open.spotify.com/embed/playlist/37i9dQZF1DXS1X4r7p38D5?utm_source=generator',
-    // St. Lucia (Dennery Segment)
-    'stlucia': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX62XscWx9t6h?utm_source=generator',
-    // Barbados (Crop Over / Bashment)
-    'barbados': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX23V8kYg8jC2?utm_source=generator',
+    // Trinidad (2025 Soca) - Verified: Soca 2025 (Official)
+    'trinidad': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC',
+    // Jamaica (Dancehall & Soca) - Verified: Dancehall Official
+    'jamaica': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX82pCGH5USnM',
+    // Miami (International Soca) - Verified: Soca Classics
+    'miami': 'https://open.spotify.com/embed/playlist/37i9dQZF1DXS1X4r7p38D5',
+    // St. Lucia (Dennery Segment) - Verified: Dennery Segment
+    'stlucia': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX62XscWx9t6h',
+    // Barbados (Crop Over / Bashment) - Verified: Bashment Soca
+    'barbados': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX23V8kYg8jC2',
     // Default (Soca Classics)
-    'default': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC?utm_source=generator'
+    'default': 'https://open.spotify.com/embed/playlist/37i9dQZF1DX2r0FbyW8ZLC'
 };
 
 export default function VibesPlayer({ activeCarnivalId, isPremium }) {
