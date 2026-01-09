@@ -15,16 +15,8 @@ const firebaseConfig = {
 };
 // ----------------------------
 
-const app = initializeApp(firebaseConfig);
-console.log("🔥 Firebase Init with Key:", firebaseConfig.apiKey); // Debugging Key
-
-// EXPORT these services so App.jsx can use them
-export const auth = getAuth(app);
-
-// Initialize Firestore with long-polling to bypass WebSocket issues (Client Offline error)
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-});
+// Initialize Firestore (standard mode, no long-polling forced)
+export const db = getFirestore(app);
 
 export const storage = getStorage(app);
 
