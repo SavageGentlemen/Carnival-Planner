@@ -20,8 +20,11 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Initialize Firestore (standard mode, using WebSockets)
-import { getFirestore } from "firebase/firestore";
-export const db = getFirestore(app);
+import { initializeFirestore } from "firebase/firestore";
+// Connect to the specific 'squad-db' database used in production
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, 'squad-db');
 
 export const storage = getStorage(app);
 
