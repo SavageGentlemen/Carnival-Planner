@@ -31,6 +31,7 @@ import InstallPrompt from './components/InstallPrompt';
 import { ContactPage, SupportAdmin } from './components/ContactSupport';
 import AccountSettings from './components/AccountSettings';
 import SocaPassportTab from './components/SocaPassportTab';
+import HomeHub from './components/HomeHub';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad } from './services/squadService'; // Squad Service
@@ -1213,671 +1214,690 @@ export default function App() {
               </div>
             </div>
 
-            {/* DASHBOARD */}
+            {/* HOME HUB / DASHBOARD */}
             {!currentCarnival ? (
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-dashed border-gray-300 dark:border-gray-600">
-                <p className="text-gray-500 dark:text-gray-400">Select a carnival above to begin.</p>
-              </div>
+              <HomeHub
+                user={user}
+                activeCarnivalId={null}
+                carnivalData={carnivalData}
+                scrapedEvents={scrapedEvents}
+                squadMembers={[]}
+                budgetTotal={0}
+                budgetSpent={0}
+                isPremium={isPremium}
+                onAction={setActiveTab}
+              />
             ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
-                {/* PREMIUM UPGRADE BANNER - Only shown to free users */}
-                {!isPremium && (
-                  <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">✨</span>
-                      <div>
-                        <p className="text-white font-bold text-sm">Unlock Premium Features</p>
-                        <p className="text-white/80 text-xs">Go ad-free and get a Premium badge!</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('Info')}
-                      className="px-4 py-2 bg-white text-orange-600 font-bold text-sm rounded-full hover:bg-gray-100 transition"
-                    >
-                      Upgrade
-                    </button>
-                  </div>
-                )}
-                {/* PROMO ADS - Only shown to free users */}
-                {!isPremium && (
-                  <div className="border-b border-gray-100 dark:border-gray-700">
-                    <PromoAd placement="banner" onUpgradeClick={() => setActiveTab('Info')} />
-                  </div>
-                )}
-                {/* TABS */}
-                <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
-                  {[
-                    'Budget', 'Costume', 'Schedule', 'Squad', 'Passport',
-                    'Packing', 'Map', 'Media', 'Info'
-                  ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => {
-                        console.log('Switching to tab:', tab, 'isPremium:', isPremium);
-                        setActiveTab(tab);
-                      }}
-                      className={`flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                    >
-                      {tab}
-                      {['Map', 'Media', 'Passport'].includes(tab) && <span className="ml-1 text-xs text-yellow-500">★</span>}
-                      {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
-                    </button>
-                  ))}
-                </div>
-
-                {/* COLLABORATIVE MODE INDICATOR */}
-                {isCollaborative && (
-                  <div className="bg-gradient-to-r from-green-500 to-teal-500 px-4 py-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white text-lg">👥</span>
-                      <div>
-                        <p className="text-white font-medium text-sm">Squad Mode Active</p>
-                        <p className="text-white/80 text-xs">Changes sync with {squadMembers.length} squad member(s)</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={loadSharedCarnivalData}
-                      disabled={loadingSharedData}
-                      className="px-3 py-1 bg-white/20 text-white text-xs font-medium rounded-full hover:bg-white/30 transition disabled:opacity-50"
-                    >
-                      {loadingSharedData ? 'Syncing...' : 'Refresh'}
-                    </button>
-                  </div>
-                )}
-
-                <div className="p-6">
-                  {/* TAB: BUDGET (Free) */}
-                  {activeTab === 'Budget' && (
-                    <div className="animate-fadeIn">
-                      <div className="flex justify-between items-end mb-6">
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Budget</h3>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Total Estimate</p>
-                          <p className="text-2xl font-black text-green-600 dark:text-green-400">${budgetTotal.toFixed(2)}</p>
+              <>
+                <HomeHub
+                  user={user}
+                  activeCarnivalId={activeCarnivalId}
+                  carnivalData={carnivalData}
+                  scrapedEvents={scrapedEvents}
+                  squadMembers={squadMembers}
+                  budgetTotal={20000} // Placeholder Goal
+                  budgetSpent={budgetTotal} // This variable holds the sum of costs
+                  isPremium={isPremium}
+                  onAction={setActiveTab}
+                />
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
+                  {/* PREMIUM UPGRADE BANNER - Only shown to free users */}
+                  {!isPremium && (
+                    <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">✨</span>
+                        <div>
+                          <p className="text-white font-bold text-sm">Unlock Premium Features</p>
+                          <p className="text-white/80 text-xs">Go ad-free and get a Premium badge!</p>
                         </div>
                       </div>
-                      <div className="space-y-3 mb-6">
-                        {(currentCarnival.budget || []).map((item) => (
-                          <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group hover:bg-gray-100 dark:hover:bg-gray-600">
+                      <button
+                        onClick={() => setActiveTab('Info')}
+                        className="px-4 py-2 bg-white text-orange-600 font-bold text-sm rounded-full hover:bg-gray-100 transition"
+                      >
+                        Upgrade
+                      </button>
+                    </div>
+                  )}
+                  {/* PROMO ADS - Only shown to free users */}
+                  {!isPremium && (
+                    <div className="border-b border-gray-100 dark:border-gray-700">
+                      <PromoAd placement="banner" onUpgradeClick={() => setActiveTab('Info')} />
+                    </div>
+                  )}
+                  {/* TABS */}
+                  <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
+                    {[
+                      'Budget', 'Costume', 'Schedule', 'Squad', 'Passport',
+                      'Packing', 'Map', 'Media', 'Info'
+                    ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => {
+                          console.log('Switching to tab:', tab, 'isPremium:', isPremium);
+                          setActiveTab(tab);
+                        }}
+                        className={`flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                      >
+                        {tab}
+                        {['Map', 'Media', 'Passport'].includes(tab) && <span className="ml-1 text-xs text-yellow-500">★</span>}
+                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* COLLABORATIVE MODE INDICATOR */}
+                  {isCollaborative && (
+                    <div className="bg-gradient-to-r from-green-500 to-teal-500 px-4 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white text-lg">👥</span>
+                        <div>
+                          <p className="text-white font-medium text-sm">Squad Mode Active</p>
+                          <p className="text-white/80 text-xs">Changes sync with {squadMembers.length} squad member(s)</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={loadSharedCarnivalData}
+                        disabled={loadingSharedData}
+                        className="px-3 py-1 bg-white/20 text-white text-xs font-medium rounded-full hover:bg-white/30 transition disabled:opacity-50"
+                      >
+                        {loadingSharedData ? 'Syncing...' : 'Refresh'}
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="p-6">
+                    {/* TAB: BUDGET (Free) */}
+                    {activeTab === 'Budget' && (
+                      <div className="animate-fadeIn">
+                        <div className="flex justify-between items-end mb-6">
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Budget</h3>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Total Estimate</p>
+                            <p className="text-2xl font-black text-green-600 dark:text-green-400">${budgetTotal.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-3 mb-6">
+                          {(currentCarnival.budget || []).map((item) => (
+                            <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group hover:bg-gray-100 dark:hover:bg-gray-600">
+                              <div>
+                                <span className="font-medium text-gray-700 dark:text-gray-200">{item.name}</span>
+                                {item.addedBy && isCollaborative && (
+                                  <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                                    by {item.addedBy.email?.split('@')[0] || 'squad member'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <span className="font-bold text-gray-900 dark:text-white">${item.cost.toFixed(2)}</span>
+                                <button onClick={() => removeBudgetItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <div className="flex gap-2 flex-1">
+                            <input type="text" placeholder="Item" value={newBudgetName} onChange={(e) => setNewBudgetName(e.target.value)} className="flex-[2] p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                            <input type="number" placeholder="0.00" value={newBudgetCost} onChange={(e) => setNewBudgetCost(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                          </div>
+                          <button onClick={addBudgetItem} className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Add</button>
+                        </div>
+                        {/* Inline Ad for free users */}
+                        {!isPremium && (
+                          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* TAB: COSTUME (Free) */}
+                    {activeTab === 'Costume' && (
+                      <div className="animate-fadeIn">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Mas Costume</h3>
+                        <div className="bg-pink-50 dark:bg-pink-900/20 p-6 rounded-xl border border-pink-100 dark:border-pink-900 mb-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <span className="font-medium text-gray-700 dark:text-gray-200">{item.name}</span>
-                              {item.addedBy && isCollaborative && (
-                                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                                  by {item.addedBy.email?.split('@')[0] || 'squad member'}
+                              <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Band Name</label>
+                              <input
+                                type="text"
+                                className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
+                                value={costumeDetails.band || (currentCarnival.costume?.band || '')}
+                                onChange={(e) => setCostumeDetails({ ...costumeDetails, band: e.target.value })}
+                                placeholder="e.g. Tribe, Bliss..."
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Section</label>
+                              <input
+                                type="text"
+                                className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
+                                value={costumeDetails.section || (currentCarnival.costume?.section || '')}
+                                onChange={(e) => setCostumeDetails({ ...costumeDetails, section: e.target.value })}
+                                placeholder="e.g. The Monarch"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Total Cost</label>
+                              <input
+                                type="number"
+                                className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
+                                value={costumeDetails.total || (currentCarnival.costume?.total || '')}
+                                onChange={(e) => setCostumeDetails({ ...costumeDetails, total: e.target.value })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Amount Paid</label>
+                              <input
+                                type="number"
+                                className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
+                                value={costumeDetails.paid || (currentCarnival.costume?.paid || '')}
+                                onChange={(e) => setCostumeDetails({ ...costumeDetails, paid: e.target.value })}
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+                          <button onClick={saveCostume} className="mt-4 w-full py-2 bg-pink-600 text-white font-bold rounded hover:bg-pink-700">
+                            Save Details
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB: SCHEDULE (Free) */}
+                    {activeTab === 'Schedule' && (
+                      <div className="animate-fadeIn">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Itinerary</h3>
+
+                        {/* Popular Events - Free for all users */}
+                        {curatedEvents.length > 0 && (
+                          <div className="mb-6">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Popular Events (Click to Add)</p>
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                              {curatedEvents.map((evt, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => addCuratedEvent(evt)}
+                                  className="min-w-[140px] p-3 text-left rounded-lg border transition bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800"
+                                >
+                                  <div className="font-bold text-blue-900 dark:text-blue-300 text-sm">{evt.title}</div>
+                                  <div className="text-xs text-blue-700 dark:text-blue-400 opacity-75 truncate">{evt.note}</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Live Events - Premium Feature */}
+                        {isPremium ? (
+                          <div className="mb-6">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1">
+                                <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                Live Events from Fete Sites
+                              </p>
+                              {scrapedEventsLastUpdated && (
+                                <span className="text-xs text-gray-400">
+                                  Updated: {new Date(scrapedEventsLastUpdated).toLocaleDateString()}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-4">
-                              <span className="font-bold text-gray-900 dark:text-white">${item.cost.toFixed(2)}</span>
-                              <button onClick={() => removeBudgetItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <div className="flex gap-2 flex-1">
-                          <input type="text" placeholder="Item" value={newBudgetName} onChange={(e) => setNewBudgetName(e.target.value)} className="flex-[2] p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
-                          <input type="number" placeholder="0.00" value={newBudgetCost} onChange={(e) => setNewBudgetCost(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
-                        </div>
-                        <button onClick={addBudgetItem} className="w-full sm:w-auto px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Add</button>
-                      </div>
-                      {/* Inline Ad for free users */}
-                      {!isPremium && (
-                        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-                          <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* TAB: COSTUME (Free) */}
-                  {activeTab === 'Costume' && (
-                    <div className="animate-fadeIn">
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Mas Costume</h3>
-                      <div className="bg-pink-50 dark:bg-pink-900/20 p-6 rounded-xl border border-pink-100 dark:border-pink-900 mb-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Band Name</label>
-                            <input
-                              type="text"
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
-                              value={costumeDetails.band || (currentCarnival.costume?.band || '')}
-                              onChange={(e) => setCostumeDetails({ ...costumeDetails, band: e.target.value })}
-                              placeholder="e.g. Tribe, Bliss..."
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Section</label>
-                            <input
-                              type="text"
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
-                              value={costumeDetails.section || (currentCarnival.costume?.section || '')}
-                              onChange={(e) => setCostumeDetails({ ...costumeDetails, section: e.target.value })}
-                              placeholder="e.g. The Monarch"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Total Cost</label>
-                            <input
-                              type="number"
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
-                              value={costumeDetails.total || (currentCarnival.costume?.total || '')}
-                              onChange={(e) => setCostumeDetails({ ...costumeDetails, total: e.target.value })}
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-pink-800 dark:text-pink-300 uppercase mb-1">Amount Paid</label>
-                            <input
-                              type="number"
-                              className="w-full p-2 border border-pink-200 dark:border-pink-800 rounded dark:bg-gray-700 dark:text-white"
-                              value={costumeDetails.paid || (currentCarnival.costume?.paid || '')}
-                              onChange={(e) => setCostumeDetails({ ...costumeDetails, paid: e.target.value })}
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </div>
-                        <button onClick={saveCostume} className="mt-4 w-full py-2 bg-pink-600 text-white font-bold rounded hover:bg-pink-700">
-                          Save Details
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* TAB: SCHEDULE (Free) */}
-                  {activeTab === 'Schedule' && (
-                    <div className="animate-fadeIn">
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Itinerary</h3>
-
-                      {/* Popular Events - Free for all users */}
-                      {curatedEvents.length > 0 && (
-                        <div className="mb-6">
-                          <p className="text-xs font-bold text-gray-400 uppercase mb-2">Popular Events (Click to Add)</p>
-                          <div className="flex gap-2 overflow-x-auto pb-2">
-                            {curatedEvents.map((evt, i) => (
-                              <button
-                                key={i}
-                                onClick={() => addCuratedEvent(evt)}
-                                className="min-w-[140px] p-3 text-left rounded-lg border transition bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-800"
-                              >
-                                <div className="font-bold text-blue-900 dark:text-blue-300 text-sm">{evt.title}</div>
-                                <div className="text-xs text-blue-700 dark:text-blue-400 opacity-75 truncate">{evt.note}</div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Live Events - Premium Feature */}
-                      {isPremium ? (
-                        <div className="mb-6">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1">
-                              <span className="inline-block w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                              Live Events from Fete Sites
-                            </p>
-                            {scrapedEventsLastUpdated && (
-                              <span className="text-xs text-gray-400">
-                                Updated: {new Date(scrapedEventsLastUpdated).toLocaleDateString()}
-                              </span>
+                            {isLoadingScrapedEvents ? (
+                              <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                                <div className="animate-spin inline-block w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full mb-2"></div>
+                                <p className="text-sm">Loading live events...</p>
+                              </div>
+                            ) : scrapedEvents.length > 0 ? (
+                              <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {scrapedEvents.slice(0, 10).map((evt, i) => (
+                                  <div
+                                    key={evt.id || i}
+                                    className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:shadow-md transition"
+                                  >
+                                    {evt.image && (
+                                      <img src={evt.image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate">{evt.title}</h5>
+                                      {evt.date && (
+                                        <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                                          {new Date(evt.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                          {evt.time && ` at ${evt.time}`}
+                                        </p>
+                                      )}
+                                      {evt.venue && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{evt.venue}</p>}
+                                      <p className="text-xs text-gray-400">via {evt.source}</p>
+                                    </div>
+                                    <div className="flex gap-1 flex-shrink-0">
+                                      {evt.url && (
+                                        <a
+                                          href={evt.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                                        >
+                                          Tickets
+                                        </a>
+                                      )}
+                                      <button
+                                        onClick={() => addCuratedEvent({ title: evt.title, note: evt.venue || `via ${evt.source}` })}
+                                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                      >
+                                        + Add
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                <p className="text-sm text-emerald-700 dark:text-emerald-400">No live events found for this carnival yet.</p>
+                                <p className="text-xs text-gray-500 mt-1">Events are updated daily from fetelist.com & frontlineticketing.com</p>
+                              </div>
                             )}
                           </div>
-                          {isLoadingScrapedEvents ? (
-                            <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                              <div className="animate-spin inline-block w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full mb-2"></div>
-                              <p className="text-sm">Loading live events...</p>
+                        ) : (
+                          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                            <div className="flex items-center gap-3">
+                              <span className="text-2xl">🎉</span>
+                              <div className="flex-1">
+                                <p className="font-bold text-amber-900 dark:text-amber-300">Unlock Live Event Listings</p>
+                                <p className="text-xs text-amber-700 dark:text-amber-400">Premium members get daily-updated fete listings from fetelist.com & frontlineticketing.com</p>
+                              </div>
+                              <button
+                                onClick={() => setActiveTab('Info')}
+                                className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold rounded-lg hover:opacity-90 flex-shrink-0"
+                              >
+                                Upgrade
+                              </button>
                             </div>
-                          ) : scrapedEvents.length > 0 ? (
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                              {scrapedEvents.slice(0, 10).map((evt, i) => (
-                                <div
-                                  key={evt.id || i}
-                                  className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:shadow-md transition"
+                          </div>
+                        )}
+
+                        <div className="space-y-4 mb-6">
+                          {(currentCarnival.schedule || []).map((event) => (
+                            <div key={event.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-blue-400 relative group">
+                              <div className="text-center min-w-[60px]">
+                                <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(event.datetime).toLocaleDateString(undefined, { month: 'short' })}</span>
+                                <span className="block text-xl font-black text-gray-800 dark:text-white">{new Date(event.datetime).getDate()}</span>
+                                <span className="block text-xs text-gray-500 dark:text-gray-400">{new Date(event.datetime).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-gray-800 dark:text-white">{event.title}</h4>
+                                {event.note && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{event.note}</p>}
+                                {event.addedBy && isCollaborative && (
+                                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                    Added by {event.addedBy.email?.split('@')[0] || 'squad member'}
+                                  </p>
+                                )}
+                              </div>
+                              <button onClick={() => removeScheduleItem(event.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">×</button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
+                          <input type="text" placeholder="Event Name" value={newScheduleName} onChange={(e) => setNewScheduleName(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                          <input type="datetime-local" value={newScheduleDate} onChange={(e) => setNewScheduleDate(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                          <input type="text" placeholder="Notes" value={newScheduleNote} onChange={(e) => setNewScheduleNote(e.target.value)} className="p-2 border rounded md:col-span-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                          <button onClick={addScheduleItem} className="md:col-span-2 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">Add Event</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB: SQUAD (Free) */}
+                    {activeTab === 'Squad' && (
+                      <div className="animate-fadeIn">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Your Squad</h3>
+                          <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full">{currentCarnival.squad?.length || 0} members</span>
+                        </div>
+
+                        {/* Squad Sharing Section */}
+                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4 mb-4">
+                          <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
+                            <span>🔗</span> Squad Sharing
+                          </h4>
+
+                          {/* Status Messages */}
+                          {squadShareError && (
+                            <div className="mb-3 p-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-sm">
+                              {squadShareError}
+                            </div>
+                          )}
+                          {squadShareSuccess && (
+                            <div className="mb-3 p-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-sm">
+                              {squadShareSuccess}
+                            </div>
+                          )}
+
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {/* Create Share Code */}
+                            <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Share your carnival plan with friends:</p>
+                              {squadShareCode ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-2xl font-mono font-bold text-purple-600 dark:text-purple-400 tracking-wider">{squadShareCode}</span>
+                                  <button
+                                    onClick={copyShareCode}
+                                    className="text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-3 py-1 rounded hover:bg-purple-200"
+                                  >
+                                    Copy
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={handleCreateSquad}
+                                  disabled={isCreatingShare}
+                                  className="w-full py-2 bg-purple-600 text-white rounded font-medium hover:bg-purple-700 disabled:opacity-50"
                                 >
-                                  {evt.image && (
-                                    <img src={evt.image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <h5 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate">{evt.title}</h5>
-                                    {evt.date && (
-                                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                                        {new Date(evt.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                                        {evt.time && ` at ${evt.time}`}
-                                      </p>
-                                    )}
-                                    {evt.venue && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{evt.venue}</p>}
-                                    <p className="text-xs text-gray-400">via {evt.source}</p>
+                                  {isCreatingShare ? 'Creating...' : 'Start a Squad'}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Join Squad */}
+                            <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Join a friend's squad:</p>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Enter 6-digit code"
+                                  value={joinCode}
+                                  onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+                                  className="flex-1 p-2 border rounded font-mono text-center tracking-wider uppercase dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                  maxLength={6}
+                                />
+                                <button
+                                  onClick={handleJoinSquad}
+                                  disabled={isJoiningSquad || joinCode.length !== 6}
+                                  className="bg-pink-600 text-white px-4 rounded hover:bg-pink-700 disabled:opacity-50"
+                                >
+                                  {isJoiningSquad ? '...' : 'Join'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {currentSquad && (
+                            <div className="mt-4 text-center">
+                              <button onClick={handleLeaveSquad} className="text-sm text-red-500 hover:text-red-700 underline">
+                                Leave Squad
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Premium: Road Ready Notification Toggle */}
+                        {isPremium && (
+                          <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-700">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={notifySquadOnRoadReady}
+                                onChange={(e) => setNotifySquadOnRoadReady(e.target.checked)}
+                                className="w-5 h-5 text-purple-600 rounded"
+                              />
+                              <div>
+                                <span className="font-medium text-purple-800 dark:text-purple-300">Notify squad when I go Road Ready</span>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Send push notification to squad members</p>
+                              </div>
+                              <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Premium</span>
+                            </label>
+                          </div>
+                        )}
+
+
+                        {/* Shared Squad Members - People who joined via share code */}
+                        {squadMembers.length > 0 && (
+                          <div className="bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
+                                <span>👥</span> Connected Squad Members
+                              </h4>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">These users joined using your share code and can see this carnival plan. Click "Refresh" to check for new members.</p>
+                            <div className="flex flex-wrap gap-2">
+                              {squadMembers.map((member, idx) => (
+                                <div
+                                  key={member.uid || idx}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border ${member.role === 'owner'
+                                    ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800'
+                                    : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800'
+                                    }`}
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                                    {(member.email || member.uid || '?').charAt(0).toUpperCase()}
                                   </div>
-                                  <div className="flex gap-1 flex-shrink-0">
-                                    {evt.url && (
-                                      <a
-                                        href={evt.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                                      >
-                                        Tickets
-                                      </a>
-                                    )}
-                                    <button
-                                      onClick={() => addCuratedEvent({ title: evt.title, note: evt.venue || `via ${evt.source}` })}
-                                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                                    >
-                                      + Add
-                                    </button>
+                                  <div className="flex flex-col">
+                                    <span className={`font-medium text-sm ${member.role === 'owner'
+                                      ? 'text-yellow-800 dark:text-yellow-300'
+                                      : 'text-green-800 dark:text-green-300'
+                                      }`}>
+                                      {member.email || `User ${member.uid?.slice(0, 6)}...`}
+                                    </span>
+                                    <span className={`text-xs ${member.role === 'owner'
+                                      ? 'text-yellow-600 dark:text-yellow-400'
+                                      : 'text-green-600 dark:text-green-400'
+                                      }`}>
+                                      {member.role === 'owner' ? '👑 Owner' : '✓ Member'}
+                                    </span>
                                   </div>
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <div className="text-center py-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                              <p className="text-sm text-emerald-700 dark:text-emerald-400">No live events found for this carnival yet.</p>
-                              <p className="text-xs text-gray-500 mt-1">Events are updated daily from fetelist.com & frontlineticketing.com</p>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">🎉</span>
-                            <div className="flex-1">
-                              <p className="font-bold text-amber-900 dark:text-amber-300">Unlock Live Event Listings</p>
-                              <p className="text-xs text-amber-700 dark:text-amber-400">Premium members get daily-updated fete listings from fetelist.com & frontlineticketing.com</p>
-                            </div>
-                            <button
-                              onClick={() => setActiveTab('Info')}
-                              className="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold rounded-lg hover:opacity-90 flex-shrink-0"
-                            >
-                              Upgrade
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-4 mb-6">
-                        {(currentCarnival.schedule || []).map((event) => (
-                          <div key={event.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-blue-400 relative group">
-                            <div className="text-center min-w-[60px]">
-                              <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{new Date(event.datetime).toLocaleDateString(undefined, { month: 'short' })}</span>
-                              <span className="block text-xl font-black text-gray-800 dark:text-white">{new Date(event.datetime).getDate()}</span>
-                              <span className="block text-xs text-gray-500 dark:text-gray-400">{new Date(event.datetime).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-bold text-gray-800 dark:text-white">{event.title}</h4>
-                              {event.note && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{event.note}</p>}
-                              {event.addedBy && isCollaborative && (
-                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                  Added by {event.addedBy.email?.split('@')[0] || 'squad member'}
-                                </p>
-                              )}
-                            </div>
-                            <button onClick={() => removeScheduleItem(event.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">×</button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
-                        <input type="text" placeholder="Event Name" value={newScheduleName} onChange={(e) => setNewScheduleName(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                        <input type="datetime-local" value={newScheduleDate} onChange={(e) => setNewScheduleDate(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                        <input type="text" placeholder="Notes" value={newScheduleNote} onChange={(e) => setNewScheduleNote(e.target.value)} className="p-2 border rounded md:col-span-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                        <button onClick={addScheduleItem} className="md:col-span-2 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">Add Event</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* TAB: SQUAD (Free) */}
-                  {activeTab === 'Squad' && (
-                    <div className="animate-fadeIn">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Your Squad</h3>
-                        <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full">{currentCarnival.squad?.length || 0} members</span>
-                      </div>
-
-                      {/* Squad Sharing Section */}
-                      <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4 mb-4">
-                        <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">
-                          <span>🔗</span> Squad Sharing
-                        </h4>
-
-                        {/* Status Messages */}
-                        {squadShareError && (
-                          <div className="mb-3 p-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-sm">
-                            {squadShareError}
-                          </div>
-                        )}
-                        {squadShareSuccess && (
-                          <div className="mb-3 p-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-sm">
-                            {squadShareSuccess}
                           </div>
                         )}
 
-                        <div className="grid md:grid-cols-2 gap-4">
-                          {/* Create Share Code */}
-                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Share your carnival plan with friends:</p>
-                            {squadShareCode ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl font-mono font-bold text-purple-600 dark:text-purple-400 tracking-wider">{squadShareCode}</span>
-                                <button
-                                  onClick={copyShareCode}
-                                  className="text-sm bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-3 py-1 rounded hover:bg-purple-200"
-                                >
-                                  Copy
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={handleCreateSquad}
-                                disabled={isCreatingShare}
-                                className="w-full py-2 bg-purple-600 text-white rounded font-medium hover:bg-purple-700 disabled:opacity-50"
-                              >
-                                {isCreatingShare ? 'Creating...' : 'Start a Squad'}
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Join Squad */}
-                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Join a friend's squad:</p>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                placeholder="Enter 6-digit code"
-                                value={joinCode}
-                                onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
-                                className="flex-1 p-2 border rounded font-mono text-center tracking-wider uppercase dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                maxLength={6}
-                              />
-                              <button
-                                onClick={handleJoinSquad}
-                                disabled={isJoiningSquad || joinCode.length !== 6}
-                                className="bg-pink-600 text-white px-4 rounded hover:bg-pink-700 disabled:opacity-50"
-                              >
-                                {isJoiningSquad ? '...' : 'Join'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {currentSquad && (
-                          <div className="mt-4 text-center">
-                            <button onClick={handleLeaveSquad} className="text-sm text-red-500 hover:text-red-700 underline">
-                              Leave Squad
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Premium: Road Ready Notification Toggle */}
-                      {isPremium && (
-                        <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-700">
-                          <label className="flex items-center gap-3 cursor-pointer">
+                        {/* Manual Squad List */}
+                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-4">
+                          <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Quick Add (Offline List)</h4>
+                          <div className="flex flex-col sm:flex-row gap-2 mb-4">
                             <input
-                              type="checkbox"
-                              checked={notifySquadOnRoadReady}
-                              onChange={(e) => setNotifySquadOnRoadReady(e.target.checked)}
-                              className="w-5 h-5 text-purple-600 rounded"
+                              type="text"
+                              placeholder="Add friend's name"
+                              value={newSquadMember}
+                              onChange={(e) => setNewSquadMember(e.target.value)}
+                              className="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
                             />
-                            <div>
-                              <span className="font-medium text-purple-800 dark:text-purple-300">Notify squad when I go Road Ready</span>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Send push notification to squad members</p>
-                            </div>
-                            <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">Premium</span>
-                          </label>
-                        </div>
-                      )}
-
-
-                      {/* Shared Squad Members - People who joined via share code */}
-                      {squadMembers.length > 0 && (
-                        <div className="bg-white dark:bg-gray-800 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
-                              <span>👥</span> Connected Squad Members
-                            </h4>
+                            <button onClick={addSquadMember} className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 font-medium">Add</button>
                           </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">These users joined using your share code and can see this carnival plan. Click "Refresh" to check for new members.</p>
                           <div className="flex flex-wrap gap-2">
-                            {squadMembers.map((member, idx) => (
-                              <div
-                                key={member.uid || idx}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-full border ${member.role === 'owner'
-                                  ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800'
-                                  : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800'
-                                  }`}
-                              >
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
-                                  {(member.email || member.uid || '?').charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className={`font-medium text-sm ${member.role === 'owner'
-                                    ? 'text-yellow-800 dark:text-yellow-300'
-                                    : 'text-green-800 dark:text-green-300'
-                                    }`}>
-                                    {member.email || `User ${member.uid?.slice(0, 6)}...`}
-                                  </span>
-                                  <span className={`text-xs ${member.role === 'owner'
-                                    ? 'text-yellow-600 dark:text-yellow-400'
-                                    : 'text-green-600 dark:text-green-400'
-                                    }`}>
-                                    {member.role === 'owner' ? '👑 Owner' : '✓ Member'}
-                                  </span>
-                                </div>
+                            {(currentCarnival.squad || []).map(member => (
+                              <div key={member.id} className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-full border border-purple-100 dark:border-purple-800">
+                                <span className="text-purple-900 dark:text-purple-200 font-medium">{member.name}</span>
+                                <button onClick={() => removeSquadMember(member.id)} className="text-purple-400 hover:text-red-500 text-xs font-bold">×</button>
                               </div>
                             ))}
+                            {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
                           </div>
                         </div>
-                      )}
+                        {/* Inline Ad for free users */}
+                        {!isPremium && (
+                          <div className="mt-4">
+                            <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                      {/* Manual Squad List */}
-                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 mb-4">
-                        <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Quick Add (Offline List)</h4>
-                        <div className="flex flex-col sm:flex-row gap-2 mb-4">
-                          <input
-                            type="text"
-                            placeholder="Add friend's name"
-                            value={newSquadMember}
-                            onChange={(e) => setNewSquadMember(e.target.value)}
-                            className="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
-                          />
-                          <button onClick={addSquadMember} className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 font-medium">Add</button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {(currentCarnival.squad || []).map(member => (
-                            <div key={member.id} className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-full border border-purple-100 dark:border-purple-800">
-                              <span className="text-purple-900 dark:text-purple-200 font-medium">{member.name}</span>
-                              <button onClick={() => removeSquadMember(member.id)} className="text-purple-400 hover:text-red-500 text-xs font-bold">×</button>
+                    {/* TAB: PACKING (Free) */}
+                    {activeTab === 'Packing' && (
+                      <div className="animate-fadeIn">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Packing List</h3>
+                        <div className="space-y-2 mb-6">
+                          {(currentCarnival.packing || []).map((item) => (
+                            <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 shadow-sm rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={item.checked} onChange={() => togglePackingItem(item.id)} className="w-5 h-5 text-blue-600 rounded" />
+                                <span className={`text-gray-700 dark:text-gray-200 ${item.checked ? 'line-through opacity-50' : ''}`}>{item.item}</span>
+                              </div>
+                              <button onClick={() => removePackingItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
                             </div>
                           ))}
-                          {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
                         </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input type="text" placeholder="Item" value={newPackingItem} onChange={(e) => setNewPackingItem(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                          <button onClick={addPackingItem} className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Add</button>
+                        </div>
+                        {/* Inline Ad for free users */}
+                        {!isPremium && (
+                          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
+                          </div>
+                        )}
                       </div>
-                      {/* Inline Ad for free users */}
-                      {!isPremium && (
-                        <div className="mt-4">
-                          <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
 
-                  {/* TAB: PACKING (Free) */}
-                  {activeTab === 'Packing' && (
-                    <div className="animate-fadeIn">
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Packing List</h3>
-                      <div className="space-y-2 mb-6">
-                        {(currentCarnival.packing || []).map((item) => (
-                          <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 shadow-sm rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <input type="checkbox" checked={item.checked} onChange={() => togglePackingItem(item.id)} className="w-5 h-5 text-blue-600 rounded" />
-                              <span className={`text-gray-700 dark:text-gray-200 ${item.checked ? 'line-through opacity-50' : ''}`}>{item.item}</span>
+                    {/* TAB: MAP (Premium) */}
+                    {activeTab === 'Map' && isPremium && (
+                      <div className="animate-fadeIn">
+                        <FeteMap
+                          locations={currentCarnival.mapLocations || []}
+                          scrapedEvents={scrapedEvents}
+                          onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
+                          carnivalName={currentCarnival.name}
+                          carnivalId={activeCarnivalId}
+                        />
+                      </div>
+                    )}
+
+                    {/* TAB: PASSPORT (Premium Upgrade Integration) */}
+                    {activeTab === 'Passport' && isPremium && (
+                      <div className="animate-fadeIn">
+                        <SocaPassportTab
+                          user={user}
+                          activeCarnivalId={activeCarnivalId}
+                        />
+                      </div>
+                    )}
+
+                    {/* TAB: MEDIA VAULT (Premium) */}
+                    {activeTab === 'Media' && isPremium && (
+                      <div className="animate-fadeIn">
+                        <MediaVault
+                          files={currentCarnival.mediaFiles || []}
+                          onFilesChange={(newFiles) => updateCarnivalData('mediaFiles', newFiles)}
+                          carnivalName={currentCarnival.name}
+                          carnivalId={activeCarnivalId}
+                          userId={user.uid}
+                        />
+                      </div>
+                    )}
+
+                    {/* TAB: INFO & EXPORT */}
+                    {activeTab === 'Info' && (
+                      <div className="animate-fadeIn text-center">
+                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
+                          <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
+                          <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
+                          <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
+
+                          <button
+                            onClick={handleExport}
+                            className="flex items-center justify-center gap-2 mx-auto px-6 py-3 rounded-full font-bold transition-colors bg-white text-gray-900 hover:bg-gray-100"
+                          >
+                            <span>📥</span> Export Itinerary
+                          </button>
+                        </div>
+
+                        {/* Premium Subscription Buttons (Upsell) */}
+                        {!isPremium && (
+                          <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
+                            <h3 className="font-bold text-yellow-800 dark:text-yellow-400 mb-2">Become a Premium Supporter</h3>
+                            <p className="text-yellow-700 dark:text-yellow-500 text-sm mb-4">Get an ad-free experience and a Premium badge to show your support!</p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                              <button
+                                onClick={() => handleSubscribe("monthly")}
+                                disabled={isCheckingOut}
+                                className="px-4 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {isCheckingOut ? "Loading..." : "Monthly - $4.99"}
+                              </button>
+                              <button
+                                onClick={() => handleSubscribe("yearly")}
+                                disabled={isCheckingOut}
+                                className="px-4 py-2 bg-yellow-400 text-yellow-900 font-bold rounded shadow hover:bg-yellow-500 disabled:opacity-50"
+                              >
+                                {isCheckingOut ? "Loading..." : "Yearly - $39.99"}
+                              </button>
                             </div>
-                            <button onClick={() => removePackingItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
                           </div>
-                        ))}
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input type="text" placeholder="Item" value={newPackingItem} onChange={(e) => setNewPackingItem(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
-                        <button onClick={addPackingItem} className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Add</button>
-                      </div>
-                      {/* Inline Ad for free users */}
-                      {!isPremium && (
-                        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-                          <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
+                        )}
+
+                        {/* Account Settings */}
+                        <div className="mt-6">
+                          <AccountSettings user={user} />
                         </div>
-                      )}
-                    </div>
-                  )}
 
-                  {/* TAB: MAP (Premium) */}
-                  {activeTab === 'Map' && isPremium && (
-                    <div className="animate-fadeIn">
-                      <FeteMap
-                        locations={currentCarnival.mapLocations || []}
-                        scrapedEvents={scrapedEvents}
-                        onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
-                        carnivalName={currentCarnival.name}
-                        carnivalId={activeCarnivalId}
-                      />
-                    </div>
-                  )}
-
-                  {/* TAB: PASSPORT (Premium Upgrade Integration) */}
-                  {activeTab === 'Passport' && isPremium && (
-                    <div className="animate-fadeIn">
-                      <SocaPassportTab
-                        user={user}
-                        activeCarnivalId={activeCarnivalId}
-                      />
-                    </div>
-                  )}
-
-                  {/* TAB: MEDIA VAULT (Premium) */}
-                  {activeTab === 'Media' && isPremium && (
-                    <div className="animate-fadeIn">
-                      <MediaVault
-                        files={currentCarnival.mediaFiles || []}
-                        onFilesChange={(newFiles) => updateCarnivalData('mediaFiles', newFiles)}
-                        carnivalName={currentCarnival.name}
-                        carnivalId={activeCarnivalId}
-                        userId={user.uid}
-                      />
-                    </div>
-                  )}
-
-                  {/* TAB: INFO & EXPORT */}
-                  {activeTab === 'Info' && (
-                    <div className="animate-fadeIn text-center">
-                      <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
-                        <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
-                        <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
-                        <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
-
-                        <button
-                          onClick={handleExport}
-                          className="flex items-center justify-center gap-2 mx-auto px-6 py-3 rounded-full font-bold transition-colors bg-white text-gray-900 hover:bg-gray-100"
-                        >
-                          <span>📥</span> Export Itinerary
-                        </button>
-                      </div>
-
-                      {/* Premium Subscription Buttons (Upsell) */}
-                      {!isPremium && (
-                        <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
-                          <h3 className="font-bold text-yellow-800 dark:text-yellow-400 mb-2">Become a Premium Supporter</h3>
-                          <p className="text-yellow-700 dark:text-yellow-500 text-sm mb-4">Get an ad-free experience and a Premium badge to show your support!</p>
-                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <button
-                              onClick={() => handleSubscribe("monthly")}
-                              disabled={isCheckingOut}
-                              className="px-4 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 disabled:opacity-50"
-                            >
-                              {isCheckingOut ? "Loading..." : "Monthly - $4.99"}
-                            </button>
-                            <button
-                              onClick={() => handleSubscribe("yearly")}
-                              disabled={isCheckingOut}
-                              className="px-4 py-2 bg-yellow-400 text-yellow-900 font-bold rounded shadow hover:bg-yellow-500 disabled:opacity-50"
-                            >
-                              {isCheckingOut ? "Loading..." : "Yearly - $39.99"}
-                            </button>
+                        {/* AD MANAGER, SUPPORT & ANALYTICS - Admin Only */}
+                        {user?.email === 'djkrss1@gmail.com' && (
+                          <div className="mt-6 text-left space-y-8">
+                            <AdManager />
+                            <SupportAdmin />
+                            <AdminAnalytics />
                           </div>
-                        </div>
-                      )}
-
-                      {/* Account Settings */}
-                      <div className="mt-6">
-                        <AccountSettings user={user} />
+                        )}
                       </div>
-
-                      {/* AD MANAGER, SUPPORT & ANALYTICS - Admin Only */}
-                      {user?.email === 'djkrss1@gmail.com' && (
-                        <div className="mt-6 text-left space-y-8">
-                          <AdManager />
-                          <SupportAdmin />
-                          <AdminAnalytics />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )
-        }
-      </main >
+              </>
+            )
+            }
+          </main >
 
       {/* Footer with Legal Links */}
-      < footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto" >
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-            <button
-              onClick={() => setActiveLegalPage('privacy')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Privacy
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('terms')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Terms
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('cookies')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Cookies
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('refund')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Refunds
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('contact')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Contact
-            </button>
+        < footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto" >
+          <div className="max-w-4xl mx-auto text-center">
+            <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+              <button
+                onClick={() => setActiveLegalPage('privacy')}
+                className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Privacy
+              </button>
+              <span>|</span>
+              <button
+                onClick={() => setActiveLegalPage('terms')}
+                className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Terms
+              </button>
+              <span>|</span>
+              <button
+                onClick={() => setActiveLegalPage('cookies')}
+                className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Cookies
+              </button>
+              <span>|</span>
+              <button
+                onClick={() => setActiveLegalPage('refund')}
+                className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Refunds
+              </button>
+              <span>|</span>
+              <button
+                onClick={() => setActiveLegalPage('contact')}
+                className="hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Contact
+              </button>
+            </div>
+            <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
+              © {new Date().getFullYear()} Carnival Planner
+            </p>
           </div>
-          <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
-            © {new Date().getFullYear()} Carnival Planner
-          </p>
-        </div>
-      </footer >
+        </footer >
 
-      {/* Vibes Player (Floating) */}
-      {
-        user && (
-          <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
-        )
-      }
+        {/* Vibes Player (Floating) */}
+        {
+          user && (
+            <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
+          )
+        }
     </div >
   );
 }
