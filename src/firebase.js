@@ -19,11 +19,14 @@ const app = initializeApp(firebaseConfig);
 // EXPORT these services so App.jsx can use them
 export const auth = getAuth(app);
 
-// Initialize Firestore (standard mode, using WebSockets)
-import { initializeFirestore } from "firebase/firestore";
-// Connect to the specific 'squad-db' database used in production
+// Initialize Firestore with persistent cache and multi-tab support
+// Using 'squad-db' database which is in Native Mode (default is in Datastore Mode)
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 }, 'squad-db');
 
 export const storage = getStorage(app);
