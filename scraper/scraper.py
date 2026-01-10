@@ -84,6 +84,35 @@ def fetch_page(url: str, session: requests.Session) -> Optional[str]:
         return None
 
 
+def get_coordinates(venue: str, carnival_id: str) -> Dict[str, Optional[float]]:
+    """Get lat/lng for a venue using Nominatim Geocoding."""
+    if not venue or len(venue) < 3:
+        return {'lat': None, 'lng': None}
+        
+    # Add carnival context for better accuracy (e.g. "Queens Park Oval, Trinidad")
+    carnival_name = CARNIVAL_SEARCH_TERMS.get(carnival_id, [carnival_id])[0]
+    query = f"{venue}, {carnival_name}"
+    
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    url = f"https://nominatim.openstreetmap.org/search?q={query}&format=json&limit=1"
+    
+    try:
+        # Nominatim requires strict rate limiting (1 request per second)
+        time.sleep(1.1)
+        response = session.get(url, timeout=10)
+        data = response.json()
+        if data:
+            return {
+                'lat': float(data[0]['lat']),
+                'lng': float(data[0]['lon'])
+            }
+    except Exception as e:
+        print(f"Geocoding error for {query}: {e}")
+        
+    return {'lat': None, 'lng': None}
+
+
 def scrape_fetelist() -> List[Dict]:
     """Scrape events from fetelist.com."""
     events = []
@@ -502,6 +531,8 @@ def scrape_trini_jungle_juice() -> List[Dict]:
                         'date_raw': item.get('timestamp') or start_dt,
                         'venue': venue,
                         'image': item.get('poster_url'),
+                        'lat': float(venue_data.get('latitude')) if venue_data.get('latitude') else None,
+                        'lng': float(venue_data.get('longitude')) if venue_data.get('longitude') else None,
                         'source': 'trinijunglejuice.com',
                         'scraped_at': datetime.now(timezone.utc).isoformat()
                     }
@@ -551,6 +582,12 @@ def save_to_firebase(events: List[Dict], db):
     for event in events:
         carnival_id = categorize_event(event)
         if carnival_id:
+            # Attempt geocoding if lat/lng is missing (TJJ usually has them)
+            if not event.get('lat') or not event.get('lng'):
+                coords = get_coordinates(event.get('venue'), carnival_id)
+                event['lat'] = coords['lat']
+                event['lng'] = coords['lng']
+                
             if carnival_id not in categorized:
                 categorized[carnival_id] = []
             event['id'] = generate_event_id(event)

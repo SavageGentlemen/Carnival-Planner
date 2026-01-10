@@ -1726,6 +1726,7 @@ export default function App() {
                     <div className="animate-fadeIn">
                       <FeteMap
                         locations={currentCarnival.mapLocations || []}
+                        scrapedEvents={scrapedEvents}
                         onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
                         carnivalName={currentCarnival.name}
                         carnivalId={activeCarnivalId}

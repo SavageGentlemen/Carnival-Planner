@@ -26,6 +26,7 @@ const PIN_TYPES = {
   costume: { label: 'Costume Pickup', color: '#F59E0B', icon: Shirt },
   fete: { label: 'Fete Location', color: '#EC4899', icon: PartyPopper },
   meetup: { label: 'Meetup Spot', color: '#10B981', icon: Users },
+  scraped: { label: 'Live Events', color: '#8B5CF6', icon: MapPin },
 };
 
 function MapUpdater({ center }) {
@@ -42,10 +43,10 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -68,7 +69,7 @@ const CARNIVAL_CENTERS = {
   'miami': { center: [25.7617, -80.1918], zoom: 11, country: 'Miami, FL' },
 };
 
-export default function FeteMap({ locations = [], onLocationsChange, carnivalName, carnivalId }) {
+export default function FeteMap({ locations = [], scrapedEvents = [], onLocationsChange, carnivalName, carnivalId }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPin, setNewPin] = useState({ name: '', type: 'fete', lat: '', lng: '' });
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,15 +77,18 @@ export default function FeteMap({ locations = [], onLocationsChange, carnivalNam
   const [isSearching, setIsSearching] = useState(false);
 
   const accommodation = locations.find(loc => loc.type === 'accommodation');
-  
+
   // Get country-specific center or fall back to Trinidad
   const carnivalConfig = CARNIVAL_CENTERS[carnivalId] || CARNIVAL_CENTERS['trinidad'];
-  
+
   const defaultCenter = useMemo(() => {
     if (accommodation) return [accommodation.lat, accommodation.lng];
     if (locations.length > 0) return [locations[0].lat, locations[0].lng];
+    // If no user locations, check if any scraped events have coords
+    const eventWithCoord = scrapedEvents.find(e => e.lat && e.lng);
+    if (eventWithCoord) return [eventWithCoord.lat, eventWithCoord.lng];
     return carnivalConfig.center;
-  }, [locations, accommodation, carnivalConfig]);
+  }, [locations, accommodation, carnivalConfig, scrapedEvents]);
 
   const searchLocation = async () => {
     if (!searchQuery.trim()) return;
@@ -178,7 +182,7 @@ export default function FeteMap({ locations = [], onLocationsChange, carnivalNam
               ))}
             </select>
           </div>
-          
+
           <div className="flex gap-2">
             <input
               type="text"
@@ -274,6 +278,28 @@ export default function FeteMap({ locations = [], onLocationsChange, carnivalNam
                     {getDistanceFromAccommodation(loc)} from accommodation
                   </div>
                 )}
+              </Popup>
+            </Marker>
+          ))}
+
+          {scrapedEvents.filter(e => e.lat && e.lng).map((event) => (
+            <Marker
+              key={event.id}
+              position={[event.lat, event.lng]}
+              icon={createColoredIcon(PIN_TYPES.scraped.color)}
+            >
+              <Popup>
+                <div className="font-medium">{event.title}</div>
+                <div className="text-xs text-purple-600 font-bold mb-1">Live Event</div>
+                {event.venue && <div className="text-xs text-gray-500 mb-2">{event.venue}</div>}
+                <a
+                  href={event.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-center px-2 py-1 bg-purple-100 text-purple-700 text-[10px] font-bold rounded uppercase hover:bg-purple-200 transition"
+                >
+                  Find Tickets
+                </a>
               </Popup>
             </Marker>
           ))}
