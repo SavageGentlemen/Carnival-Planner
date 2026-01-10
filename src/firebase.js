@@ -19,10 +19,9 @@ const app = initializeApp(firebaseConfig);
 // EXPORT these services so App.jsx can use them
 export const auth = getAuth(app);
 
-// Initialize Firestore with long-polling (Crucial for Preview/Corp networks)
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-});
+// Initialize Firestore (standard mode, using WebSockets)
+import { getFirestore } from "firebase/firestore";
+export const db = getFirestore(app);
 
 export const storage = getStorage(app);
 
