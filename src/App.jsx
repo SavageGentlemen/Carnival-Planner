@@ -1246,14 +1246,20 @@ export default function App() {
                 )}
                 {/* TABS */}
                 <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
-                  {['Budget', 'Costume', 'Schedule', 'Squad', 'Packing', ...(isPremium ? ['Map', 'Media', 'Passport'] : []), 'Info'].map((tab) => (
+                  {[
+                    'Budget', 'Costume', 'Schedule', 'Squad', 'Passport',
+                    'Packing', 'Map', 'Media', 'Info'
+                  ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
                     <button
                       key={tab}
-                      onClick={() => setActiveTab(tab)}
+                      onClick={() => {
+                        console.log('Switching to tab:', tab, 'isPremium:', isPremium);
+                        setActiveTab(tab);
+                      }}
                       className={`flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
                     >
                       {tab}
-                      {(tab === 'Map' || tab === 'Media') && <span className="ml-1 text-xs text-yellow-500">★</span>}
+                      {['Map', 'Media', 'Passport'].includes(tab) && <span className="ml-1 text-xs text-yellow-500">★</span>}
                       {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
                     </button>
                   ))}
