@@ -64,6 +64,7 @@ export const createSquad = async (user, squadName, carnivalId) => {
 
 // --- JOIN SQUAD ---
 export const joinSquadByCode = async (user, inviteCode) => {
+    console.log("joinSquadByCode started", { uid: user?.uid, inviteCode });
     if (!user) throw new Error("Must be logged in");
 
     // 1. Find squad with this code
@@ -78,29 +79,38 @@ export const joinSquadByCode = async (user, inviteCode) => {
     const squadDoc = querySnapshot.docs[0];
     const squadId = squadDoc.id;
     const squadData = squadDoc.data();
+    console.log("Squad found:", { squadId, squadData });
 
     // 2. Check if already member
-    if (squadData.members.includes(user.uid)) {
+    if (squadData.members && squadData.members.includes(user.uid)) {
+        console.log("User already in squad");
         return { id: squadId, ...squadData }; // Already joined, just return it
     }
 
     // 3. Add user to squad
     const squadRef = doc(db, 'squads', squadId);
+
+    // SAFETY CHECK FOR NAME
+    const userName = user.displayName || user.email || "Unknown User";
+    console.log("Adding user to squad:", userName);
+
     await updateDoc(squadRef, {
         members: arrayUnion(user.uid),
         [`memberDetails.${user.uid}`]: {
-            name: user.displayName || user.email,
+            name: userName,
             role: 'member',
             photoURL: user.photoURL || null,
             joinedAt: new Date().toISOString()
         }
     });
+    console.log("Squad doc updated");
 
     // 4. Update user profile
     const userRef = doc(db, 'users', user.uid);
     await setDoc(userRef, {
         currentSquadId: squadId
     }, { merge: true });
+    console.log("User profile updated");
 
     return { id: squadId, ...squadData };
 };
