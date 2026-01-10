@@ -364,6 +364,168 @@ def scrape_islandetickets() -> List[Dict]:
     return unique_events
 
 
+def scrape_ticketfederation() -> List[Dict]:
+    """Scrape events from ticketfederation.com/upcoming-events/."""
+    events = []
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    
+    base_url = "https://www.ticketfederation.com"
+    events_url = f"{base_url}/upcoming-events/"
+    
+    print(f"Scraping ticketfederation.com...")
+    html = fetch_page(events_url, session)
+    if not html:
+        return events
+    
+    soup = BeautifulSoup(html, 'lxml')
+    
+    # EventOn plugin structure
+    event_cards = soup.select('.eventon_list_event')
+    
+    for card in event_cards[:50]:
+        try:
+            title_el = card.select_one('.evcal_event_title')
+            title = title_el.get_text(strip=True) if title_el else None
+            
+            if not title:
+                continue
+            
+            # Link is in a schema element (hidden) or data attribute on the <a> itself
+            # Based on outerHTML, the <a> tag itself has the title in a child span
+            link_el = card.select_one('.evo_event_schema a[itemprop="url"]')
+            link = link_el['href'] if link_el and link_el.get('href') else None
+            
+            # If no schema link, it might be in data-exurl or we have to guess it/use the card ID
+            if not link:
+                link = card.get('data-exurl')
+            
+            if link and not link.startswith('http'):
+                link = urljoin(base_url, link)
+            
+            # Date structure from EventOn plugin
+            day_el = card.select_one('.evo_start .date')
+            month_el = card.select_one('.evo_start .month')
+            
+            if day_el and month_el:
+                date_str = f"{day_el.get_text(strip=True)} {month_el.get_text(strip=True)}"
+            else:
+                # Fallback to data attributes on the dayblock
+                dayblock = card.select_one('.evoet_dayblock')
+                if dayblock:
+                    smon = dayblock.get('data-smon')
+                    syr = dayblock.get('data-syr')
+                    # We might still need the day number
+                    day_num = card.select_one('.evo_start .date')
+                    day_str = day_num.get_text(strip=True) if day_num else "01"
+                    date_str = f"{day_str} {smon} {syr}"
+                else:
+                    date_str = None
+            
+            # Venue
+            venue_el = card.select_one('.evcal_location')
+            venue = venue_el.get('data-name') or venue_el.get_text(strip=True) if venue_el else None
+            
+            # Image
+            img_el = card.select_one('.ev_ftImg')
+            image = img_el.get('data-img') if img_el else None
+            
+            event = {
+                'title': title,
+                'url': link,
+                'date_raw': date_str,
+                'venue': venue,
+                'image': image,
+                'source': 'ticketfederation.com',
+                'scraped_at': datetime.now(timezone.utc).isoformat()
+            }
+            
+            if date_str:
+                try:
+                    # Append current year if missing
+                    curr_year = datetime.now().year
+                    if str(curr_year) not in date_str:
+                        date_str += f" {curr_year}"
+                    parsed_date = date_parser.parse(date_str, fuzzy=True)
+                    event['date'] = parsed_date.strftime('%Y-%m-%d')
+                except:
+                    pass
+            
+            events.append(event)
+            
+        except Exception as e:
+            print(f"Error parsing ticketfederation event: {e}")
+            continue
+    
+    print(f"Found {len(events)} events from ticketfederation.com")
+    return events
+
+
+def scrape_trini_jungle_juice() -> List[Dict]:
+    """Scrape events from trinijunglejuice.com using their internal API."""
+    events = []
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    
+    # We found their staging API endpoint which seems current
+    api_url = "https://staging.trinijunglejuice.com/api/events?page=1&items=50&type=all&orderDirection=asc&timestamped=true"
+    
+    print(f"Scraping trinijunglejuice.com (via API)...")
+    
+    try:
+        time.sleep(RATE_LIMIT_DELAY)
+        response = session.get(api_url, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        
+        # TJJ API returns events grouped by date
+        groups = data.get('events', [])
+        for group in groups:
+            # group example: {'timestamp': 'Thursday, January 1, 2026', 'events': [...]}
+            for item in group.get('events', []):
+                try:
+                    title = item.get('title')
+                    if not title:
+                        continue
+                    
+                    # Construct URL (TJJ slugs are often title-based)
+                    # Use the registration_url if available, otherwise fallback
+                    link = item.get('registration_url') or f"https://trinijunglejuice.com/events/{item.get('id')}"
+                    
+                    start_dt = item.get('start_datetime')
+                    venue_data = item.get('location', {})
+                    venue = venue_data.get('address') or venue_data.get('city')
+                    
+                    event = {
+                        'title': title,
+                        'url': link,
+                        'date_raw': item.get('timestamp') or start_dt,
+                        'venue': venue,
+                        'image': item.get('poster_url'),
+                        'source': 'trinijunglejuice.com',
+                        'scraped_at': datetime.now(timezone.utc).isoformat()
+                    }
+                    
+                    if start_dt:
+                        try:
+                            parsed_date = date_parser.parse(start_dt)
+                            event['date'] = parsed_date.strftime('%Y-%m-%d')
+                            event['time'] = parsed_date.strftime('%H:%M') if parsed_date.hour != 0 else None
+                        except:
+                            pass
+                    
+                    events.append(event)
+                except Exception as e:
+                    print(f"Error parsing TJJ event item: {e}")
+                    continue
+                    
+    except Exception as e:
+        print(f"Error fetching/parsing TJJ API: {e}")
+    
+    print(f"Found {len(events)} events from trinijunglejuice.com")
+    return events
+
+
 def categorize_event(event: Dict) -> Optional[str]:
     """Determine which carnival an event belongs to based on title/venue."""
     text_to_search = f"{event.get('title', '')} {event.get('venue', '')}".lower()
@@ -433,6 +595,12 @@ def main():
     
     islandetickets_events = scrape_islandetickets()
     all_events.extend(islandetickets_events)
+    
+    tf_events = scrape_ticketfederation()
+    all_events.extend(tf_events)
+    
+    tjj_events = scrape_trini_jungle_juice()
+    all_events.extend(tjj_events)
     
     print(f"\nTotal events scraped: {len(all_events)}")
     
