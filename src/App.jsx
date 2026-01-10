@@ -157,6 +157,18 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState(null);
   const [notifySquadOnRoadReady, setNotifySquadOnRoadReady] = useState(true);
   const [isSendingRoadReadyAlert, setIsSendingRoadReadyAlert] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Legal Pages State
   const [activeLegalPage, setActiveLegalPage] = useState(null);
@@ -1068,6 +1080,12 @@ export default function App() {
             ) : (
               <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-bold">Premium</span>
             )}
+            {/* Online/Offline Status */}
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
+              {isOnline ? 'Online' : 'Offline Mode'}
+            </div>
+
             <button onClick={handleSignOut} className="text-sm font-medium text-gray-500 hover:text-red-500 dark:text-gray-400">Sign Out</button>
           </div>
         )}
