@@ -121,11 +121,18 @@ export default function App() {
   // SQUAD: Handle Join
   const handleJoinSquad = async () => {
     if (!user || !joinCode) return;
+    const cleanCode = joinCode.trim().toUpperCase(); // Sanitization
     setIsJoiningSquad(true);
     setSquadShareError('');
+    console.log("HandleJoinSquad: Attempting to join with code:", cleanCode);
+
     try {
-      const squad = await joinSquadByCode(user, joinCode);
-      setSquadShareSuccess(`Joined ${squad.name}!`);
+      const squad = await joinSquadByCode(user, cleanCode);
+      console.log("HandleJoinSquad: Join success. Squad result:", squad);
+
+      if (!squad) throw new Error("Join successful but no squad data returned");
+
+      setSquadShareSuccess(`Joined ${squad.name || 'Squad'}!`);
       // Realtime listener in useEffect will pick up the rest
       setJoinCode('');
     } catch (error) {
