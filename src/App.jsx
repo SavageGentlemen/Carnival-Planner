@@ -306,12 +306,17 @@ export default function App() {
           if (sSnap.exists()) {
             const sData = sSnap.data();
             setCurrentSquad({ id: sSnap.id, ...sData });
+
+            // ⚡ REALTIME SYNC: Update shared data instantly from listener
+            setSharedCarnivalData(sData);
+
             // Convert memberDetails map to array for UI
             const membersList = Object.values(sData.memberDetails || {});
             setSquadMembers(membersList);
             setSquadShareCode(sData.inviteCode);
           } else {
             setCurrentSquad(null); // Squad was deleted
+            setSharedCarnivalData(null);
             setSquadMembers([]);
           }
         });
