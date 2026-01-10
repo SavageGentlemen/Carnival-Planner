@@ -30,6 +30,7 @@ import { PrivacyPolicy, TermsOfService, CookiePolicy, RefundPolicy } from './com
 import InstallPrompt from './components/InstallPrompt';
 import { ContactPage, SupportAdmin } from './components/ContactSupport';
 import AccountSettings from './components/AccountSettings';
+import SocaPassportTab from './components/SocaPassportTab';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad } from './services/squadService'; // Squad Service
@@ -1245,7 +1246,7 @@ export default function App() {
                 )}
                 {/* TABS */}
                 <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
-                  {['Budget', 'Costume', 'Schedule', 'Squad', 'Packing', ...(isPremium ? ['Map', 'Media'] : []), 'Info'].map((tab) => (
+                  {['Budget', 'Costume', 'Schedule', 'Squad', 'Packing', ...(isPremium ? ['Map', 'Media', 'Passport'] : []), 'Info'].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -1730,6 +1731,16 @@ export default function App() {
                         onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
                         carnivalName={currentCarnival.name}
                         carnivalId={activeCarnivalId}
+                      />
+                    </div>
+                  )}
+
+                  {/* TAB: PASSPORT (Premium Upgrade Integration) */}
+                  {activeTab === 'Passport' && isPremium && (
+                    <div className="animate-fadeIn">
+                      <SocaPassportTab
+                        user={user}
+                        activeCarnivalId={activeCarnivalId}
                       />
                     </div>
                   )}
