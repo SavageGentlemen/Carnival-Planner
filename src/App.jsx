@@ -1843,61 +1843,62 @@ export default function App() {
                   </div>
                 </div>
               </>
-            )
-            }
-          </main >
+            )}
+          </div>
+        )}
+      </main>
 
       {/* Footer with Legal Links */}
-        < footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto" >
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-              <button
-                onClick={() => setActiveLegalPage('privacy')}
-                className="hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                Privacy
-              </button>
-              <span>|</span>
-              <button
-                onClick={() => setActiveLegalPage('terms')}
-                className="hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                Terms
-              </button>
-              <span>|</span>
-              <button
-                onClick={() => setActiveLegalPage('cookies')}
-                className="hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                Cookies
-              </button>
-              <span>|</span>
-              <button
-                onClick={() => setActiveLegalPage('refund')}
-                className="hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                Refunds
-              </button>
-              <span>|</span>
-              <button
-                onClick={() => setActiveLegalPage('contact')}
-                className="hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                Contact
-              </button>
-            </div>
-            <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
-              © {new Date().getFullYear()} Carnival Planner
-            </p>
+      < footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto" >
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+            <button
+              onClick={() => setActiveLegalPage('privacy')}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Privacy
+            </button>
+            <span>|</span>
+            <button
+              onClick={() => setActiveLegalPage('terms')}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Terms
+            </button>
+            <span>|</span>
+            <button
+              onClick={() => setActiveLegalPage('cookies')}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Cookies
+            </button>
+            <span>|</span>
+            <button
+              onClick={() => setActiveLegalPage('refund')}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Refunds
+            </button>
+            <span>|</span>
+            <button
+              onClick={() => setActiveLegalPage('contact')}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Contact
+            </button>
           </div>
-        </footer >
+          <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
+            © {new Date().getFullYear()} Carnival Planner
+          </p>
+        </div>
+      </footer >
 
-        {/* Vibes Player (Floating) */}
-        {
-          user && (
-            <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
-          )
-        }
+      {/* Vibes Player (Floating) */}
+      {
+        user && (
+          <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
+        )
+      }
     </div >
   );
 }
