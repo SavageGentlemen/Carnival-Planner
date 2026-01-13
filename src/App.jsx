@@ -1882,193 +1882,205 @@ export default function App() {
                             {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
                           </div>
                         </div>
-                        {/* Inline Ad for free users */}
-                        {!isPremium && (
-                          <div className="mt-4">
-                            <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
-                          </div>
-                        )}
                       </div>
-                    )}
+                        
+                        {/* SQUAD CHAT */}
+                    <div className="mt-8 mb-8">
+                      <SquadChat
+                        squadId={currentSquad?.id}
+                        user={user}
+                        isDemoMode={isDemoMode}
+                      />
+                    </div>
 
-                    {/* TAB: PACKING (Free) */}
-                    {activeTab === 'Packing' && (
-                      <div className="animate-fadeIn">
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Packing List</h3>
-                        <div className="space-y-2 mb-6">
-                          {(currentCarnival.packing || []).map((item) => (
-                            <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 shadow-sm rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <input type="checkbox" checked={item.checked} onChange={() => togglePackingItem(item.id)} className="w-5 h-5 text-blue-600 rounded" />
-                                <span className={`text-gray-700 dark:text-gray-200 ${item.checked ? 'line-through opacity-50' : ''}`}>{item.item}</span>
-                              </div>
-                              <button onClick={() => removePackingItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input type="text" placeholder="Item" value={newPackingItem} onChange={(e) => setNewPackingItem(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
-                          <button onClick={addPackingItem} className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Add</button>
-                        </div>
-                        {/* Inline Ad for free users */}
-                        {!isPremium && (
-                          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-                            <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* TAB: MAP (Premium) */}
-                    {activeTab === 'Map' && isPremium && (
-                      <div className="animate-fadeIn">
-                        <FeteMap
-                          locations={currentCarnival.mapLocations || []}
-                          scrapedEvents={scrapedEvents}
-                          onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
-                          carnivalName={currentCarnival.name}
-                          carnivalId={activeCarnivalId}
-                        />
-                      </div>
-                    )}
-
-                    {/* TAB: PASSPORT (Premium Upgrade Integration) */}
-                    {activeTab === 'Passport' && isPremium && (
-                      <div className="animate-fadeIn">
-                        <SocaPassportTab
-                          user={user}
-                          activeCarnivalId={activeCarnivalId}
-                        />
-                      </div>
-                    )}
-
-                    {/* TAB: MEDIA VAULT (Premium) */}
-                    {activeTab === 'Media' && isPremium && (
-                      <div className="animate-fadeIn">
-                        <MediaVault
-                          files={currentCarnival.mediaFiles || []}
-                          onFilesChange={(newFiles) => updateCarnivalData('mediaFiles', newFiles)}
-                          carnivalName={currentCarnival.name}
-                          carnivalId={activeCarnivalId}
-                          userId={user.uid}
-                        />
-                      </div>
-                    )}
-
-                    {/* TAB: INFO & EXPORT */}
-                    {activeTab === 'Info' && (
-                      <div className="animate-fadeIn text-center">
-                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
-                          <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
-                          <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
-                          <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
-
-                          <button
-                            onClick={handleExport}
-                            className="flex items-center justify-center gap-2 mx-auto px-6 py-3 rounded-full font-bold transition-colors bg-white text-gray-900 hover:bg-gray-100"
-                          >
-                            <span>📥</span> Export Itinerary
-                          </button>
-                        </div>
-
-                        {/* Premium Subscription Buttons (Upsell) */}
-                        {!isPremium && (
-                          <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
-                            <h3 className="font-bold text-yellow-800 dark:text-yellow-400 mb-2">Become a Premium Supporter</h3>
-                            <p className="text-yellow-700 dark:text-yellow-500 text-sm mb-4">Get an ad-free experience and a Premium badge to show your support!</p>
-                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                              <button
-                                onClick={() => handleSubscribe("monthly")}
-                                disabled={isCheckingOut}
-                                className="px-4 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {isCheckingOut ? "Loading..." : "Monthly - $4.99"}
-                              </button>
-                              <button
-                                onClick={() => handleSubscribe("yearly")}
-                                disabled={isCheckingOut}
-                                className="px-4 py-2 bg-yellow-400 text-yellow-900 font-bold rounded shadow hover:bg-yellow-500 disabled:opacity-50"
-                              >
-                                {isCheckingOut ? "Loading..." : "Yearly - $39.99"}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Account Settings */}
-                        <div className="mt-6">
-                          <AccountSettings user={user} />
-                        </div>
-
-                        {/* AD MANAGER, SUPPORT & ANALYTICS - Admin Only */}
-                        {user?.email === 'djkrss1@gmail.com' && (
-                          <div className="mt-6 text-left space-y-8">
-                            <AdManager />
-                            <SupportAdmin />
-                            <AdminAnalytics />
-                          </div>
-                        )}
+                    {/* Inline Ad for free users */}
+                    {!isPremium && (
+                      <div className="mt-4">
+                        <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
                       </div>
                     )}
                   </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </main>
+                    )}
 
-      {/* Footer with Legal Links */}
-      < footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto" >
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-            <button
-              onClick={() => setActiveLegalPage('privacy')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Privacy
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('terms')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Terms
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('cookies')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Cookies
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('refund')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Refunds
-            </button>
-            <span>|</span>
-            <button
-              onClick={() => setActiveLegalPage('contact')}
-              className="hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Contact
-            </button>
-          </div>
-          <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
-            © {new Date().getFullYear()} Carnival Planner
-          </p>
-        </div>
+                  {/* TAB: PACKING (Free) */}
+                  {activeTab === 'Packing' && (
+                    <div className="animate-fadeIn">
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Packing List</h3>
+                      <div className="space-y-2 mb-6">
+                        {(currentCarnival.packing || []).map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 shadow-sm rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <input type="checkbox" checked={item.checked} onChange={() => togglePackingItem(item.id)} className="w-5 h-5 text-blue-600 rounded" />
+                              <span className={`text-gray-700 dark:text-gray-200 ${item.checked ? 'line-through opacity-50' : ''}`}>{item.item}</span>
+                            </div>
+                            <button onClick={() => removePackingItem(item.id)} className="text-gray-400 hover:text-red-500">×</button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input type="text" placeholder="Item" value={newPackingItem} onChange={(e) => setNewPackingItem(e.target.value)} className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                        <button onClick={addPackingItem} className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Add</button>
+                      </div>
+                      {/* Inline Ad for free users */}
+                      {!isPremium && (
+                        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                          <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB: MAP (Premium) */}
+                  {activeTab === 'Map' && isPremium && (
+                    <div className="animate-fadeIn">
+                      <FeteMap
+                        locations={currentCarnival.mapLocations || []}
+                        scrapedEvents={scrapedEvents}
+                        onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
+                        carnivalName={currentCarnival.name}
+                        carnivalId={activeCarnivalId}
+                      />
+                    </div>
+                  )}
+
+                  {/* TAB: PASSPORT (Premium Upgrade Integration) */}
+                  {activeTab === 'Passport' && isPremium && (
+                    <div className="animate-fadeIn">
+                      <SocaPassportTab
+                        user={user}
+                        activeCarnivalId={activeCarnivalId}
+                      />
+                    </div>
+                  )}
+
+                  {/* TAB: MEDIA VAULT (Premium) */}
+                  {activeTab === 'Media' && isPremium && (
+                    <div className="animate-fadeIn">
+                      <MediaVault
+                        files={currentCarnival.mediaFiles || []}
+                        onFilesChange={(newFiles) => updateCarnivalData('mediaFiles', newFiles)}
+                        carnivalName={currentCarnival.name}
+                        carnivalId={activeCarnivalId}
+                        userId={user.uid}
+                      />
+                    </div>
+                  )}
+
+                  {/* TAB: INFO & EXPORT */}
+                  {activeTab === 'Info' && (
+                    <div className="animate-fadeIn text-center">
+                      <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
+                        <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
+                        <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
+
+                        <button
+                          onClick={handleExport}
+                          className="flex items-center justify-center gap-2 mx-auto px-6 py-3 rounded-full font-bold transition-colors bg-white text-gray-900 hover:bg-gray-100"
+                        >
+                          <span>📥</span> Export Itinerary
+                        </button>
+                      </div>
+
+                      {/* Premium Subscription Buttons (Upsell) */}
+                      {!isPremium && (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
+                          <h3 className="font-bold text-yellow-800 dark:text-yellow-400 mb-2">Become a Premium Supporter</h3>
+                          <p className="text-yellow-700 dark:text-yellow-500 text-sm mb-4">Get an ad-free experience and a Premium badge to show your support!</p>
+                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <button
+                              onClick={() => handleSubscribe("monthly")}
+                              disabled={isCheckingOut}
+                              className="px-4 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {isCheckingOut ? "Loading..." : "Monthly - $4.99"}
+                            </button>
+                            <button
+                              onClick={() => handleSubscribe("yearly")}
+                              disabled={isCheckingOut}
+                              className="px-4 py-2 bg-yellow-400 text-yellow-900 font-bold rounded shadow hover:bg-yellow-500 disabled:opacity-50"
+                            >
+                              {isCheckingOut ? "Loading..." : "Yearly - $39.99"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Account Settings */}
+                      <div className="mt-6">
+                        <AccountSettings user={user} />
+                      </div>
+
+                      {/* AD MANAGER, SUPPORT & ANALYTICS - Admin Only */}
+                      {user?.email === 'djkrss1@gmail.com' && (
+                        <div className="mt-6 text-left space-y-8">
+                          <AdManager />
+                          <SupportAdmin />
+                          <AdminAnalytics />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+          </>
+        )}
+    </div>
+  )
+}
+      </main >
+
+  {/* Footer with Legal Links */ }
+  < footer className = "bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-6 px-4 mt-auto" >
+    <div className="max-w-4xl mx-auto text-center">
+      <div className="flex flex-wrap justify-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+        <button
+          onClick={() => setActiveLegalPage('privacy')}
+          className="hover:text-gray-900 dark:hover:text-white transition-colors"
+        >
+          Privacy
+        </button>
+        <span>|</span>
+        <button
+          onClick={() => setActiveLegalPage('terms')}
+          className="hover:text-gray-900 dark:hover:text-white transition-colors"
+        >
+          Terms
+        </button>
+        <span>|</span>
+        <button
+          onClick={() => setActiveLegalPage('cookies')}
+          className="hover:text-gray-900 dark:hover:text-white transition-colors"
+        >
+          Cookies
+        </button>
+        <span>|</span>
+        <button
+          onClick={() => setActiveLegalPage('refund')}
+          className="hover:text-gray-900 dark:hover:text-white transition-colors"
+        >
+          Refunds
+        </button>
+        <span>|</span>
+        <button
+          onClick={() => setActiveLegalPage('contact')}
+          className="hover:text-gray-900 dark:hover:text-white transition-colors"
+        >
+          Contact
+        </button>
+      </div>
+      <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
+        © {new Date().getFullYear()} Carnival Planner
+      </p>
+    </div>
       </footer >
 
-      {/* Vibes Player (Floating) */}
-      {
-        user && (
-          <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
-        )
-      }
+  {/* Vibes Player (Floating) */ }
+{
+  user && (
+    <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
+  )
+}
     </div >
   );
 }
