@@ -44,9 +44,34 @@ export const subscribeToMessages = (squadId, isDemoMode, callback) => {
     return unsubscribe;
 };
 
-export const sendMessage = async (squadId, user, text, isDemoMode, callback) => {
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase';
+
+export const sendMessage = async (squadId, user, text, imageFile, isDemoMode, callback) => {
+    let imageUrl = null;
+
+    // HANDLING IMAGE UPLOAD
+    if (imageFile) {
+        if (isDemoMode) {
+            // DEMO: Create local blob URL
+            imageUrl = URL.createObjectURL(imageFile);
+        } else {
+            // PRODUCTION: Upload to Firebase Storage
+            try {
+                const storageRef = ref(storage, `squads/${squadId}/${Date.now()}_${imageFile.name}`);
+                const snapshot = await uploadBytes(storageRef, imageFile);
+                imageUrl = await getDownloadURL(snapshot.ref);
+            } catch (err) {
+                console.error("Image upload failed:", err);
+                // Fail silently or handle error? For now proceed without image
+            }
+        }
+    }
+
     const messageData = {
         text,
+        imageUrl,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 Hours from now
         senderId: user.uid || 'demo-user',
         senderName: user.displayName || 'Me',
         senderPhoto: user.photoURL || null,
@@ -62,7 +87,7 @@ export const sendMessage = async (squadId, user, text, isDemoMode, callback) => 
 
         // SIMULATE AI REPLY
         setTimeout(() => {
-            const aiReply = generateMockAIReply(text);
+            const aiReply = generateMockAIReply(text || (imageFile ? "Nice photo! 📸" : "..."));
             const botMsg = {
                 id: (Date.now() + 1).toString(),
                 text: aiReply,

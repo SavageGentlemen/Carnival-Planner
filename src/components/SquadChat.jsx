@@ -1,44 +1,62 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User as UserIcon } from 'lucide-react';
+import { Send, Bot, User as UserIcon, Camera, Image as ImageIcon, X } from 'lucide-react';
 import { subscribeToMessages, sendMessage } from '../services/chatService';
 
 export default function SquadChat({ squadId, user, isDemoMode }) {
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null); // File object
+    const [previewUrl, setPreviewUrl] = useState(null);
     const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     // Subscribe to messages
     useEffect(() => {
-        // Determine effective squadId for demo
         const effectiveSquadId = isDemoMode ? 'demo-squad' : squadId;
-
         const unsubscribe = subscribeToMessages(effectiveSquadId, isDemoMode, (msgs) => {
             setMessages(msgs);
         });
-
         return () => unsubscribe();
     }, [squadId, isDemoMode]);
 
-    // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
+    // Clean up preview URL
+    useEffect(() => {
+        return () => {
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+        };
+    }, [previewUrl]);
+
+    const handleFileSelect = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setSelectedImage(file);
+            setPreviewUrl(URL.createObjectURL(file));
+        }
+    };
+
     const handleSend = async (e) => {
         e.preventDefault();
-        if (!inputText.trim()) return;
+        if (!inputText.trim() && !selectedImage) return;
 
         const text = inputText;
-        setInputText(''); // optimistic clear
+        const image = selectedImage;
+
+        // Optimistic Clear
+        setInputText('');
+        setSelectedImage(null);
+        setPreviewUrl(null);
 
         try {
             const effectiveSquadId = isDemoMode ? 'demo-squad' : squadId;
-            // For demo mode, we pass the setMessages setter to update local state
-            await sendMessage(effectiveSquadId, user, text, isDemoMode, setMessages);
+            await sendMessage(effectiveSquadId, user, text, image, isDemoMode, setMessages); // Pass setMessages for demo update
         } catch (err) {
             console.error("Failed to send:", err);
-            setInputText(text); // restore if failed
+            // Restore input on fail? A bit complex with image but acceptable for MVP
+            setInputText(text);
         }
     };
 
@@ -69,6 +87,14 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
                     const isMe = msg.senderId === (user?.uid || 'demo-user');
                     const isBot = msg.isBot;
 
+                    // Check Expiry
+                    let isExpired = false;
+                    let expiresAtDate = null;
+                    if (msg.expiresAt) {
+                        expiresAtDate = new Date(msg.expiresAt);
+                        if (new Date() > expiresAtDate) isExpired = true;
+                    }
+
                     return (
                         <div
                             key={msg.id}
@@ -84,7 +110,7 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
                                 {/* Bubble */}
                                 <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                     <span className="text-[10px] text-gray-400 mb-1 ml-1">{msg.senderName}</span>
-                                    <div className={`px-4 py-3 rounded-2xl shadow-sm text-sm leading-relaxed
+                                    <div className={`px-4 py-3 rounded-2xl shadow-sm text-sm leading-relaxed relative
                         ${isMe
                                             ? 'bg-blue-600 text-white rounded-tr-none'
                                             : isBot
@@ -92,6 +118,30 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
                                                 : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none'
                                         }
                     `}>
+                                        {/* IMAGE RENDERING */}
+                                        {msg.imageUrl && (
+                                            <div className="mb-2">
+                                                {isExpired ? (
+                                                    <div className="w-48 h-32 bg-gray-200 dark:bg-gray-700 rounded-lg flex flex-col items-center justify-center text-gray-500">
+                                                        <ImageIcon className="w-8 h-8 mb-1 opacity-50" />
+                                                        <span className="text-xs italic">Image expired</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="relative group">
+                                                        <img
+                                                            src={msg.imageUrl}
+                                                            alt="Shared"
+                                                            className="w-48 h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                            onClick={() => window.open(msg.imageUrl, '_blank')}
+                                                        />
+                                                        <span className="absolute top-2 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
+                                                            ⏳ 24h
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                         {msg.text}
                                     </div>
                                     <span className="text-[10px] text-gray-400 mt-1 opacity-50">
@@ -107,17 +157,49 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
 
             {/* Input Area */}
             <form onSubmit={handleSend} className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex gap-2">
+
+                {/* Image Preview */}
+                {previewUrl && (
+                    <div className="mb-3 relative inline-block">
+                        <img src={previewUrl} alt="Preview" className="h-20 w-20 object-cover rounded-lg border border-purple-200" />
+                        <button
+                            type="button"
+                            onClick={() => { setSelectedImage(null); setPreviewUrl(null); }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </div>
+                )}
+
+                <div className="flex gap-2 items-center">
+                    {/* File Input */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        accept="image/*"
+                        className="hidden"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-3 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
+                        title="Upload Image (Expires in 24h)"
+                    >
+                        <Camera className="w-5 h-5" />
+                    </button>
+
                     <input
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
-                        placeholder="Ask Concierge or chat with squad..."
+                        placeholder={selectedImage ? "Add a caption..." : "Ask Concierge or chat with squad..."}
                         className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-900 border-0 rounded-xl focus:ring-2 focus:ring-purple-500 dark:text-white placeholder-gray-400 transition-all"
                     />
                     <button
                         type="submit"
-                        disabled={!inputText.trim()}
+                        disabled={!inputText.trim() && !selectedImage}
                         className="p-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-purple-500/30"
                     >
                         <Send className="w-5 h-5" />
