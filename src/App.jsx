@@ -20,6 +20,7 @@ import app, { auth, db, requestNotificationPermission, onForegroundMessage } fro
 import logo from './assets/carnival-logo.png';
 import { carnivalData } from './carnivals';
 import FeteMap from './components/FeteMap';
+import SquadChat from './components/SquadChat';
 import MediaVault from './components/MediaVault';
 import VibesPlayer from './components/VibesPlayer';
 import PromoAd from './components/PromoAd';
