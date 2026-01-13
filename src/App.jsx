@@ -1881,9 +1881,10 @@ export default function App() {
                             ))}
                             {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
                           </div>
+                          {(currentCarnival.squad || []).length === 0 && <p className="text-gray-400 italic text-sm">No squad members added yet. Riding solo?</p>}
                         </div>
                       </div>
-                        
+
                         {/* SQUAD CHAT */}
                     <div className="mt-8 mb-8">
                       <SquadChat
