@@ -66,6 +66,7 @@ const POPULAR_EVENTS = {
 export default function App() {
   // --- STATE ---
   const [user, setUser] = useState(null);
+  const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
 
   // Data
   const [carnivals, setCarnivals] = useState({});
@@ -92,7 +93,6 @@ export default function App() {
   const [costumeDetails, setCostumeDetails] = useState({ band: '', section: '', total: '', paid: '' });
 
   // Squad Sharing State
-  // Squad Sharing State
   const [squadShareCode, setSquadShareCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [squadMembers, setSquadMembers] = useState([]); // Array of member objects
@@ -102,8 +102,54 @@ export default function App() {
   const [squadShareError, setSquadShareError] = useState('');
   const [squadShareSuccess, setSquadShareSuccess] = useState('');
 
+  // Import Demo Data
+  // NOTE: In a real build, we might want to lazy load this, but for now standard import is fine.
+  // We'll rely on the file existing.
+
+  // --- DEMO MODE HANDLERS ---
+  const handleTryDemo = async () => {
+    // Dynamically import demo data to avoid bundling unless needed (optimisation)
+    const { DEMO_USER, DEMO_CARNIVALS, DEMO_SQUAD } = await import('./demoData');
+
+    setIsDemoMode(true);
+    setUser(DEMO_USER);
+    setCarnivals(DEMO_CARNIVALS);
+    setActiveCarnivalId('trinidad'); // Default to Trinidad
+    setSquadMembers(DEMO_SQUAD);
+    setIsPremium(true); // Let them experience premium features
+    setShowLanding(false);
+
+    // Set some demo specific state
+    setSharedCarnivalData(DEMO_CARNIVALS.trinidad); // Simulate squad mode
+  };
+
+  const handleExitDemo = () => {
+    setIsDemoMode(false);
+    setUser(null);
+    setCarnivals({});
+    setActiveCarnivalId(null);
+    setSquadMembers([]);
+    setIsPremium(false);
+    setShowLanding(true);
+    setSharedCarnivalData(null);
+  };
+
+  // Auto-start demo if ?demo=true param is present
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === 'true') {
+      handleTryDemo();
+    }
+  }, []);
+
+  // --- EXISTING HANDLERS MODIFIED FOR DEMO ---
+
   // SQUAD: Handle Create
   const handleCreateSquad = async () => {
+    if (isDemoMode) {
+      alert("This feature is simulated in Demo Mode.");
+      return;
+    }
     if (!user) return;
     setIsCreatingShare(true);
     setSquadShareError('');
@@ -122,6 +168,10 @@ export default function App() {
 
   // SQUAD: Handle Join
   const handleJoinSquad = async () => {
+    if (isDemoMode) {
+      alert("Joining squads is simulated in Demo Mode.");
+      return;
+    }
     if (!user || !joinCode) return;
     const cleanCode = joinCode.trim().toUpperCase(); // Sanitization
     setIsJoiningSquad(true);
@@ -147,6 +197,10 @@ export default function App() {
 
   // SQUAD: Handle Leave
   const handleLeaveSquad = async () => {
+    if (isDemoMode) {
+      if (confirm("Exit Demo Mode?")) handleExitDemo();
+      return;
+    }
     if (!user || !currentSquad) return;
     if (confirm("Are you sure you want to leave this squad?")) {
       await leaveSquad(user, currentSquad.id);
@@ -239,7 +293,7 @@ export default function App() {
 
   // 1b. Load and persist theme preference per user
   useEffect(() => {
-    if (!user) return;
+    if (!user || isDemoMode) return;
 
     const loadThemePreference = async () => {
       try {
@@ -257,11 +311,11 @@ export default function App() {
     };
 
     loadThemePreference();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   // 1c. Save theme preference when it changes
   const saveThemePreference = async (isDark) => {
-    if (!user) return;
+    if (!user || isDemoMode) return;
     try {
       const userPrefsRef = doc(db, 'users', user.uid, 'preferences', 'theme');
       await setDoc(userPrefsRef, { darkMode: isDark, updatedAt: Timestamp.now() }, { merge: true });
@@ -278,6 +332,9 @@ export default function App() {
 
   // 2. Auth Listener - Also creates/updates user document for analytics
   useEffect(() => {
+    // If we're in demo mode, ignore standard auth listener
+    if (isDemoMode) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
 
@@ -301,15 +358,20 @@ export default function App() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [isDemoMode]);
 
   // --- EFFECT: SQUAD SUBSCRIPTION ---
   useEffect(() => {
     if (!user) {
-      setCurrentSquad(null);
-      setSquadMembers([]);
+      // Don't clear if demo mode, cause that wipes our fake squad
+      if (!isDemoMode) {
+        setCurrentSquad(null);
+        setSquadMembers([]);
+      }
       return;
     }
+
+    if (isDemoMode) return; // Bypass Firestore listeners in demo mode
 
     // Listen to user profile for currentSquadId changes
     const unsubUser = onSnapshot(doc(db, 'users', user.uid), (uDoc) => {
@@ -344,12 +406,17 @@ export default function App() {
     });
 
     return () => unsubUser();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   // 3. Premium Check (Firestore + Admin Override)
   useEffect(() => {
     if (!user) {
-      setIsPremium(false);
+      if (!isDemoMode) setIsPremium(false);
+      return;
+    }
+
+    if (isDemoMode) {
+      setIsPremium(true); // Always premium in demo
       return;
     }
 
@@ -375,15 +442,20 @@ export default function App() {
       }
     });
     return () => unsub();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   // 4. Load Carnivals
   useEffect(() => {
     if (!user) {
-      setCarnivals({});
-      setActiveCarnivalId(null);
+      if (!isDemoMode) {
+        setCarnivals({});
+        setActiveCarnivalId(null);
+      }
       return;
     }
+
+    if (isDemoMode) return; // Loaded in handleTryDemo
+
     const carnivalsRef = collection(db, 'users', user.uid, 'apps', appId, 'carnivals');
     const unsubscribe = onSnapshot(carnivalsRef, (snapshot) => {
       const map = {};
@@ -396,15 +468,17 @@ export default function App() {
       }
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   useEffect(() => {
-    getRedirectResult(auth).catch((err) => console.error(err));
-  }, []);
+    if (!isDemoMode) {
+      getRedirectResult(auth).catch((err) => console.error(err));
+    }
+  }, [isDemoMode]);
 
   // 5. Request notification permission and save FCM token
   useEffect(() => {
-    if (!user) return;
+    if (!user || isDemoMode) return; // Skip in demo
 
     const setupNotifications = async () => {
       try {
@@ -432,7 +506,7 @@ export default function App() {
       });
       setTimeout(() => setToastMessage(null), 5000);
     });
-  }, [user]);
+  }, [user, isDemoMode]);
 
   // --- ACTIONS ---
 
@@ -446,6 +520,10 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    if (isDemoMode) {
+      handleExitDemo();
+      return;
+    }
     await firebaseSignOut(auth);
     setShowLanding(true);
     setRoadMode(false);
@@ -455,6 +533,10 @@ export default function App() {
 
   // --- STRIPE SUBSCRIPTION ---
   const handleSubscribe = async (interval) => {
+    if (isDemoMode) {
+      alert("Subscriptions are disabled in Demo Mode.");
+      return;
+    }
     if (!user) {
       alert("You must be signed in to subscribe.");
       return;
@@ -506,6 +588,32 @@ export default function App() {
   const selectCarnival = async (id, name) => {
     if (!user) return;
     setActiveCarnivalId(id);
+
+    if (isDemoMode) {
+      // If they select a carnival not in our demo data, just initialize empty
+      if (!carnivals[id]) {
+        setCarnivals(prev => ({
+          ...prev,
+          [id]: {
+            name,
+            budget: [],
+            schedule: [],
+            packing: [],
+            squad: [],
+            costume: null,
+            createdAt: new Date().toISOString()
+          }
+        }));
+        setSharedCarnivalData(null); // Switching away from the shared demo one
+      } else if (id === 'trinidad' && carnivals['trinidad']) {
+        // If going back to demo trinidad, re-enable shared data view
+        setSharedCarnivalData(carnivals['trinidad']);
+      } else {
+        setSharedCarnivalData(null);
+      }
+      return;
+    }
+
     if (!carnivals[id]) {
       try {
         const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', id);
@@ -534,6 +642,8 @@ export default function App() {
 
   // Load shared carnival data when in a squad
   const loadSharedCarnivalData = async () => {
+    if (isDemoMode) return; // Handled in selectCarnival for demo
+
     if (!currentSharedPlanId || !user) {
       setSharedCarnivalData(null);
       return;
@@ -558,16 +668,64 @@ export default function App() {
 
   // Reload shared data when carnival changes
   useEffect(() => {
-    if (currentSharedPlanId) {
+    if (currentSharedPlanId && !isDemoMode) {
       loadSharedCarnivalData();
-    } else {
+    } else if (!isDemoMode) {
       setSharedCarnivalData(null);
     }
-  }, [currentSharedPlanId, user]);
+  }, [currentSharedPlanId, user, isDemoMode]);
 
   // Update carnival data - uses shared data if in a squad, otherwise personal data
   const updateCarnivalData = async (field, newData, action = 'set') => {
     if (!user || !activeCarnivalId) return;
+
+    // --- DEMO MODE UPDATE LOGIC ---
+    if (isDemoMode) {
+      // Helper to update local state in demo mode
+      const updateLocal = (targetData) => {
+        let updatedFieldData = newData;
+        if (action === 'add' && Array.isArray(targetData[field])) {
+          updatedFieldData = [...(targetData[field] || []), ...newData];
+        } else if (action === 'remove' && Array.isArray(targetData[field])) {
+          updatedFieldData = (targetData[field] || []).filter(i => i.id !== newData.id);
+        } else if (action === 'update' && Array.isArray(targetData[field])) { // Handle togglePacking
+          // newData here is likely the whole array from togglePackingItem logic below, 
+          // OR it's a specific item if we were consistent.
+          // Let's protect against the inconsistent usage in the helper functions below.
+          // Actually, togglePackingItem in helper passes the FULL array for 'update' in non-collaborative, 
+          // but passes {id, checked} for 'update' in collaborative.
+          // We are mimicking collaborative mostly.
+          if (newData.id !== undefined) {
+            // Collaborative style update single item params
+            updatedFieldData = (targetData[field] || []).map(i => i.id === newData.id ? { ...i, ...newData } : i);
+          }
+        }
+
+        // If we entered here with a full array replacement (standard non-collab set), just use newData
+        if (action === 'set') updatedFieldData = newData;
+
+        return {
+          ...targetData,
+          [field]: updatedFieldData
+        };
+      };
+
+      if (isCollaborative) {
+        setSharedCarnivalData(prev => updateLocal(prev));
+        // Also update the base carnival to keep in sync somewhat
+        setCarnivals(prev => ({
+          ...prev,
+          [activeCarnivalId]: updateLocal(prev[activeCarnivalId])
+        }));
+      } else {
+        setCarnivals(prev => ({
+          ...prev,
+          [activeCarnivalId]: updateLocal(prev[activeCarnivalId])
+        }));
+      }
+      return;
+    }
+    // --- END DEMO MODE ---
 
     // If this is a shared carnival, update the shared data
     if (currentSharedPlanId && ['budget', 'schedule', 'packing', 'costume', 'squad'].includes(field)) {
@@ -598,6 +756,7 @@ export default function App() {
     const ref = doc(db, 'users', user.uid, 'apps', appId, 'carnivals', activeCarnivalId);
     await updateDoc(ref, { [field]: newData });
   };
+
 
   // Helper to get current carnival data - prefers shared data if available
   const getCurrentCarnivalData = (field) => {
@@ -988,7 +1147,7 @@ export default function App() {
 
   // --- VIEW: SPLASH SCREEN ---
   if (showLanding && !user) {
-    return <SplashPage onGetStarted={() => setShowLanding(false)} logo={logo} onLegalPage={setActiveLegalPage} />;
+    return <SplashPage onGetStarted={() => setShowLanding(false)} logo={logo} onLegalPage={setActiveLegalPage} onTryDemo={handleTryDemo} />;
   }
 
   // --- VIEW: ROAD MODE (PREMIUM) ---
@@ -1068,6 +1227,16 @@ export default function App() {
             <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-300">
               {darkMode ? '☀️' : '🌙'}
             </button>
+            {/* Demo Mode Exit Button */}
+            {isDemoMode && (
+              <button
+                onClick={handleExitDemo}
+                className="px-3 py-1 text-xs font-bold rounded-full bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 transition-colors"
+              >
+                EXIT DEMO
+              </button>
+            )}
+
             {currentCarnival && (
               <button
                 onClick={toggleRoadMode}

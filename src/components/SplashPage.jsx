@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Users, Wallet, Map, CreditCard, ArrowRight, Zap, Globe, Shield, Music } from 'lucide-react';
 
-export default function SplashPage({ onGetStarted, logo }) {
+export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
   const [scrollY, setScrollY] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -83,13 +83,21 @@ export default function SplashPage({ onGetStarted, logo }) {
         </p>
 
         {/* CTA */}
-        <button
-          onClick={onGetStarted}
-          className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-10px_rgba(255,255,255,0.5)] transition-all transform hover:scale-105"
-        >
-          Start Planning For Free
-          <ArrowRight className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={onGetStarted}
+            className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-10px_rgba(255,255,255,0.5)] transition-all transform hover:scale-105"
+          >
+            Start Planning For Free
+            <ArrowRight className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
+          <button
+            onClick={onTryDemo}
+            className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-full font-bold text-lg backdrop-blur-sm transition-all transform hover:scale-105"
+          >
+            Try Live Demo
+          </button>
+        </div>
 
         {/* Hero Visual / Dashboard Preview (CSS Art) */}
         <div className="mt-20 relative w-full max-w-5xl aspect-[16/9] bg-gray-900/50 rounded-xl border border-white/10 backdrop-blur-sm overflow-hidden shadow-2xl group">
