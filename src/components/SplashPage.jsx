@@ -193,7 +193,7 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
               </div>
               <div className="bg-gray-800 rounded-lg p-4 group-hover:bg-gray-750 transition-colors">
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Flight (MIA -> POS)</span>
+                  <span>Flight (MIA &rarr; POS)</span>
                   <span className="font-mono text-green-400">-$850</span>
                 </div>
                 <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
