@@ -354,6 +354,23 @@ export default function App() {
             displayName: u.displayName || null,
           }, { merge: true });
           console.log('[Analytics] User document updated successfully');
+
+          // 🌍 GEOLOCATION: Request and save location
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude } = position.coords;
+                // Update user doc with location
+                setDoc(userDocRef, {
+                  lastLocation: { lat: latitude, lng: longitude },
+                  lastLocationAt: Timestamp.now()
+                }, { merge: true }).then(() => console.log('Location saved')).catch(e => console.error("Loc save error", e));
+              },
+              (error) => {
+                console.log("Geolocation denied/error:", error.message);
+              }
+            );
+          }
         } catch (err) {
           console.error('[Analytics] Failed to update user doc:', err.code, err.message);
         }

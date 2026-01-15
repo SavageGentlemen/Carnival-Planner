@@ -3,7 +3,8 @@ import { collection, getDocs, doc, setDoc, getDoc, updateDoc, Timestamp } from '
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebase';
 import app from '../firebase';
-import { Users, Crown, Search, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, MapPin, Loader2, RefreshCw, Download } from 'lucide-react';
+import { Users, Crown, Search, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, MapPin, Loader2, RefreshCw, Download, ShieldAlert, Trash2 } from 'lucide-react';
+import AdminCleanup from './AdminCleanup';
 
 const APP_ID = 'carnival-planner-v1';
 const PREMIUM_OVERRIDE_EMAILS = ['djkrss1@gmail.com'];
@@ -20,23 +21,68 @@ export default function AdminAnalytics() {
   const [migrating, setMigrating] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState(null);
   const [migratingAuth, setMigratingAuth] = useState(false);
+  const [showCleanup, setShowCleanup] = useState(false);
+
+  // --- ACTIONS ---
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+
+    try {
+      await import('firebase/firestore').then(({ deleteDoc }) => {
+        deleteDoc(doc(db, 'users', userId));
+      });
+
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setStats(prev => ({ ...prev, total: prev.total - 1, free: prev.free - 1 })); // Assuming free, since incomplete
+
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Failed to delete user: ' + err.message);
+    }
+  };
+
+  const handleBatchDelete = async (userIds) => {
+    try {
+      const { deleteDoc } = await import('firebase/firestore');
+      let count = 0;
+
+      for (const id of userIds) {
+        await deleteDoc(doc(db, 'users', id));
+        count++;
+      }
+
+      setUsers(prev => prev.filter(u => !userIds.includes(u.id)));
+      setStats(prev => ({
+        ...prev,
+        total: prev.total - count,
+        free: prev.free - count
+      }));
+
+      alert(`Successfully deleted ${count} users.`);
+
+    } catch (err) {
+      console.error('Batch delete error:', err);
+      alert('Batch delete failed partially: ' + err.message);
+    }
+  };
 
   // Migrate users from Firebase Auth (server-side function)
   const migrateAuthUsers = async () => {
     setMigratingAuth(true);
     setMigrationStatus('Migrating users from Firebase Auth...');
-    
+
     try {
       const migrateAuthUsersFn = httpsCallable(functions, 'migrateAuthUsers');
       const result = await migrateAuthUsersFn({});
-      
+
       setMigrationStatus(result.data.message);
       await fetchUsers();
     } catch (err) {
       console.error('Auth migration error:', err);
       setMigrationStatus(`Auth migration failed: ${err.message}`);
     }
-    
+
     setMigratingAuth(false);
   };
 
@@ -44,22 +90,22 @@ export default function AdminAnalytics() {
   const migrateUserData = async () => {
     setMigrating(true);
     setMigrationStatus('Starting migration...');
-    
+
     try {
       const usersToMigrate = new Map();
       let sources = [];
-      
+
       // 1. Fetch all user-activity records
       try {
         const activitySnapshot = await getDocs(collection(db, 'user-activity'));
         console.log('[Migration] Found', activitySnapshot.size, 'user-activity records');
         sources.push(`${activitySnapshot.size} activity records`);
-        
+
         for (const actDoc of activitySnapshot.docs) {
           const data = actDoc.data();
           const userId = data.uid;
           if (!userId) continue;
-          
+
           if (!usersToMigrate.has(userId)) {
             usersToMigrate.set(userId, {
               createdAt: data.loginAt,
@@ -82,17 +128,17 @@ export default function AdminAnalytics() {
       } catch (e) {
         console.log('[Migration] Could not fetch user-activity:', e.message);
       }
-      
+
       // 2. Also fetch from artifacts collection (legacy user data)
       try {
         const artifactsSnapshot = await getDocs(collection(db, 'artifacts', APP_ID, 'users'));
         console.log('[Migration] Found', artifactsSnapshot.size, 'artifact users');
         sources.push(`${artifactsSnapshot.size} artifact users`);
-        
+
         for (const userDoc of artifactsSnapshot.docs) {
           const userId = userDoc.id;
           const artifactData = userDoc.data();
-          
+
           if (!usersToMigrate.has(userId)) {
             usersToMigrate.set(userId, {
               createdAt: artifactData.createdAt || Timestamp.now(),
@@ -105,16 +151,16 @@ export default function AdminAnalytics() {
       } catch (e) {
         console.log('[Migration] Could not fetch artifacts:', e.message);
       }
-      
+
       setMigrationStatus(`Found ${usersToMigrate.size} unique users (${sources.join(', ')})...`);
-      
+
       // 2. Create/update user documents
       let migrated = 0;
       for (const [userId, userData] of usersToMigrate) {
         try {
           const userDocRef = doc(db, 'users', userId);
           const existingDoc = await getDoc(userDocRef);
-          
+
           if (!existingDoc.exists()) {
             // Create new user document
             await setDoc(userDocRef, userData);
@@ -123,18 +169,18 @@ export default function AdminAnalytics() {
             // Merge with existing - only update if we have earlier createdAt
             const existingData = existingDoc.data();
             const updates = {};
-            
-            if (userData.createdAt && (!existingData.createdAt || 
-                userData.createdAt.toMillis?.() < existingData.createdAt?.toMillis?.())) {
+
+            if (userData.createdAt && (!existingData.createdAt ||
+              userData.createdAt.toMillis?.() < existingData.createdAt?.toMillis?.())) {
               updates.createdAt = userData.createdAt;
             }
-            if (userData.lastLoginAt && (!existingData.lastLoginAt || 
-                userData.lastLoginAt.toMillis?.() > existingData.lastLoginAt?.toMillis?.())) {
+            if (userData.lastLoginAt && (!existingData.lastLoginAt ||
+              userData.lastLoginAt.toMillis?.() > existingData.lastLoginAt?.toMillis?.())) {
               updates.lastLoginAt = userData.lastLoginAt;
             }
             if (!existingData.email && userData.email) updates.email = userData.email;
             if (!existingData.displayName && userData.displayName) updates.displayName = userData.displayName;
-            
+
             if (Object.keys(updates).length > 0) {
               await setDoc(userDocRef, updates, { merge: true });
               migrated++;
@@ -144,35 +190,35 @@ export default function AdminAnalytics() {
           console.error(`Failed to migrate user ${userId}:`, err);
         }
       }
-      
+
       setMigrationStatus(`Migration complete! Migrated ${migrated} users.`);
-      
+
       // Refresh the user list
       await fetchUsers();
-      
+
     } catch (err) {
       console.error('Migration error:', err);
       setMigrationStatus(`Migration failed: ${err.message}`);
     }
-    
+
     setMigrating(false);
   };
 
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log('[AdminAnalytics] Fetching users...');
       const usersMap = new Map(); // Use Map to deduplicate by userId
-      
+
       // 1. Fetch from new users collection
       try {
         console.log('[AdminAnalytics] Attempting to fetch users collection...');
         const usersSnapshot = await getDocs(collection(db, 'users'));
         console.log('[AdminAnalytics] SUCCESS: Found', usersSnapshot.size, 'user documents in users collection');
         usersSnapshot.docs.forEach(d => console.log('[AdminAnalytics] User doc:', d.id, d.data()));
-        
+
         for (const userDoc of usersSnapshot.docs) {
           const userId = userDoc.id;
           const rootData = userDoc.data();
@@ -190,13 +236,13 @@ export default function AdminAnalytics() {
       } catch (e) {
         console.log('[AdminAnalytics] Could not fetch users collection:', e.message);
       }
-      
+
       // 2. Fetch from user-activity collection (new login tracking)
       try {
         console.log('[AdminAnalytics] Attempting to fetch user-activity collection...');
         const activitySnapshot = await getDocs(collection(db, 'user-activity'));
         console.log('[AdminAnalytics] SUCCESS: Found', activitySnapshot.size, 'activity records');
-        
+
         for (const actDoc of activitySnapshot.docs) {
           const data = actDoc.data();
           const userId = data.uid;
@@ -225,13 +271,13 @@ export default function AdminAnalytics() {
       } catch (e) {
         console.log('[AdminAnalytics] Could not fetch user-activity collection:', e.message);
       }
-      
+
       // 3. Also fetch from artifacts collection (legacy user data)
       try {
         console.log('[AdminAnalytics] Attempting to fetch artifacts collection...');
         const artifactsSnapshot = await getDocs(collection(db, 'artifacts', APP_ID, 'users'));
         console.log('[AdminAnalytics] SUCCESS: Found', artifactsSnapshot.size, 'users in artifacts collection');
-        
+
         for (const userDoc of artifactsSnapshot.docs) {
           const userId = userDoc.id;
           if (!usersMap.has(userId)) {
@@ -251,7 +297,7 @@ export default function AdminAnalytics() {
       } catch (e) {
         console.log('[AdminAnalytics] Could not fetch artifacts collection:', e.message);
       }
-      
+
       // 3. Process each user to get additional data
       const usersList = [];
       for (const [userId, userData] of usersMap) {
@@ -271,10 +317,10 @@ export default function AdminAnalytics() {
         } catch (e) {
           // Silently continue
         }
-        
+
         userData.isPremium = false;
         userData.carnivalCount = 0;
-        
+
         // Try to fetch app data from users/{userId}/apps path
         try {
           const appRef = doc(db, 'users', userId, 'apps', APP_ID);
@@ -302,39 +348,39 @@ export default function AdminAnalytics() {
             // Silently continue
           }
         }
-        
+
         // Check email override
         const userEmail = userData.profile?.email || '';
         if (userEmail && PREMIUM_OVERRIDE_EMAILS.includes(userEmail.toLowerCase())) {
           userData.isPremium = true;
           userData.premiumOverride = true;
         }
-        
+
         usersList.push(userData);
       }
-      
+
       console.log('[AdminAnalytics] Total unique users found:', usersList.length);
-      
+
       usersList.sort((a, b) => {
         const dateA = a.createdAt?.toDate?.() || new Date(0);
         const dateB = b.createdAt?.toDate?.() || new Date(0);
         return dateB - dateA;
       });
-      
+
       setUsers(usersList);
-      
+
       const premiumCount = usersList.filter(u => u.isPremium).length;
       setStats({
         total: usersList.length,
         premium: premiumCount,
         free: usersList.length - premiumCount,
       });
-      
+
     } catch (err) {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to fetch users');
     }
-    
+
     setLoading(false);
   };
 
@@ -353,7 +399,7 @@ export default function AdminAnalytics() {
       alert('This user has premium via email override. Cannot toggle manually.');
       return;
     }
-    
+
     try {
       const appRef = doc(db, 'users', userId, 'apps', APP_ID);
       await setDoc(appRef, {
@@ -361,19 +407,19 @@ export default function AdminAnalytics() {
         premiumUpdatedAt: Timestamp.now(),
         premiumUpdatedBy: 'admin-manual',
       }, { merge: true });
-      
-      setUsers(prev => prev.map(u => 
+
+      setUsers(prev => prev.map(u =>
         u.id === userId ? { ...u, isPremium: !currentStatus } : u
       ));
-      
+
       setStats(prev => ({
         ...prev,
         premium: currentStatus ? prev.premium - 1 : prev.premium + 1,
         free: currentStatus ? prev.free + 1 : prev.free - 1,
       }));
-      
+
       alert(`Premium ${!currentStatus ? 'enabled' : 'disabled'} for user.`);
-      
+
     } catch (err) {
       console.error('Error toggling premium:', err);
       alert('Failed to update premium status: ' + err.message);
@@ -400,7 +446,7 @@ export default function AdminAnalytics() {
     return (
       <div className="text-center py-12">
         <p className="text-red-500 mb-4">{error}</p>
-        <button 
+        <button
           onClick={handleRefresh}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
@@ -440,6 +486,16 @@ export default function AdminAnalytics() {
             Migrate Data
           </button>
           <button
+            onClick={() => setShowCleanup(!showCleanup)}
+            className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition ${showCleanup
+              ? 'bg-red-600 text-white hover:bg-red-700'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
+              }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            {showCleanup ? 'Close Cleanup' : 'Cleanup Tool'}
+          </button>
+          <button
             onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
@@ -449,7 +505,16 @@ export default function AdminAnalytics() {
           </button>
         </div>
       </div>
-      
+
+      {showCleanup && (
+        <AdminCleanup
+          users={users}
+          onDeleteUser={handleDeleteUser}
+          onDeleteAll={handleBatchDelete}
+          onClose={() => setShowCleanup(false)}
+        />
+      )}
+
       {migrationStatus && (
         <div className={`p-3 rounded-lg text-sm ${migrationStatus.includes('failed') ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
           {migrationStatus}
@@ -464,7 +529,7 @@ export default function AdminAnalytics() {
           </div>
           <p className="text-3xl font-bold">{stats.total}</p>
         </div>
-        
+
         <div className="bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl p-4 text-white">
           <div className="flex items-center gap-2 mb-1">
             <Crown className="w-5 h-5 opacity-80" />
@@ -472,7 +537,7 @@ export default function AdminAnalytics() {
           </div>
           <p className="text-3xl font-bold">{stats.premium}</p>
         </div>
-        
+
         <div className="bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl p-4 text-white">
           <div className="flex items-center gap-2 mb-1">
             <Users className="w-5 h-5 opacity-80" />
@@ -504,14 +569,14 @@ export default function AdminAnalytics() {
               key={user.id}
               className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden"
             >
-              <div 
+              <div
                 className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600"
                 onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
               >
                 {user.profile?.avatarUrl ? (
-                  <img 
-                    src={user.profile.avatarUrl} 
-                    alt="" 
+                  <img
+                    src={user.profile.avatarUrl}
+                    alt=""
                     className="w-10 h-10 rounded-full object-cover"
                   />
                 ) : (
@@ -519,18 +584,17 @@ export default function AdminAnalytics() {
                     <Users className="w-5 h-5 text-gray-400 dark:text-gray-300" />
                   </div>
                 )}
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-gray-800 dark:text-white truncate">
                       {user.profile?.displayName || 'No name'}
                     </p>
                     {user.isPremium && (
-                      <span className={`px-1.5 py-0.5 text-xs rounded-full flex items-center gap-1 ${
-                        user.premiumOverride 
-                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' 
-                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-                      }`}>
+                      <span className={`px-1.5 py-0.5 text-xs rounded-full flex items-center gap-1 ${user.premiumOverride
+                        ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
+                        : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                        }`}>
                         <Crown className="w-3 h-3" />
                         {user.premiumOverride ? 'Admin' : 'Premium'}
                       </span>
@@ -540,7 +604,7 @@ export default function AdminAnalytics() {
                     {user.profile?.email || user.id}
                   </p>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   {user.carnivalCount > 0 && (
                     <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -555,7 +619,7 @@ export default function AdminAnalytics() {
                   )}
                 </div>
               </div>
-              
+
               {expandedUser === user.id && (
                 <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
                   <div className="grid grid-cols-2 gap-4 mb-4">
@@ -568,7 +632,7 @@ export default function AdminAnalytics() {
                       <p className="text-sm text-gray-700 dark:text-gray-300">{user.profile?.bio || 'No bio'}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-600">
                     <span className="text-sm text-gray-600 dark:text-gray-300">Premium Status</span>
                     <button
@@ -576,11 +640,10 @@ export default function AdminAnalytics() {
                         e.stopPropagation();
                         togglePremium(user.id, user.isPremium, user.premiumOverride);
                       }}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition ${
-                        user.isPremium 
-                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                      }`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition ${user.isPremium
+                        ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                        }`}
                     >
                       {user.isPremium ? (
                         <>
@@ -601,7 +664,7 @@ export default function AdminAnalytics() {
           ))
         )}
       </div>
-      
+
       <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
         Showing {filteredUsers.length} of {users.length} users
       </p>
