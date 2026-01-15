@@ -26,6 +26,7 @@ import VibesPlayer from './components/VibesPlayer';
 import PromoAd from './components/PromoAd';
 import AdManager from './components/AdManager';
 import AdminAnalytics from './components/AdminAnalytics';
+import CostumeDirectory from './components/CostumeDirectory';
 import SplashPage from './components/SplashPage';
 import { PrivacyPolicy, TermsOfService, CookiePolicy, RefundPolicy } from './components/LegalPages';
 import InstallPrompt from './components/InstallPrompt';
@@ -1457,7 +1458,7 @@ export default function App() {
                   {/* TABS */}
                   <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
                     {[
-                      'Budget', 'Costume', 'Schedule', 'Squad', 'Passport',
+                      'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport',
                       'Packing', 'Map', 'Media', 'Info'
                     ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
                       <button
@@ -1537,6 +1538,13 @@ export default function App() {
                             <PromoAd placement="inline" onUpgradeClick={() => setActiveTab('Info')} />
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* TAB: BANDS (NEW) */}
+                    {activeTab === 'Bands' && (
+                      <div className="animate-fadeIn">
+                        <CostumeDirectory carnivalId={activeCarnivalId} />
                       </div>
                     )}
 
