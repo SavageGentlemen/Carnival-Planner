@@ -79,6 +79,7 @@ BANDS = [
   { "name": 'Seaduced', "carnivalId": 'antigua', "type": 'mas', "tags": ['Luxury', 'Premium'] },
 
   # --- ATLANTA ---
+  { "name": 'Madd Colors Carnival', "carnivalId": 'atlanta', "type": 'mas', "website": 'https://maddcolorscarnival.com/', "tags": ['Premium', '#1 Band'] },
   { "name": 'We Kinda Ting', "carnivalId": 'atlanta', "type": 'mas', "tags": ['Fun', 'Local'] },
   { "name": 'Savage Mas', "carnivalId": 'atlanta', "type": 'mas', "tags": ['Sexy', 'Vibes'] },
   { "name": 'Panache', "carnivalId": 'atlanta', "type": 'mas', "tags": ['Service', 'Costumes'] }

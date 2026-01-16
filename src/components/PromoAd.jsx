@@ -76,6 +76,24 @@ const DEFAULT_PREMIUM_ADS = [
     linkUrl: null,
     isDefault: true,
   },
+  {
+    id: 'madd-colors-banner',
+    title: 'Madd Colors Carnival - Atlanta',
+    imageUrl: 'https://cdn.pixabay.com/video/2022/12/12/142646-780654162_large.mp4',
+    placement: 'banner',
+    mediaType: 'video',
+    linkUrl: 'https://maddcolorscarnival.com/',
+    isDefault: true,
+  },
+  {
+    id: 'madd-colors-inline',
+    title: 'Madd Colors Carnival - Atlanta',
+    imageUrl: 'https://cdn.pixabay.com/video/2022/12/12/142646-780654162_large.mp4',
+    placement: 'inline',
+    mediaType: 'video',
+    linkUrl: 'https://maddcolorscarnival.com/',
+    isDefault: true,
+  },
 ];
 
 export default function PromoAd({ placement = 'banner', className = '', onUpgradeClick }) {
@@ -90,14 +108,14 @@ export default function PromoAd({ placement = 'banner', className = '', onUpgrad
     setError(null);
     const adsRef = collection(db, 'promoAds');
     const q = query(adsRef, where('active', '==', true));
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allAds = [];
       snapshot.forEach((doc) => {
         allAds.push({ id: doc.id, ...doc.data() });
       });
       const filteredAds = allAds.filter(ad => ad.placement === placement);
-      
+
       if (filteredAds.length > 0) {
         setAds(filteredAds);
       } else {
@@ -126,14 +144,14 @@ export default function PromoAd({ placement = 'banner', className = '', onUpgrad
   }, [ads.length]);
 
   if (loading) return null;
-  
+
   if (dismissed || ads.length === 0) return null;
 
   const safeIndex = Math.min(currentAdIndex, ads.length - 1);
   const currentAd = ads[safeIndex];
-  
+
   if (!currentAd || !currentAd.imageUrl) return null;
-  
+
   const isVideo = currentAd.mediaType === 'video';
   const isDefaultAd = currentAd.isDefault;
 
@@ -147,12 +165,12 @@ export default function PromoAd({ placement = 'banner', className = '', onUpgrad
 
   return (
     <div className={`p-4 relative ${className}`}>
-      <div 
+      <div
         onClick={handleClick}
         className={`relative overflow-hidden rounded-lg shadow-md ${(currentAd.linkUrl || isDefaultAd) ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
       >
         {isVideo ? (
-          <video 
+          <video
             src={currentAd.imageUrl}
             className="w-full h-auto object-cover"
             style={{ maxHeight: placement === 'banner' ? '120px' : '250px' }}
@@ -163,8 +181,8 @@ export default function PromoAd({ placement = 'banner', className = '', onUpgrad
             onError={(e) => console.error('Video load error:', e)}
           />
         ) : (
-          <img 
-            src={currentAd.imageUrl} 
+          <img
+            src={currentAd.imageUrl}
             alt={currentAd.title || 'Promotion'}
             className="w-full h-auto object-cover"
             style={{ maxHeight: placement === 'banner' ? '120px' : '250px' }}

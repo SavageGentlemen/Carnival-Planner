@@ -29,13 +29,13 @@ const PIN_TYPES = {
   scraped: { label: 'Live Events', color: '#8B5CF6', icon: MapPin },
 };
 
-function MapUpdater({ center }) {
+function MapUpdater({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
     if (center) {
-      map.setView(center, 13);
+      map.setView(center, zoom || 13);
     }
-  }, [center, map]);
+  }, [center, zoom, map]);
   return null;
 }
 
@@ -54,8 +54,11 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 const CARNIVAL_CENTERS = {
   'trinidad': { center: [10.6918, -61.2225], zoom: 11, country: 'Trinidad & Tobago' },
   'stkitts-sugar-mas': { center: [17.3026, -62.7177], zoom: 12, country: 'St. Kitts' },
+  'stcroix': { center: [17.7246, -64.8348], zoom: 11, country: 'St. Croix, USVI' },
+  'dominica': { center: [15.4150, -61.3710], zoom: 11, country: 'Dominica' },
   'aruba': { center: [12.5211, -69.9683], zoom: 12, country: 'Aruba' },
   'guyana-mashramani': { center: [6.8013, -58.1551], zoom: 12, country: 'Guyana' },
+  'guyana': { center: [6.8013, -58.1551], zoom: 12, country: 'Guyana' }, // Guyana Independence
   'guyana-independence': { center: [6.8013, -58.1551], zoom: 12, country: 'Guyana' },
   'jamaica': { center: [18.0179, -76.8099], zoom: 11, country: 'Jamaica' },
   'stmaarten': { center: [18.0425, -63.0548], zoom: 12, country: 'St. Maarten' },
@@ -67,6 +70,18 @@ const CARNIVAL_CENTERS = {
   'tobago': { center: [11.1889, -60.7320], zoom: 11, country: 'Tobago' },
   'nottinghill': { center: [51.5156, -0.2050], zoom: 14, country: 'London, UK' },
   'miami': { center: [25.7617, -80.1918], zoom: 11, country: 'Miami, FL' },
+  'tampa': { center: [27.9506, -82.4572], zoom: 12, country: 'Tampa, FL' },
+  'cayman-batabano': { center: [19.2869, -81.3674], zoom: 13, country: 'Cayman Islands' },
+  'stthomas': { center: [18.3358, -64.8963], zoom: 13, country: 'St. Thomas, USVI' },
+  'atlanta': { center: [33.7490, -84.3880], zoom: 12, country: 'Atlanta, GA' },
+  'hollywood': { center: [34.0928, -118.3287], zoom: 13, country: 'Hollywood, CA' },
+  'caymas': { center: [19.2869, -81.3674], zoom: 13, country: 'Cayman Islands' },
+  'toronto': { center: [43.65107, -79.347015], zoom: 12, country: 'Toronto, Canada' },
+  'barbados': { center: [13.1939, -59.5432], zoom: 12, country: 'Barbados' },
+  'nevis': { center: [17.1500, -62.5800], zoom: 12, country: 'Nevis' },
+  'grenada': { center: [12.0529, -61.7523], zoom: 12, country: 'Grenada' },
+  'ny-labor-day': { center: [40.6782, -73.9442], zoom: 13, country: 'Brooklyn, NY' },
+  'japan': { center: [35.6762, 139.6503], zoom: 10, country: 'Tokyo, Japan' },
 };
 
 export default function FeteMap({ locations = [], scrapedEvents = [], onLocationsChange, carnivalName, carnivalId }) {
@@ -262,7 +277,7 @@ export default function FeteMap({ locations = [], scrapedEvents = [], onLocation
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapUpdater center={defaultCenter} />
+          <MapUpdater center={defaultCenter} zoom={carnivalConfig.zoom} />
           {locations.map((loc) => (
             <Marker
               key={loc.id}

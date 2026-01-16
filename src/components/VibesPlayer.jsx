@@ -24,6 +24,7 @@ const PLAYLISTS = {
 export default function VibesPlayer({ activeCarnivalId, isPremium }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
+    const [isRadioMode, setIsRadioMode] = useState(false); // New state for Team Soca
 
     // Determine which playlist to show
     const getPlaylistData = () => {
@@ -64,8 +65,16 @@ export default function VibesPlayer({ activeCarnivalId, isPremium }) {
                     <Music className="w-5 h-5 animate-pulse" />
                     <div className="flex flex-col">
                         <span className="font-bold text-sm">
-                            {isMinimized ? 'Carnival Vibes' : 'Soca Vibes Player'}
+                            {isMinimized ? 'Carnival Vibes' : (isRadioMode ? 'Team Soca Live' : 'Soca Vibes Player')}
                         </span>
+                        {!isMinimized && (
+                            <button
+                                onClick={() => setIsRadioMode(!isRadioMode)}
+                                className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full hover:bg-white/30 transition text-left w-fit"
+                            >
+                                {isRadioMode ? 'Switch to Playlist' : 'Switch to Live Radio'}
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -88,21 +97,34 @@ export default function VibesPlayer({ activeCarnivalId, isPremium }) {
             {/* Content */}
             {!isMinimized && (
                 <div className="h-[calc(100%-48px)] bg-black relative">
-                    {!isPremium && (
+                    {!isPremium && !isRadioMode && (
                         <div className="absolute top-0 left-0 right-0 z-10 bg-yellow-500/90 text-black text-xs font-bold px-2 py-1 text-center">
                             Upgrade directly in Spotify for ad-free listening
                         </div>
                     )}
-                    <iframe
-                        style={{ borderRadius: '12px' }}
-                        src={playlistUrl}
-                        width="100%"
-                        height="100%"
-                        frameBorder="0"
-                        allowFullScreen=""
-                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                        loading="lazy"
-                    />
+
+                    {isRadioMode ? (
+                        <iframe
+                            src="https://ice23.securenetsystems.net/TSDC"
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            allow="autoplay; encrypted-media;"
+                            title="Team Soca Live"
+                        />
+                    ) : (
+                        <iframe
+                            style={{ borderRadius: '12px' }}
+                            src={playlistUrl}
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            allowFullScreen=""
+                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                            loading="lazy"
+                            title="Soca Playlist"
+                        />
+                    )}
                 </div>
             )}
         </div>
