@@ -504,21 +504,20 @@ exports.sendRoadReadyAlert = onCall(
     }
 
     // Find all squads for this carnival where user is a member
-    const sharedPlansRef = squadDb.collection('sharedPlans');
-    const snapshot = await sharedPlansRef.get();
+    // UNIFIED DB: Query 'squads' collection (was 'sharedPlans')
+    const squadsRef = squadDb.collection('squads');
+    const snapshot = await squadsRef.where('carnivalId', '==', carnivalId).get();
 
     const squadMemberUids = new Set();
     snapshot.forEach(doc => {
       const data = doc.data();
-      if (data.carnivalId === carnivalId) {
-        const isMember = data.members?.some(m => m.uid === uid);
-        if (isMember) {
-          data.members.forEach(m => {
-            if (m.uid !== uid) {
-              squadMemberUids.add(m.uid);
-            }
-          });
-        }
+      // Schema: members is array of strings ['uid1', 'uid2']
+      if (data.members?.includes(uid)) {
+        data.members.forEach(memberUid => {
+          if (memberUid !== uid) {
+            squadMemberUids.add(memberUid);
+          }
+        });
       }
     });
 
@@ -734,7 +733,7 @@ exports.deleteUserAccount = onCall(
       await Promise.all(carnivalDeletes);
       console.log(`Deleted ${carnivalsSnapshot.docs.length} carnival documents`);
 
-      // 2. Delete the app document users/{uid}/apps/{APP_ID}
+      // 2. Delete the app document users/{uid}/apps/${APP_ID}
       const appRef = squadDb.doc(`users/${uid}/apps/${APP_ID}`);
       await appRef.delete();
       console.log('Deleted app document');
@@ -761,23 +760,30 @@ exports.deleteUserAccount = onCall(
         console.log('Storage deletion skipped (no files or error):', storageErr.message);
       }
 
-      // 6. Remove user from any shared plans
-      const sharedPlansRef = squadDb.collection('sharedPlans');
-      const plansSnapshot = await sharedPlansRef.get();
-      const planUpdates = [];
+      // 6. Remove user from any squads (UNIFIED: 'squads' collection)
+      const squadsRef = squadDb.collection('squads');
+      // Helper query: check if member of any squad
+      const snapshot = await squadsRef.where('members', 'array-contains', uid).get();
+      const squadUpdates = [];
 
-      plansSnapshot.forEach(doc => {
+      snapshot.forEach(doc => {
         const data = doc.data();
-        if (data.members?.some(m => m.uid === uid)) {
-          const updatedMembers = data.members.filter(m => m.uid !== uid);
-          planUpdates.push(doc.ref.update({ members: updatedMembers }));
-        }
-        if (data.ownerUid === uid) {
-          planUpdates.push(doc.ref.delete());
+        // If Leader, delete squad? Or transfer?
+        // App logic implies leader deleting account kills the squad for now or leaves it headless.
+        // Safer to delete squad if leader leaves, OR ideally just remove them.
+        // Frontend 'leaveSquad' logic: update members.
+
+        if (data.leaderId === uid) {
+          // If leader, delete the squad to avoid orphan states
+          squadUpdates.push(doc.ref.delete());
+        } else {
+          // Remove from members array
+          const updatedMembers = (data.members || []).filter(m => m !== uid);
+          squadUpdates.push(doc.ref.update({ members: updatedMembers }));
         }
       });
-      await Promise.all(planUpdates);
-      console.log('Removed user from shared plans');
+      await Promise.all(squadUpdates);
+      console.log('Removed user from squads');
 
       // 7. Delete the Firebase Auth user account
       await admin.auth().deleteUser(uid);
