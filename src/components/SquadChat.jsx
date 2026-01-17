@@ -77,7 +77,7 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
     }
 
     return (
-        <div className="flex flex-col h-[600px] bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col h-[65vh] sm:h-[600px] bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 relative">
             {/* Header */}
             <div className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex justify-between items-center shadow-md z-10">
                 <div className="flex items-center gap-3">
