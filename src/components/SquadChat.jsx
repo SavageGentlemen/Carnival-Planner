@@ -62,6 +62,20 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
         }
     };
 
+    if (!squadId) {
+        return (
+            <div className="flex flex-col h-[300px] items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center">
+                <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                    <UserIcon className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">No Active Squad</h3>
+                <p className="text-gray-500 text-sm max-w-xs mx-auto">
+                    Join or create a squad above to verify your Road Mode connection and start chatting!
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-[600px] bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700">
             {/* Header */}
@@ -85,80 +99,86 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
-                {messages.map((msg) => {
-                    const isMe = msg.senderId === (user?.uid || 'demo-user');
-                    const isBot = msg.isBot;
+                {messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 opacity-50">
+                        <p>No messages yet. Say hi!</p>
+                    </div>
+                ) : (
+                    messages.map((msg) => {
+                        const isMe = msg.senderId === (user?.uid || 'demo-user');
+                        const isBot = msg.isBot;
 
-                    // Check Expiry
-                    let isExpired = false;
-                    let expiresAtDate = null;
-                    if (msg.expiresAt) {
-                        expiresAtDate = new Date(msg.expiresAt);
-                        if (new Date() > expiresAtDate) isExpired = true;
-                    }
+                        // Check Expiry
+                        let isExpired = false;
+                        let expiresAtDate = null;
+                        if (msg.expiresAt) {
+                            expiresAtDate = new Date(msg.expiresAt);
+                            if (new Date() > expiresAtDate) isExpired = true;
+                        }
 
-                    return (
-                        <div
-                            key={msg.id}
-                            className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
-                        >
-                            <div className={`flex max-w-[80%] gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                                {/* Avatar */}
-                                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm 
+                        return (
+                            <div
+                                key={msg.id}
+                                className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
+                            >
+                                <div className={`flex max-w-[85%] sm:max-w-[80%] gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    {/* Avatar */}
+                                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm 
                     ${isBot ? 'bg-gradient-to-br from-pink-500 to-orange-400' : 'bg-gray-300 dark:bg-gray-700'}`}>
-                                    {isBot ? <Bot className="w-4 h-4 text-white" /> : <UserIcon className="w-4 h-4 text-white" />}
-                                </div>
-
-                                {/* Bubble */}
-                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                    <span className="text-[10px] text-gray-400 mb-1 ml-1">{msg.senderName}</span>
-                                    <div className={`px-4 py-3 rounded-2xl shadow-sm text-sm leading-relaxed relative
-                        ${isMe
-                                            ? 'bg-blue-600 text-white rounded-tr-none'
-                                            : isBot
-                                                ? 'bg-white dark:bg-gray-800 border-l-4 border-pink-500 text-gray-800 dark:text-gray-100 rounded-tl-none'
-                                                : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none'
-                                        }
-                    `}>
-                                        {/* IMAGE RENDERING */}
-                                        {msg.imageUrl && (
-                                            <div className="mb-2">
-                                                {isExpired ? (
-                                                    <div className="w-48 h-32 bg-gray-200 dark:bg-gray-700 rounded-lg flex flex-col items-center justify-center text-gray-500">
-                                                        <ImageIcon className="w-8 h-8 mb-1 opacity-50" />
-                                                        <span className="text-xs italic">Image expired</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="relative group">
-                                                        <img
-                                                            src={msg.imageUrl}
-                                                            alt="Shared"
-                                                            className="w-48 h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                                            onClick={() => window.open(msg.imageUrl, '_blank')}
-                                                        />
-                                                        <span className="absolute top-2 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
-                                                            ⏳ 24h
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {msg.text}
+                                        {isBot ? <Bot className="w-4 h-4 text-white" /> : <UserIcon className="w-4 h-4 text-white" />}
                                     </div>
-                                    <span className="text-[10px] text-gray-400 mt-1 opacity-50">
-                                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
+
+                                    {/* Bubble */}
+                                    <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                        <span className="text-[10px] text-gray-400 mb-1 ml-1">{msg.senderName}</span>
+                                        <div className={`px-4 py-2 sm:py-3 rounded-2xl shadow-sm text-sm leading-relaxed relative break-words
+                        ${isMe
+                                                ? 'bg-blue-600 text-white rounded-tr-none'
+                                                : isBot
+                                                    ? 'bg-white dark:bg-gray-800 border-l-4 border-pink-500 text-gray-800 dark:text-gray-100 rounded-tl-none'
+                                                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none'
+                                            }
+                    `}>
+                                            {/* IMAGE RENDERING */}
+                                            {msg.imageUrl && (
+                                                <div className="mb-2">
+                                                    {isExpired ? (
+                                                        <div className="w-48 h-32 bg-gray-200 dark:bg-gray-700 rounded-lg flex flex-col items-center justify-center text-gray-500">
+                                                            <ImageIcon className="w-8 h-8 mb-1 opacity-50" />
+                                                            <span className="text-xs italic">Image expired</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="relative group">
+                                                            <img
+                                                                src={msg.imageUrl}
+                                                                alt="Shared"
+                                                                className="w-48 h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                                onClick={() => window.open(msg.imageUrl, '_blank')}
+                                                            />
+                                                            <span className="absolute top-2 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
+                                                                ⏳ 24h
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {msg.text}
+                                        </div>
+                                        <span className="text-[10px] text-gray-400 mt-1 opacity-50">
+                                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })
+                )}
                 <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
-            <form onSubmit={handleSend} className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
+            <form onSubmit={handleSend} className="p-2 sm:p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
 
                 {/* Image Preview */}
                 {previewUrl && (
@@ -186,7 +206,7 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-3 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
+                        className="p-2 sm:p-3 flex-shrink-0 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
                         title="Upload Image (Expires in 24h)"
                     >
                         <Camera className="w-5 h-5" />
@@ -196,13 +216,13 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
-                        placeholder={selectedImage ? "Add a caption..." : "Ask Concierge or chat with squad..."}
-                        className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-900 border-0 rounded-xl focus:ring-2 focus:ring-purple-500 dark:text-white placeholder-gray-400 transition-all"
+                        placeholder={selectedImage ? "Add caption..." : "Message squad..."}
+                        className="flex-1 px-3 py-2 sm:px-4 sm:py-3 bg-gray-100 dark:bg-gray-900 border-0 rounded-xl focus:ring-2 focus:ring-purple-500 dark:text-white placeholder-gray-400 transition-all text-sm sm:text-base min-w-0"
                     />
                     <button
                         type="submit"
                         disabled={!inputText.trim() && !selectedImage}
-                        className="p-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-purple-500/30"
+                        className="p-2 sm:p-3 flex-shrink-0 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-purple-500/30"
                     >
                         <Send className="w-5 h-5" />
                     </button>
