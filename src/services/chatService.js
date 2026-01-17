@@ -26,7 +26,11 @@ export const subscribeToMessages = (squadId, isDemoMode, callback) => {
         return () => { }; // detailed unsubscribe
     }
 
-    if (!squadId) return () => { };
+    if (!squadId) {
+        console.warn("subscribeToMessages aborted: No squadId provided.");
+        return () => { };
+    }
+    console.log("Subscribing to messages for squad:", squadId);
 
     const messagesRef = collection(db, 'squads', squadId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'asc'), limit(50));
@@ -108,7 +112,11 @@ export const sendMessage = async (squadId, user, text, imageFile, isDemoMode, ca
     }
 
     // PRODUCTION: Add to Firestore
-    if (!squadId) return;
+    if (!squadId) {
+        console.warn("sendMessage aborted: No squadId provided.");
+        return;
+    }
+    console.log("Sending message to Firestore...", { squadId, messageData });
     await addDoc(collection(db, 'squads', squadId, 'messages'), messageData);
 };
 

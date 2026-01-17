@@ -10,6 +10,8 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
+    console.log("SquadChat Rendered. squadId:", squadId, "User:", user?.uid);
+
     // Subscribe to messages
     useEffect(() => {
         const effectiveSquadId = isDemoMode ? 'demo-squad' : squadId;
