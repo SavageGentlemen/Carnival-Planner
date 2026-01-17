@@ -1750,6 +1750,70 @@ export default function App() {
                           <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full">{currentCarnival.squad?.length || 0} members</span>
                         </div>
 
+                        {/* ROAD MODE: OFFLINE CHAT (New Feature) */}
+                        <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl p-4 mb-6 shadow-lg border border-gray-700">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h4 className="font-bold text-lg flex items-center gap-2">
+                                <span>📡</span> Road Mode: Offline Chat
+                              </h4>
+                              <p className="text-xs text-gray-400 mt-1">
+                                Secure, offline mesh chat for when cell service dies.
+                              </p>
+                            </div>
+                            <span className="bg-blue-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
+                              No Data Needed
+                            </span>
+                          </div>
+
+                          {!activeCarnivalId || !currentSquad ? (
+                            <div className="text-center py-4 bg-white/5 rounded-lg border border-white/10">
+                              <p className="text-sm text-gray-300">Create or join a squad to enable offline comms.</p>
+                            </div>
+                          ) : (
+                            <div>
+                              {/* Generated Channel Logic */}
+                              {(() => {
+                                const squadIdShort = currentSquad.id.slice(0, 8).toUpperCase();
+                                const channelName = `#CP-${squadIdShort}`;
+                                const deepLink = `bitchat://join?channel=${channelName}`;
+                                const encodedLink = encodeURIComponent(deepLink);
+
+                                return (
+                                  <div className="flex flex-col sm:flex-row gap-6 items-center">
+                                    {/* Actions */}
+                                    <div className="flex-1 w-full space-y-3">
+                                      <div className="bg-black/30 p-3 rounded-lg border border-white/10">
+                                        <p className="text-[10px] uppercase text-gray-400 font-bold mb-1">Squad Channel</p>
+                                        <p className="font-mono text-xl font-bold text-blue-400 tracking-wider select-all">{channelName}</p>
+                                      </div>
+
+                                      <a
+                                        href={deepLink}
+                                        className="block w-full text-center py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors shadow-lg shadow-blue-900/50"
+                                      >
+                                        Launch Offline Chat
+                                      </a>
+                                      <p className="text-[10px] text-center text-gray-500">
+                                        Requires <a href="#" className="underline text-gray-400 hover:text-white">Bitchat App</a> installed.
+                                      </p>
+                                    </div>
+
+                                    {/* QR Code */}
+                                    <div className="bg-white p-2 rounded-lg shrink-0">
+                                      <img
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodedLink}&bgcolor=ffffff&color=000000&margin=0`}
+                                        alt="Join Channel QR"
+                                        className="w-24 h-24"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </div>
+
                         {/* Squad Sharing Section */}
                         <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4 mb-4">
                           <h4 className="font-bold text-purple-800 dark:text-purple-300 mb-3 flex items-center gap-2">

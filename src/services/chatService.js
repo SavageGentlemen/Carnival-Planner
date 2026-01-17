@@ -39,6 +39,9 @@ export const subscribeToMessages = (squadId, isDemoMode, callback) => {
             createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate().toISOString() : new Date().toISOString()
         }));
         callback(messages);
+    }, (error) => {
+        console.error("❌ Chat subscription error:", error);
+        // We could also notify the user via a callback if we had one for errors
     });
 
     return unsubscribe;

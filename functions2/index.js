@@ -12,6 +12,7 @@ const APP_ID = "carnival-planner-v1";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
+const stripeAccountId = process.env.STRIPE_ACCOUNT_ID || null;
 
 let stripe = null;
 if (stripeSecretKey) {
@@ -21,14 +22,14 @@ if (stripeSecretKey) {
 } else {
   console.warn(
     "Stripe secret key is not set. Run:\n" +
-      "firebase functions:secrets:set STRIPE_SECRET_KEY"
+    "firebase functions:secrets:set STRIPE_SECRET_KEY"
   );
 }
 
 if (!webhookSecret) {
   console.warn(
     "Stripe webhook secret not set. Run:\n" +
-      "firebase functions:secrets:set STRIPE_WEBHOOK_SECRET"
+    "firebase functions:secrets:set STRIPE_WEBHOOK_SECRET"
   );
 }
 
@@ -37,33 +38,34 @@ if (!webhookSecret) {
 const squadDb = getFirestore(app, 'squad-db');
 const defaultDb = getFirestore(app); // Default Firestore database for user tracking
 
-// ----- Callable: createCheckoutSession (v1 for Stripe compatibility) -----
-exports.createCheckoutSession = functions.https.onCall(
-  async (data, context) => {
-    const { 
-      priceId, 
-      uid: uidFromClient, 
+// ----- Callable: createCheckoutSession (v2) -----
+exports.createCheckoutSession = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const {
+      priceId,
+      uid: uidFromClient,
       email: emailFromClient,
       success_url,
       cancel_url
-    } = data || {};
+    } = request.data || {};
 
-    const uid = (context.auth && context.auth.uid) || uidFromClient;
+    const uid = (request.auth && request.auth.uid) || uidFromClient;
     const email =
-      (context.auth &&
-        context.auth.token &&
-        context.auth.token.email) ||
+      (request.auth &&
+        request.auth.token &&
+        request.auth.token.email) ||
       emailFromClient;
 
     if (!priceId || typeof priceId !== "string") {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "invalid-argument",
         "A valid Stripe priceId string is required."
       );
     }
 
     if (!stripe) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "failed-precondition",
         "Stripe is not configured on the server."
       );
@@ -95,6 +97,8 @@ exports.createCheckoutSession = functions.https.onCall(
         },
         success_url: finalSuccessUrl,
         cancel_url: finalCancelUrl,
+      }, {
+        stripeAccount: stripeAccountId
       });
 
       return {
@@ -104,7 +108,7 @@ exports.createCheckoutSession = functions.https.onCall(
       };
     } catch (err) {
       console.error("Error creating Stripe Checkout session:", err);
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "internal",
         `Unable to create Stripe Checkout session: ${err.message}`
       );
@@ -153,7 +157,9 @@ exports.handleStripeWebhook = functions.https.onRequest(
           let status = "active";
 
           if (subscriptionId) {
-            const sub = await stripe.subscriptions.retrieve(subscriptionId);
+            const sub = await stripe.subscriptions.retrieve(subscriptionId, {
+              stripeAccount: stripeAccountId
+            });
             status = sub.status;
             currentPeriodEnd = sub.current_period_end
               ? new Date(sub.current_period_end * 1000)
@@ -234,32 +240,32 @@ exports.createSquadShareCode = onCall(
   async (request) => {
     const { carnivalId, carnivalName, uid: uidFromClient } = request.data || {};
     const uid = (request.auth && request.auth.uid) || uidFromClient;
-    
+
     if (!uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     if (!carnivalId) {
       throw new HttpsError('invalid-argument', 'Carnival ID required.');
     }
-    
+
     const sharedPlansRef = squadDb.collection('sharedPlans');
-    
+
     // Query by ownerId only, then filter by carnivalId in code
     const existingQuery = await sharedPlansRef
       .where('ownerId', '==', uid)
       .get();
-    
+
     // Filter for matching carnivalId
     const matchingPlan = existingQuery.docs.find(doc => doc.data().carnivalId === carnivalId);
-    
+
     if (matchingPlan) {
-      return { 
+      return {
         shareCode: matchingPlan.data().shareCode,
         planId: matchingPlan.id
       };
     }
-    
+
     const shareCode = generateShareCode();
     const now = new Date();
     const planRef = await sharedPlansRef.add({
@@ -274,7 +280,7 @@ exports.createSquadShareCode = onCall(
       }],
       createdAt: now
     });
-    
+
     return { shareCode, planId: planRef.id };
   }
 );
@@ -285,38 +291,38 @@ exports.joinSquadByCode = onCall(
     const { shareCode, uid: uidFromClient, email: emailFromClient } = request.data || {};
     const uid = (request.auth && request.auth.uid) || uidFromClient;
     const email = (request.auth && request.auth.token && request.auth.token.email) || emailFromClient;
-    
+
     if (!uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     if (!shareCode || shareCode.length !== 6) {
       throw new HttpsError('invalid-argument', 'Valid 6-character share code required.');
     }
-    
+
     const sharedPlansRef = squadDb.collection('sharedPlans');
     const query = await sharedPlansRef
       .where('shareCode', '==', shareCode.toUpperCase())
       .limit(1)
       .get();
-    
+
     if (query.empty) {
       throw new HttpsError('not-found', 'Invalid share code.');
     }
-    
+
     const planDoc = query.docs[0];
     const planData = planDoc.data();
-    
+
     const isAlreadyMember = planData.members?.some(m => m.uid === uid);
     if (isAlreadyMember) {
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: 'Already a member',
         planId: planDoc.id,
         carnivalName: planData.carnivalName
       };
     }
-    
+
     const updatedMembers = [...(planData.members || []), {
       uid,
       email: email || null,
@@ -324,9 +330,9 @@ exports.joinSquadByCode = onCall(
       joinedAt: new Date()
     }];
     await planDoc.ref.update({ members: updatedMembers });
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       message: 'Joined squad!',
       planId: planDoc.id,
       carnivalName: planData.carnivalName,
@@ -340,28 +346,28 @@ exports.getSharedPlanData = onCall(
   async (request) => {
     const { planId, uid: uidFromClient } = request.data || {};
     const uid = (request.auth && request.auth.uid) || uidFromClient;
-    
+
     if (!uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     if (!planId) {
       throw new HttpsError('invalid-argument', 'Plan ID required.');
     }
-    
+
     const planDoc = await squadDb.collection('sharedPlans').doc(planId).get();
-    
+
     if (!planDoc.exists) {
       throw new HttpsError('not-found', 'Plan not found.');
     }
-    
+
     const planData = planDoc.data();
-    
+
     const isMember = planData.members?.some(m => m.uid === uid);
     if (!isMember) {
       throw new HttpsError('permission-denied', 'Not a member of this squad.');
     }
-    
+
     return {
       planId: planDoc.id,
       ...planData
@@ -374,31 +380,31 @@ exports.leaveSquad = onCall(
   async (request) => {
     const { planId, uid: uidFromClient } = request.data || {};
     const uid = (request.auth && request.auth.uid) || uidFromClient;
-    
+
     if (!uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     if (!planId) {
       throw new HttpsError('invalid-argument', 'Plan ID required.');
     }
-    
+
     const planRef = squadDb.collection('sharedPlans').doc(planId);
     const planDoc = await planRef.get();
-    
+
     if (!planDoc.exists) {
       throw new HttpsError('not-found', 'Plan not found.');
     }
-    
+
     const planData = planDoc.data();
-    
+
     if (planData.ownerId === uid) {
       throw new HttpsError('failed-precondition', 'Owner cannot leave. Transfer ownership or delete the squad.');
     }
-    
+
     const updatedMembers = (planData.members || []).filter(m => m.uid !== uid);
     await planRef.update({ members: updatedMembers });
-    
+
     return { success: true };
   }
 );
@@ -408,14 +414,14 @@ exports.getMySquads = onCall(
   async (request) => {
     const { uid: uidFromClient } = request.data || {};
     const uid = (request.auth && request.auth.uid) || uidFromClient;
-    
+
     if (!uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     const sharedPlansRef = squadDb.collection('sharedPlans');
     const snapshot = await sharedPlansRef.get();
-    
+
     const mySquads = [];
     snapshot.forEach(doc => {
       const data = doc.data();
@@ -431,7 +437,7 @@ exports.getMySquads = onCall(
         });
       }
     });
-    
+
     return { squads: mySquads };
   }
 );
@@ -442,23 +448,23 @@ exports.saveFcmToken = onCall(
   { cors: true, invoker: "public" },
   async (request) => {
     const { fcmToken } = request.data || {};
-    
+
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     const uid = request.auth.uid;
-    
+
     if (!fcmToken) {
       throw new HttpsError('invalid-argument', 'FCM token required.');
     }
-    
+
     const tokenRef = squadDb.collection('fcmTokens').doc(uid);
     await tokenRef.set({
       token: fcmToken,
       updatedAt: new Date()
     }, { merge: true });
-    
+
     return { success: true };
   }
 );
@@ -468,39 +474,39 @@ exports.saveFcmToken = onCall(
 exports.sendRoadReadyAlert = onCall(
   { cors: true, invoker: "public" },
   async (request) => {
-    const { 
-      carnivalId, 
+    const {
+      carnivalId,
       carnivalName,
       userName
     } = request.data || {};
-    
+
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     const uid = request.auth.uid;
-    
+
     if (!carnivalId) {
       throw new HttpsError('invalid-argument', 'Carnival ID required.');
     }
-    
+
     // Check if user has premium access (server-side enforcement)
     const userAppRef = squadDb.doc(`users/${uid}/apps/${APP_ID}`);
     const userAppDoc = await userAppRef.get();
-    
+
     // Also check for superuser (djkrss1@gmail.com) by checking if email matches
     const userEmail = request.auth.token?.email || '';
     const isSuperuser = userEmail === 'djkrss1@gmail.com';
     const isPremium = isSuperuser || (userAppDoc.exists && userAppDoc.data()?.premiumActive === true);
-    
+
     if (!isPremium) {
       throw new HttpsError('permission-denied', 'Road Ready alerts require premium subscription.');
     }
-    
+
     // Find all squads for this carnival where user is a member
     const sharedPlansRef = squadDb.collection('sharedPlans');
     const snapshot = await sharedPlansRef.get();
-    
+
     const squadMemberUids = new Set();
     snapshot.forEach(doc => {
       const data = doc.data();
@@ -515,26 +521,26 @@ exports.sendRoadReadyAlert = onCall(
         }
       }
     });
-    
+
     if (squadMemberUids.size === 0) {
       return { success: true, notified: 0, message: 'No squad members to notify.' };
     }
-    
+
     // Get FCM tokens for all squad members
     const fcmTokensRef = squadDb.collection('fcmTokens');
     const tokens = [];
-    
+
     for (const memberUid of squadMemberUids) {
       const tokenDoc = await fcmTokensRef.doc(memberUid).get();
       if (tokenDoc.exists && tokenDoc.data()?.token) {
         tokens.push(tokenDoc.data().token);
       }
     }
-    
+
     if (tokens.length === 0) {
       return { success: true, notified: 0, message: 'No squad members with notifications enabled.' };
     }
-    
+
     // Send push notifications
     const displayName = userName || 'A squad member';
     const message = {
@@ -549,13 +555,13 @@ exports.sendRoadReadyAlert = onCall(
       },
       tokens
     };
-    
+
     try {
       const response = await admin.messaging().sendEachForMulticast(message);
       console.log(`Road Ready notifications sent: ${response.successCount} success, ${response.failureCount} failed`);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         notified: response.successCount,
         message: `Notified ${response.successCount} squad member(s)!`
       };
@@ -576,30 +582,30 @@ exports.getSharedCarnivalData = onCall(
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     const uid = request.auth.uid;
     const { planId } = request.data || {};
-    
+
     if (!planId) {
       throw new HttpsError('invalid-argument', 'Plan ID required.');
     }
-    
+
     // Verify membership
     const planDoc = await squadDb.collection('sharedPlans').doc(planId).get();
     if (!planDoc.exists) {
       throw new HttpsError('not-found', 'Plan not found.');
     }
-    
+
     const planData = planDoc.data();
     const isMember = planData.members?.some(m => m.uid === uid);
     if (!isMember) {
       throw new HttpsError('permission-denied', 'Not a member of this squad.');
     }
-    
+
     // Get shared carnival data
     const sharedDataDoc = await squadDb.collection('sharedPlans').doc(planId)
       .collection('carnivalData').doc('main').get();
-    
+
     if (!sharedDataDoc.exists) {
       // Return empty structure if no shared data yet
       return {
@@ -610,7 +616,7 @@ exports.getSharedCarnivalData = onCall(
         squad: []
       };
     }
-    
+
     return sharedDataDoc.data();
   }
 );
@@ -623,35 +629,35 @@ exports.updateSharedCarnivalData = onCall(
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     const uid = request.auth.uid;
     const email = request.auth.token?.email || null;
     const { planId, field, data, action } = request.data || {};
-    
+
     if (!planId || !field) {
       throw new HttpsError('invalid-argument', 'Plan ID and field required.');
     }
-    
+
     const validFields = ['budget', 'schedule', 'packing', 'costume', 'squad'];
     if (!validFields.includes(field)) {
       throw new HttpsError('invalid-argument', 'Invalid field.');
     }
-    
+
     // Verify membership
     const planDoc = await squadDb.collection('sharedPlans').doc(planId).get();
     if (!planDoc.exists) {
       throw new HttpsError('not-found', 'Plan not found.');
     }
-    
+
     const planData = planDoc.data();
     const isMember = planData.members?.some(m => m.uid === uid);
     if (!isMember) {
       throw new HttpsError('permission-denied', 'Not a member of this squad.');
     }
-    
+
     const sharedDataRef = squadDb.collection('sharedPlans').doc(planId)
       .collection('carnivalData').doc('main');
-    
+
     // Get current data
     const sharedDataDoc = await sharedDataRef.get();
     const currentData = sharedDataDoc.exists ? sharedDataDoc.data() : {
@@ -661,11 +667,11 @@ exports.updateSharedCarnivalData = onCall(
       costume: null,
       squad: []
     };
-    
+
     // Add contributor info to items
     const now = new Date();
     const contributor = { uid, email: email || null, at: now };
-    
+
     if (field === 'costume') {
       // Costume is a single object, not an array
       currentData.costume = { ...data, updatedBy: contributor };
@@ -681,7 +687,7 @@ exports.updateSharedCarnivalData = onCall(
       currentData[field] = (currentData[field] || []).filter(item => item.id !== data.id);
     } else if (action === 'update' && data?.id) {
       // Updating an existing item
-      currentData[field] = (currentData[field] || []).map(item => 
+      currentData[field] = (currentData[field] || []).map(item =>
         item.id === data.id ? { ...item, ...data, updatedBy: contributor } : item
       );
     } else if (action === 'set') {
@@ -695,10 +701,10 @@ exports.updateSharedCarnivalData = onCall(
         currentData[field] = data;
       }
     }
-    
+
     // Save updated data
     await sharedDataRef.set(currentData, { merge: true });
-    
+
     return { success: true, data: currentData };
   }
 );
@@ -706,7 +712,7 @@ exports.updateSharedCarnivalData = onCall(
 // ----- Callable: deleteUserAccount -----
 // Deletes all user data from Firestore, Storage, and Auth
 exports.deleteUserAccount = onCall(
-  { 
+  {
     region: "us-central1",
     enforceAppCheck: false
   },
@@ -714,12 +720,12 @@ exports.deleteUserAccount = onCall(
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in to delete account.');
     }
-    
+
     const uid = request.auth.uid;
     const userEmail = request.auth.token?.email || '';
-    
+
     console.log(`Deleting account for user: ${uid} (${userEmail})`);
-    
+
     try {
       // 1. Delete all carnival data under users/{uid}/apps/{APP_ID}/carnivals/*
       const carnivalsRef = squadDb.collection(`users/${uid}/apps/${APP_ID}/carnivals`);
@@ -727,22 +733,22 @@ exports.deleteUserAccount = onCall(
       const carnivalDeletes = carnivalsSnapshot.docs.map(doc => doc.ref.delete());
       await Promise.all(carnivalDeletes);
       console.log(`Deleted ${carnivalsSnapshot.docs.length} carnival documents`);
-      
+
       // 2. Delete the app document users/{uid}/apps/{APP_ID}
       const appRef = squadDb.doc(`users/${uid}/apps/${APP_ID}`);
       await appRef.delete();
       console.log('Deleted app document');
-      
+
       // 3. Delete the user document users/{uid}
       const userRef = squadDb.doc(`users/${uid}`);
       await userRef.delete();
       console.log('Deleted user document');
-      
+
       // 4. Delete FCM token
       const fcmRef = squadDb.doc(`fcmTokens/${uid}`);
       await fcmRef.delete();
       console.log('Deleted FCM token');
-      
+
       // 5. Delete files from Firebase Storage (if any)
       try {
         const bucket = admin.storage().bucket();
@@ -754,12 +760,12 @@ exports.deleteUserAccount = onCall(
       } catch (storageErr) {
         console.log('Storage deletion skipped (no files or error):', storageErr.message);
       }
-      
+
       // 6. Remove user from any shared plans
       const sharedPlansRef = squadDb.collection('sharedPlans');
       const plansSnapshot = await sharedPlansRef.get();
       const planUpdates = [];
-      
+
       plansSnapshot.forEach(doc => {
         const data = doc.data();
         if (data.members?.some(m => m.uid === uid)) {
@@ -772,14 +778,14 @@ exports.deleteUserAccount = onCall(
       });
       await Promise.all(planUpdates);
       console.log('Removed user from shared plans');
-      
+
       // 7. Delete the Firebase Auth user account
       await admin.auth().deleteUser(uid);
       console.log('Deleted Auth user');
-      
-      return { 
-        success: true, 
-        message: 'Account and all data deleted successfully.' 
+
+      return {
+        success: true,
+        message: 'Account and all data deleted successfully.'
       };
     } catch (err) {
       console.error('Error deleting user account:', err);
@@ -791,7 +797,7 @@ exports.deleteUserAccount = onCall(
 // ----- Callable: migrateAuthUsers -----
 // Admin-only function to migrate all Firebase Auth users to the users collection
 exports.migrateAuthUsers = onCall(
-  { 
+  {
     region: "us-central1",
     enforceAppCheck: false
   },
@@ -799,47 +805,47 @@ exports.migrateAuthUsers = onCall(
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
-    
+
     // Only allow admin to run this
     const adminEmail = 'djkrss1@gmail.com';
     const userEmail = request.auth.token?.email || '';
-    
+
     if (userEmail !== adminEmail) {
       throw new HttpsError('permission-denied', 'Only admin can run user migration.');
     }
-    
+
     console.log(`Starting user migration by admin: ${userEmail}`);
-    
+
     try {
       // List all users from Firebase Auth (with pagination)
       let authUsers = [];
       let pageToken = undefined;
-      
+
       do {
         const listUsersResult = await admin.auth().listUsers(1000, pageToken);
         authUsers = authUsers.concat(listUsersResult.users);
         pageToken = listUsersResult.pageToken;
       } while (pageToken);
-      
+
       console.log(`Found ${authUsers.length} users in Firebase Auth`);
-      
+
       let created = 0;
       let updated = 0;
       let skipped = 0;
-      
+
       // Create/update user documents for each auth user in squad-db (Native Mode)
       for (const authUser of authUsers) {
         const userRef = squadDb.doc(`users/${authUser.uid}`);
         const userDoc = await userRef.get();
-        
+
         // Use Firebase Auth metadata for dates
-        const createdAt = authUser.metadata.creationTime 
-          ? new Date(authUser.metadata.creationTime) 
+        const createdAt = authUser.metadata.creationTime
+          ? new Date(authUser.metadata.creationTime)
           : new Date();
-        const lastLoginAt = authUser.metadata.lastSignInTime 
-          ? new Date(authUser.metadata.lastSignInTime) 
+        const lastLoginAt = authUser.metadata.lastSignInTime
+          ? new Date(authUser.metadata.lastSignInTime)
           : createdAt;
-        
+
         if (!userDoc.exists) {
           // Create new user document
           await userRef.set({
@@ -856,7 +862,7 @@ exports.migrateAuthUsers = onCall(
           // Update existing user with any missing fields
           const existingData = userDoc.data();
           const updates = {};
-          
+
           if (!existingData.createdAt) {
             updates.createdAt = createdAt;
           }
@@ -866,7 +872,7 @@ exports.migrateAuthUsers = onCall(
           if (!existingData.displayName && authUser.displayName) {
             updates.displayName = authUser.displayName;
           }
-          
+
           if (Object.keys(updates).length > 0) {
             await userRef.update(updates);
             updated++;
@@ -876,11 +882,11 @@ exports.migrateAuthUsers = onCall(
           }
         }
       }
-      
+
       console.log(`Migration complete: ${created} created, ${updated} updated, ${skipped} skipped`);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         total: authUsers.length,
         created,
         updated,
@@ -901,21 +907,21 @@ exports.getScrapedEvents = onCall(
   async (request) => {
     const uid = request.auth?.uid;
     const email = request.auth?.token?.email;
-    
+
     if (!uid) {
       throw new HttpsError('unauthenticated', 'You must be signed in to access live events.');
     }
-    
+
     const { carnivalId } = request.data || {};
-    
+
     if (!carnivalId || typeof carnivalId !== 'string') {
       throw new HttpsError('invalid-argument', 'A valid carnivalId is required.');
     }
-    
+
     // Email override for premium users
     const PREMIUM_OVERRIDE_EMAILS = ['djkrss1@gmail.com', 'maikacooke@gmail.com'];
     let isPremium = PREMIUM_OVERRIDE_EMAILS.includes(email?.toLowerCase());
-    
+
     // Check Firestore for premium status if not in override list
     if (!isPremium) {
       try {
@@ -928,15 +934,15 @@ exports.getScrapedEvents = onCall(
         console.log('Error checking premium status:', err);
       }
     }
-    
+
     if (!isPremium) {
       throw new HttpsError('permission-denied', 'Live events are a premium feature. Please upgrade to access.');
     }
-    
+
     // Fetch scraped events for the carnival
     try {
       const eventsDoc = await squadDb.doc(`carnivalEvents/${carnivalId}`).get();
-      
+
       if (!eventsDoc.exists) {
         return {
           success: true,
@@ -945,7 +951,7 @@ exports.getScrapedEvents = onCall(
           message: 'No events found for this carnival yet.'
         };
       }
-      
+
       const data = eventsDoc.data();
       return {
         success: true,

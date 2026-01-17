@@ -68,6 +68,14 @@ service cloud.firestore {
                           
       // Delete: Only the leader can delete the squad
       allow delete: if request.auth != null && request.auth.uid == resource.data.leaderId;
+
+      // MESSAGES SUBCOLLECTION
+      // MESSAGES SUBCOLLECTION
+      match /messages/{messageId} {
+        allow read, create: if request.auth != null && 
+                            (request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members ||
+                             request.auth.uid == get(/databases/$(database)/documents/squads/$(squadId)).data.leaderId);
+      }
     }
   }
 }
