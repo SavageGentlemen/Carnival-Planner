@@ -81,13 +81,20 @@ export const joinSquadByCode = async (user, inviteCode) => {
     const squadData = squadDoc.data();
     console.log("Squad found:", { squadId, squadData });
 
-    // 2. Check if already member
+    // 2. Update user profile FIRST to ensure connection is repaired
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+        currentSquadId: squadId
+    }, { merge: true });
+    console.log("User profile updated with squadId:", squadId);
+
+    // 3. Check if already member
     if (squadData.members && squadData.members.includes(user.uid)) {
-        console.log("User already in squad");
-        return { id: squadId, ...squadData }; // Already joined, just return it
+        console.log("User already in squad (skipping array update)");
+        return { id: squadId, ...squadData };
     }
 
-    // 3. Add user to squad
+    // 4. Add user to squad members array
     const squadRef = doc(db, 'squads', squadId);
 
     // SAFETY CHECK FOR NAME
@@ -104,13 +111,6 @@ export const joinSquadByCode = async (user, inviteCode) => {
         }
     });
     console.log("Squad doc updated");
-
-    // 4. Update user profile
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, {
-        currentSquadId: squadId
-    }, { merge: true });
-    console.log("User profile updated");
 
     return { id: squadId, ...squadData };
 };
