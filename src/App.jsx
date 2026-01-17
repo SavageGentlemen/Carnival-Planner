@@ -396,11 +396,14 @@ export default function App() {
     // Listen to user profile for currentSquadId changes
     const unsubUser = onSnapshot(doc(db, 'users', user.uid), (uDoc) => {
       const uData = uDoc.data();
+      console.log("App: User update received. currentSquadId:", uData?.currentSquadId);
+
       if (uData?.currentSquadId) {
         // Subscribe to that squad
         const unsubSquad = onSnapshot(doc(db, 'squads', uData.currentSquadId), (sSnap) => {
           if (sSnap.exists()) {
             const sData = sSnap.data();
+            console.log("App: Squad loaded:", sSnap.id);
             setCurrentSquad({ id: sSnap.id, ...sData });
 
             // ⚡ REALTIME SYNC: Update shared data instantly from listener
