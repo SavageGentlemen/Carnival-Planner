@@ -435,12 +435,18 @@ export default function App() {
         setCurrentSquad(null);
         setSharedCarnivalData(null);
         setSquadMembers([]);
+        setSquadShareCode('');
       }
     });
 
     return () => {
       console.log("App: Unsubscribing from squad:", targetSquadId);
       unsubSquad();
+      // Allow state to linger until new one loads? Or clear immediately?
+      // Clearing immediately prevents ghost state.
+      // setCurrentSquad(null);
+      // setSquadMembers([]);
+      setSquadShareCode('');
     };
   }, [targetSquadId, user, isDemoMode]);
 
@@ -1993,6 +1999,13 @@ export default function App() {
 
                         {/* SQUAD CHAT */}
                         <div className="mt-8 mb-8">
+                          {/* DEBUG SQUAD STATE */}
+                          <div className="bg-gray-100 p-2 text-xs font-mono mb-2 overflow-auto max-h-32">
+                            DEBUG: currentSquad ID: {currentSquad?.id || 'undefined'} |
+                            Members: {squadMembers?.length} |
+                            Share: {squadShareCode || 'null'} |
+                            Full: {JSON.stringify(currentSquad)}
+                          </div>
                           <SquadChat
                             squadId={currentSquad?.id}
                             user={user}
