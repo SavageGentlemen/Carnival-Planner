@@ -12,7 +12,14 @@ jobs:
       - name: Deploy Firestore Rules
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only firestore:rules,storage:rules
+          args: deploy --only firestore:rules
+        env:
+          GCP_SA_KEY: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CARNIVAL_PLANNER }}'
+
+      - name: Deploy Storage Rules
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only storage
         env:
           GCP_SA_KEY: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_CARNIVAL_PLANNER }}'
       - uses: FirebaseExtended/action-hosting-deploy@v0
