@@ -81,36 +81,35 @@ export const joinSquadByCode = async (user, inviteCode) => {
     const squadData = squadDoc.data();
     console.log("Squad found:", { squadId, squadData });
 
-    // 2. Update user profile FIRST to ensure connection is repaired
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, {
-        currentSquadId: squadId
-    }, { merge: true });
-    console.log("User profile updated with squadId:", squadId);
-
-    // 3. Check if already member
-    if (squadData.members && squadData.members.includes(user.uid)) {
-        console.log("User already in squad (skipping array update)");
-        return { id: squadId, ...squadData };
-    }
-
-    // 4. Add user to squad members array
+    // 3. Add user to squad members array FIRST
     const squadRef = doc(db, 'squads', squadId);
 
     // SAFETY CHECK FOR NAME
     const userName = user.displayName || user.email || "Unknown User";
     console.log("Adding user to squad:", userName);
 
-    await updateDoc(squadRef, {
-        members: arrayUnion(user.uid),
-        [`memberDetails.${user.uid}`]: {
-            name: userName,
-            role: 'member',
-            photoURL: user.photoURL || null,
-            joinedAt: new Date().toISOString()
-        }
-    });
-    console.log("Squad doc updated");
+    if (!squadData.members || !squadData.members.includes(user.uid)) {
+        await updateDoc(squadRef, {
+            members: arrayUnion(user.uid),
+            [`memberDetails.${user.uid}`]: {
+                name: userName,
+                role: 'member',
+                photoURL: user.photoURL || null,
+                joinedAt: new Date().toISOString()
+            }
+        });
+        console.log("Squad doc updated");
+    } else {
+        console.log("User already in squad (skipping array update)");
+    }
+
+    // 4. Update user profile LAST to confirm connection
+    // This triggers the UI listener, so we insure permissions are ready above.
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+        currentSquadId: squadId
+    }, { merge: true });
+    console.log("User profile updated with squadId:", squadId);
 
     return { id: squadId, ...squadData };
 };
