@@ -1040,73 +1040,9 @@ export default function App() {
     }
   }, [activeCarnivalId, carnivals]);
 
-  // Fetch squad members from shared plan
-  const fetchSquadMembers = async () => {
-    const carnival = activeCarnivalId ? carnivals[activeCarnivalId] : null;
-    if (!carnival?.sharedPlanId || !user) {
-      setSquadMembers([]);
-      return;
-    }
 
-    try {
-      const functions = getFunctions(app);
-      const getSharedPlan = httpsCallable(functions, 'getSharedPlanData');
-      const result = await getSharedPlan({
-        planId: carnival.sharedPlanId,
-        uid: user.uid
-      });
 
-      if (result.data?.members) {
-        setSquadMembers(result.data.members);
-      }
-    } catch (err) {
-      console.log('Could not fetch squad members:', err.message);
-      setSquadMembers([]);
-    }
-  };
 
-  // Load squad members when carnival or share code changes
-  useEffect(() => {
-    if (activeCarnivalId && user) {
-      fetchSquadMembers();
-    }
-  }, [activeCarnivalId, carnivals, user]);
-
-  const joinSquadByCode = async () => {
-    if (!joinCode.trim() || joinCode.length !== 6) {
-      setSquadShareError('Please enter a valid 6-character code');
-      return;
-    }
-    setIsJoiningSquad(true);
-    setSquadShareError('');
-    try {
-      const functions = getFunctions(app);
-      const joinSquad = httpsCallable(functions, 'joinSquadByCode');
-      const result = await joinSquad({
-        shareCode: joinCode.toUpperCase(),
-        uid: user.uid,
-        email: user.email
-      });
-      setSquadShareSuccess(`Joined ${result.data.carnivalName} squad!`);
-      setJoinCode('');
-
-      // Persist the planId for the joiner so they can see squad members
-      if (result.data.planId) {
-        updateCarnivalData('sharedPlanId', result.data.planId);
-      }
-
-      // Refresh squad members list after a brief delay for data to persist
-      setTimeout(() => {
-        fetchSquadMembers();
-      }, 500);
-      setTimeout(() => setSquadShareSuccess(''), 3000);
-    } catch (err) {
-      console.error('Error joining squad:', err);
-      setSquadShareError(err.message || 'Failed to join squad');
-    } finally {
-      setIsJoiningSquad(false);
-    }
-  };
 
   const copyShareCode = () => {
     if (squadShareCode) {
