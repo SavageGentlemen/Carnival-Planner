@@ -60,10 +60,9 @@ service cloud.firestore {
     // --- SQUAD MODE RULES ---
     match /squads/{squadId} {
       // Create: Any authenticated user can create a squad
-      allow read: if request.auth != null && (
-        resource.data.members.hasAny([request.auth.uid]) || 
-        resource.data.leaderId == request.auth.uid
-      );
+      // Allow read by any auth user (needed to lookup by code)
+      allow read: if request.auth != null;
+      
       // Allow create by auth users
       allow create: if request.auth != null;
       
@@ -75,8 +74,10 @@ service cloud.firestore {
 
       // MESSAGES SUBCOLLECTION
       match /messages/{messageId} {
-        // TEMPORARY DEBUG: Allow any auth user to read messages
-        allow read, create: if request.auth != null;
+        // Secure: Only members can read/write messages
+        allow read, create: if request.auth != null && (
+           request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members
+        );
       }
     }
   }
