@@ -99,6 +99,7 @@ export default function App() {
   const [joinCode, setJoinCode] = useState('');
   const [squadMembers, setSquadMembers] = useState([]); // Array of member objects
   const [currentSquad, setCurrentSquad] = useState(null); // Full squad object
+  const [targetSquadId, setTargetSquadId] = useState(null); // ID from user profile to subscribe to
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [isJoiningSquad, setIsJoiningSquad] = useState(false);
   const [squadShareError, setSquadShareError] = useState('');
@@ -382,56 +383,67 @@ export default function App() {
     return () => unsubscribe();
   }, [isDemoMode]);
 
-  // --- EFFECT: SQUAD SUBSCRIPTION ---
+  // --- EFFECT: USER PROFILE LISTENER (for currentSquadId) ---
   useEffect(() => {
-    if (!user) {
-      // Don't clear if demo mode, cause that wipes our fake squad
-      if (!isDemoMode) {
-        setCurrentSquad(null);
-        setSquadMembers([]);
-      }
+    if (!user || isDemoMode) {
+      setTargetSquadId(null); // Clear target squad if no user or in demo
       return;
     }
-
-    if (isDemoMode) return; // Bypass Firestore listeners in demo mode
 
     // Listen to user profile for currentSquadId changes
     const unsubUser = onSnapshot(doc(db, 'users', user.uid), (uDoc) => {
       const uData = uDoc.data();
-      console.log("App: User update received. currentSquadId:", uData?.currentSquadId);
+      const newSquadId = uData?.currentSquadId || null;
 
-      if (uData?.currentSquadId) {
-        // Subscribe to that squad
-        const unsubSquad = onSnapshot(doc(db, 'squads', uData.currentSquadId), (sSnap) => {
-          if (sSnap.exists()) {
-            const sData = sSnap.data();
-            console.log("App: Squad loaded:", sSnap.id);
-            setCurrentSquad({ id: sSnap.id, ...sData });
+      // Update the target ID which triggers the next effect
+      if (newSquadId !== targetSquadId) {
+        console.log("App: User changed squad to:", newSquadId);
+        setTargetSquadId(newSquadId);
+      }
+    });
+    return () => unsubUser();
+  }, [user, isDemoMode, targetSquadId]); // Add targetSquadId to dependencies to avoid stale closure issues
 
-            // ⚡ REALTIME SYNC: Update shared data instantly from listener
-            setSharedCarnivalData(sData);
+  // --- EFFECT: SQUAD SUBSCRIPTION (Cleanly separated) ---
+  useEffect(() => {
+    // 1. Cleanup check
+    if (!user || isDemoMode) return;
 
-            // Convert memberDetails map to array for UI
-            const membersList = Object.values(sData.memberDetails || {});
-            setSquadMembers(membersList);
-            setSquadShareCode(sData.inviteCode);
-          } else {
-            setCurrentSquad(null); // Squad was deleted
-            setSharedCarnivalData(null);
-            setSquadMembers([]);
-          }
-        });
-        // We need to return this unsub to clean it up, but inside a nested listener it's tricky.
-        //Ideally we'd use a separate state 'squadId' to trigger another useEffect.
-        // But this pattern works for simple cases if we assume one active squad.
+    // 2. If no target squad, clear state and return
+    if (!targetSquadId) {
+      console.log("App: No target squad, clearing state.");
+      setCurrentSquad(null);
+      setSquadMembers([]);
+      setSharedCarnivalData(null);
+      return;
+    }
+
+    // 3. Subscribe to the TARGET squad
+    console.log("App: Subscribing to squad:", targetSquadId);
+    const unsubSquad = onSnapshot(doc(db, 'squads', targetSquadId), (sSnap) => {
+      if (sSnap.exists()) {
+        const sData = sSnap.data();
+        console.log("App: Squad loaded:", sSnap.id);
+        setCurrentSquad({ id: sSnap.id, ...sData });
+        setSharedCarnivalData(sData);
+
+        const membersList = Object.values(sData.memberDetails || {});
+        setSquadMembers(membersList);
+        setSquadShareCode(sData.inviteCode);
       } else {
+        console.warn("App: Target squad does not exist/deleted:", targetSquadId);
         setCurrentSquad(null);
+        setSharedCarnivalData(null);
         setSquadMembers([]);
       }
     });
 
-    return () => unsubUser();
-  }, [user, isDemoMode]);
+    return () => {
+      console.log("App: Unsubscribing from squad:", targetSquadId);
+      unsubSquad();
+    };
+  }, [targetSquadId, user, isDemoMode]);
+
 
   // 3. Premium Check (Firestore + Admin Override)
   useEffect(() => {
