@@ -1933,8 +1933,8 @@ export default function App() {
                             />
                             <button onClick={addSquadMember} className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 font-medium">Add</button>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {(currentCarnival.squad || []).map(member => (
+                          <div className="grid grid-cols-1 gap-2">
+                            {squadMembers.map(member => (
                               <div key={member.id} className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-full border border-purple-100 dark:border-purple-800">
                                 <span className="text-purple-900 dark:text-purple-200 font-medium">{member.name}</span>
                                 <button onClick={() => removeSquadMember(member.id)} className="text-purple-400 hover:text-red-500 text-xs font-bold">×</button>
@@ -1946,13 +1946,7 @@ export default function App() {
 
                         {/* SQUAD CHAT */}
                         <div className="mt-8 mb-8">
-                          {/* DEBUG SQUAD STATE */}
-                          <div className="bg-gray-100 p-2 text-xs font-mono mb-2 overflow-auto max-h-32">
-                            DEBUG: currentSquad ID: {currentSquad?.id || 'undefined'} |
-                            Members: {squadMembers?.length} |
-                            Share: {squadShareCode || 'null'} |
-                            Full: {JSON.stringify(currentSquad)}
-                          </div>
+
                           <SquadChat
                             squadId={currentSquad?.id}
                             user={user}
