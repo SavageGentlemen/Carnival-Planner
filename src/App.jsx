@@ -184,9 +184,11 @@ export default function App() {
       const squad = await joinSquadByCode(user, cleanCode);
       console.log("HandleJoinSquad: Join success. Squad result:", squad);
 
-      if (!squad) throw new Error("Join successful but no squad data returned");
+      if (!squad) {
+        console.warn("HandleJoinSquad: No squad object returned, but execution did not throw. Assuming success via listener.");
+      }
 
-      setSquadShareSuccess(`Joined ${squad.name || 'Squad'}!`);
+      setSquadShareSuccess(`Joined Squad!`);
       // Realtime listener in useEffect will pick up the rest
       setJoinCode('');
     } catch (error) {
