@@ -37,7 +37,8 @@ export default function HomeHub({
             const diff = target - now;
 
             if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                // Use Ceil to count partial days as a full day (standard for "Days To Go")
+                const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
                 setTimeLeft({ days, hours });
             } else {

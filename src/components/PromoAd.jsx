@@ -77,22 +77,22 @@ const DEFAULT_PREMIUM_ADS = [
     isDefault: true,
   },
   {
-    id: 'madd-colors-banner',
+    id: 'madd-colors-banner-v2',
     title: 'Madd Colors Carnival - Atlanta',
-    imageUrl: 'https://cdn.pixabay.com/video/2022/12/12/142646-780654162_large.mp4',
+    imageUrl: 'https://www.atlanta-carnival.com/uploads/2/6/6/0/26602334/madd-logo26.jpg',
     placement: 'banner',
-    mediaType: 'video',
+    mediaType: 'image',
     linkUrl: 'https://maddcolorscarnival.com/',
-    isDefault: true,
+    isDefault: false,
   },
   {
-    id: 'madd-colors-inline',
+    id: 'madd-colors-inline-v2',
     title: 'Madd Colors Carnival - Atlanta',
-    imageUrl: 'https://cdn.pixabay.com/video/2022/12/12/142646-780654162_large.mp4',
+    imageUrl: 'https://www.atlanta-carnival.com/uploads/2/6/6/0/26602334/madd-logo26.jpg',
     placement: 'inline',
-    mediaType: 'video',
+    mediaType: 'image',
     linkUrl: 'https://maddcolorscarnival.com/',
-    isDefault: true,
+    isDefault: false,
   },
 ];
 
@@ -153,7 +153,9 @@ export default function PromoAd({ placement = 'banner', className = '', onUpgrad
   if (!currentAd || !currentAd.imageUrl) return null;
 
   const isVideo = currentAd.mediaType === 'video';
-  const isDefaultAd = currentAd.isDefault;
+  // FORCE OVERRIDE: Ensure Madd Colors is NEVER treated as default/premium upgrade
+  const isDefaultAd = currentAd.id.includes('madd-colors') ? false : currentAd.isDefault;
+  const linkUrl = currentAd.id.includes('madd-colors') ? 'https://maddcolorscarnival.com/' : currentAd.linkUrl;
 
   const handleClick = () => {
     if (isDefaultAd && onUpgradeClick) {

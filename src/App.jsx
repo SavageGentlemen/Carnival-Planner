@@ -23,6 +23,8 @@ import FeteMap from './components/FeteMap';
 import SquadChat from './components/SquadChat';
 import MediaVault from './components/MediaVault';
 import VibesPlayer from './components/VibesPlayer';
+import AdminCleanup from './components/AdminCleanup'; // Admin tool
+import VoiceScheduler from './components/VoiceScheduler'; // FREE AI Feature
 import PromoAd from './components/PromoAd';
 import AdManager from './components/AdManager';
 import AdminAnalytics from './components/AdminAnalytics';
@@ -1703,10 +1705,63 @@ export default function App() {
                             </div>
                           ))}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
-                          <input type="text" placeholder="Event Name" value={newScheduleName} onChange={(e) => setNewScheduleName(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                          <input type="datetime-local" value={newScheduleDate} onChange={(e) => setNewScheduleDate(e.target.value)} className="p-2 border rounded dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
-                          <input type="text" placeholder="Notes" value={newScheduleNote} onChange={(e) => setNewScheduleNote(e.target.value)} className="p-2 border rounded md:col-span-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white" />
+                        {/* VOICE SCHEDULER (FREE AI) */}
+                        <div className="mb-6">
+                          <VoiceScheduler onScheduleDetected={async (voiceData) => {
+                            console.log("Voice Command:", voiceData);
+                            if (!user) return;
+
+                            // Create event object directly from voice data
+                            const newEvent = {
+                              name: voiceData.name,
+                              date: voiceData.day + ' ' + voiceData.time, // e.g. "Friday 3pm"
+                              note: voiceData.note,
+                              completed: false
+                            };
+
+                            try {
+                              await createScheduleItem(user, activeCarnivalId, newEvent);
+                              // Refresh local state (simplest way is to reload or optimistically update)
+                              // ideally we call a refresh function, but for now let's hope the listener catches it
+                              // or we trigger a manual reload of shared data if it's shared?
+
+                              // Optimistic Local Update for instant feedback
+                              const updatedCarnivals = { ...carnivals };
+                              const plan = updatedCarnivals[activeCarnivalId];
+                              if (plan) {
+                                plan.schedule = [...(plan.schedule || []), { id: Date.now().toString(), ...newEvent }];
+                                setCarnivals(updatedCarnivals);
+                              }
+                              alert(`Added: ${voiceData.name}`);
+                            } catch (e) {
+                              console.error("Voice Add Failed", e);
+                              alert("Could not add voice event.");
+                            }
+                          }} />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <input
+                            type="text"
+                            placeholder="Event Name (e.g. Scorch, Tribe)"
+                            value={newScheduleName}
+                            onChange={(e) => setNewScheduleName(e.target.value)}
+                            className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Date/Time (e.g. Fri 2PM)"
+                            value={newScheduleDate}
+                            onChange={(e) => setNewScheduleDate(e.target.value)}
+                            className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Type (Fete, Mas, transport...)"
+                            value={newScheduleNote}
+                            onChange={(e) => setNewScheduleNote(e.target.value)}
+                            className="md:col-span-2 p-3 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          />
                           <button onClick={addScheduleItem} className="md:col-span-2 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">Add Event</button>
                         </div>
                       </div>
