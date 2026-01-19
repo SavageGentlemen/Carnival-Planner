@@ -450,6 +450,17 @@ export default function App() {
     };
   }, [targetSquadId, user, isDemoMode]);
 
+  // --- SELF-HEAL: Ensure consistent state ---
+  useEffect(() => {
+    // If currentSquad is null, Members MUST be empty.
+    // If we detect ghost members, kill them.
+    if (!currentSquad && squadMembers.length > 0) {
+      console.warn("App: DETECTED GHOST MEMBERS! Self-healing state.");
+      setSquadMembers([]);
+      setSquadShareCode('');
+    }
+  }, [currentSquad, squadMembers]);
+
 
   // 3. Premium Check (Firestore + Admin Override)
   useEffect(() => {
