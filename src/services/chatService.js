@@ -118,6 +118,30 @@ export const sendMessage = async (squadId, user, text, imageFile, isDemoMode, ca
     }
     console.log("Sending message to Firestore...", { squadId, messageData });
     await addDoc(collection(db, 'squads', squadId, 'messages'), messageData);
+
+    // 🤖 AI CONCIERGE (PRODUCTION)
+    // Trigger a bot reply if not a bot message (prevent loops)
+    if (!messageData.isBot) {
+        setTimeout(async () => {
+            const aiReply = generateMockAIReply(text || (imageFile ? "Nice photo! 📸" : "..."));
+            const botMsg = {
+                text: aiReply,
+                senderId: 'bot',
+                senderName: 'Carnival Concierge',
+                senderPhoto: null,
+                createdAt: serverTimestamp(),
+                isBot: true,
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            };
+
+            try {
+                await addDoc(collection(db, 'squads', squadId, 'messages'), botMsg);
+                console.log("🤖 AI Concierge replied:", aiReply);
+            } catch (err) {
+                console.error("Failed to send AI reply:", err);
+            }
+        }, 2000); // 2 second delay for realism
+    }
 };
 
 // --- HELPER: MOCK AI ---
