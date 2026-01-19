@@ -13,17 +13,51 @@ export default function HomeHub({
     onAction
 }) {
     // 1. Calculate "Next Up" Carnival
+    // Determined resolved carnival event relative to selection or date
     const nextCarnival = useMemo(() => {
         if (activeCarnivalId) {
-            // If a carnival is selected, verify if it is in the future
-            // For now, we trust the parent to pass the active one or we find it in data
-            const found = carnivalData.find(c => c.name.toLowerCase().includes(activeCarnivalId.replace(/-/g, ' ')));
+            // ROBUST MAPPING: Matches App.jsx logic to handle mismatched IDs (e.g. stmaarten vs St. Maarten)
+            const carnivalNameMap = {
+                'stkitts-sugar-mas': 'Sugar Mas',
+                'stcroix': 'St. Croix Carnival',
+                'trinidad': 'Trinidad Carnival',
+                'dominica': 'Mas Domnik',
+                'jamaica': 'Jamaica Carnival',
+                'tampa': 'Tampa Bay Carnival',
+                'stmaarten': 'St. Maarten Carnival',
+                'cayman-batabano': 'Cayman Carnival Batabano',
+                'stthomas': 'St. Thomas Carnival',
+                'atlanta': 'Atlanta Caribbean Carnival',
+                'guyana': 'Guyana Independence',
+                'bahamas': 'Bahamas Carnival',
+                'bermuda': 'Bermuda Carnival',
+                'hollywood': 'Hollywood Carnival',
+                'caymas': 'Caymas Carnival',
+                'vincymas': 'Vincy Mas',
+                'stlucia': 'Saint Lucia Carnival',
+                'toronto': 'Toronto Caribbean Carnival',
+                'barbados': 'Crop Over',
+                'nevis': 'Nevis Culturama',
+                'antigua': 'Antigua Carnival',
+                'grenada': 'Spice Mas',
+                'ny-labor-day': 'New York Carnival',
+                'japan': 'Japan Caribbean Carnival',
+                'miami': 'Miami Carnival',
+                'tobago': 'Tobago Carnival'
+            };
+
+            const searchName = carnivalNameMap[activeCarnivalId] || activeCarnivalId.replace(/-/g, ' ');
+
+            const found = carnivalData.find(c =>
+                c.name.toLowerCase().includes(searchName.toLowerCase()) ||
+                searchName.toLowerCase().includes(c.name.split('(')[0].trim().toLowerCase())
+            );
             return found || carnivalData[0]; // Fallback
         }
 
         const today = new Date();
         const sorted = [...carnivalData].sort((a, b) => new Date(a.date) - new Date(b.date));
-        return sorted.find(c => new Date(c.date) >= today) || sorted[0];
+        return sorted.find(c => new Date(c.date) >= today) || sorted[0]; // Fallback to first if none future
     }, [activeCarnivalId, carnivalData]);
 
     // Countdown Logic
@@ -52,13 +86,12 @@ export default function HomeHub({
 
     // Recent Events for Ticker
     const recentEvents = useMemo(() => {
-        // Return last 5 added events or generic ones if empty
+        // Filter scraped events for the ACTIVE carnival if possible, or just show all if relevant?
+        // For now, let's only show scraped events if we have them.
         if (scrapedEvents.length > 0) return scrapedEvents.slice(0, 5);
-        return [
-            { id: 't1', title: 'Soca Brainwash', venue: 'Queens Park Oval' },
-            { id: 't2', title: 'Soaka Arts & Music', venue: 'O2 Park' },
-            { id: 't3', title: 'Phuket All Inclusive', venue: 'Anchorage' }
-        ];
+
+        // If no events, return NULL so we can hide the ticker
+        return null;
     }, [scrapedEvents]);
 
     return (
@@ -102,24 +135,26 @@ export default function HomeHub({
                         </div>
                     </div>
 
-                    {/* 2. LIVE TICKER (Embedded in Hero) */}
-                    <div className="mt-8 flex items-center gap-3 bg-black/20 rounded-xl p-2.5 backdrop-blur-sm overflow-hidden">
-                        <div className="flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 bg-red-500 rounded text-[10px] font-bold uppercase animate-pulse">
-                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                            Live
-                        </div>
-                        <div className="flex-1 overflow-hidden whitespace-nowrap">
-                            <div className="inline-block animate-marquee text-xs font-medium">
-                                {recentEvents.map((evt, i) => (
-                                    <span key={evt.id || i} className="mr-8">
-                                        🔥 <span className="font-bold text-pink-200">{evt.title}</span>
-                                        {evt.venue && <span className="opacity-75"> @ {evt.venue}</span>}
-                                        {evt.price && <span className="text-green-300 ml-1">(${evt.price})</span>}
-                                    </span>
-                                ))}
+                    {/* 2. LIVE TICKER (Embedded in Hero) - Only show if we have events */}
+                    {recentEvents && (
+                        <div className="mt-8 flex items-center gap-3 bg-black/20 rounded-xl p-2.5 backdrop-blur-sm overflow-hidden">
+                            <div className="flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 bg-red-500 rounded text-[10px] font-bold uppercase animate-pulse">
+                                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                Live
+                            </div>
+                            <div className="flex-1 overflow-hidden whitespace-nowrap">
+                                <div className="inline-block animate-marquee text-xs font-medium">
+                                    {recentEvents.map((evt, i) => (
+                                        <span key={evt.id || i} className="mr-8">
+                                            🔥 <span className="font-bold text-pink-200">{evt.title}</span>
+                                            {evt.venue && <span className="opacity-75"> @ {evt.venue}</span>}
+                                            {evt.price && <span className="text-green-300 ml-1">(${evt.price})</span>}
+                                        </span>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
