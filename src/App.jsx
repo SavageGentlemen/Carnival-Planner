@@ -36,9 +36,11 @@ import { ContactPage, SupportAdmin } from './components/ContactSupport';
 import AccountSettings from './components/AccountSettings';
 import SocaPassportTab from './components/SocaPassportTab';
 import HomeHub from './components/HomeHub';
+import WelcomeModal from './components/WelcomeModal';
+import HelpGuide from './components/HelpGuide';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
-import { createSquad, joinSquadByCode, leaveSquad } from './services/squadService'; // Squad Service
+import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode } from './services/squadService'; // Squad Service
 
 // --- CONFIGURATION ---
 const appId = 'carnival-planner-v1';
@@ -216,6 +218,36 @@ export default function App() {
     }
   };
 
+  // SQUAD: Handle Remove Member (Leader only)
+  const handleRemoveMember = async (memberUid, memberName) => {
+    if (isDemoMode) {
+      alert("Member removal is disabled in Demo Mode.");
+      return;
+    }
+    if (!user || !currentSquad) return;
+    if (currentSquad.leaderId !== user.uid) {
+      alert("Only the squad leader can remove members.");
+      return;
+    }
+
+    if (!confirm(`Remove ${memberName} from your squad?`)) return;
+
+    try {
+      await removeSquadMember(user.uid, currentSquad.id, memberUid);
+      setToastMessage(`${memberName} has been removed from the squad.`);
+
+      // Ask about regenerating invite code
+      if (confirm(`${memberName} was removed.\n\nWould you like to generate a new invite code?\n(This prevents them from rejoining with the old code)`)) {
+        const newCode = await regenerateInviteCode(user.uid, currentSquad.id);
+        setSquadShareCode(newCode);
+        setToastMessage(`New invite code: ${newCode}`);
+      }
+    } catch (error) {
+      console.error("Error removing member:", error);
+      alert(`Failed to remove member: ${error.message}`);
+    }
+  };
+
   // Notification State
   const [toastMessage, setToastMessage] = useState(null);
   const [notifySquadOnRoadReady, setNotifySquadOnRoadReady] = useState(true);
@@ -235,6 +267,13 @@ export default function App() {
 
   // Legal Pages State
   const [activeLegalPage, setActiveLegalPage] = useState(null);
+
+  // Onboarding & Help State
+  const [showWelcomeModal, setShowWelcomeModal] = useState(() => {
+    // Check if user has been welcomed before
+    return !localStorage.getItem('carnival-planner-welcomed');
+  });
+  const [showHelpGuide, setShowHelpGuide] = useState(false);
 
   // Email Auth State
   const [showEmailAuth, setShowEmailAuth] = useState(false);
@@ -1783,7 +1822,7 @@ export default function App() {
                                 <span>📡</span> Road Mode: Offline Chat
                               </h4>
                               <p className="text-xs text-gray-400 mt-1">
-                                Secure, offline mesh chat for when cell service dies.
+                                Mesh chat for when cell service dies. Open Bitchat and join your squad channel.
                               </p>
                             </div>
                             <span className="bg-blue-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
@@ -1796,45 +1835,50 @@ export default function App() {
                               <p className="text-sm text-gray-300">Create or join a squad to enable offline comms.</p>
                             </div>
                           ) : (
-                            <div>
-                              {/* Generated Channel Logic */}
+                            <div className="space-y-4">
+                              {/* Channel Name Display */}
                               {(() => {
                                 const squadIdShort = currentSquad.id.slice(0, 8).toUpperCase();
                                 const channelName = `#CP-${squadIdShort}`;
-                                const deepLink = `bitchat://join?channel=${channelName}`;
-                                const encodedLink = encodeURIComponent(deepLink);
 
                                 return (
-                                  <div className="flex flex-col sm:flex-row gap-6 items-center">
-                                    {/* Actions */}
-                                    <div className="flex-1 w-full space-y-3">
-                                      <div className="bg-black/30 p-3 rounded-lg border border-white/10">
-                                        <p className="text-[10px] uppercase text-gray-400 font-bold mb-1">Squad Channel</p>
-                                        <p className="font-mono text-xl font-bold text-blue-400 tracking-wider select-all">{channelName}</p>
-                                      </div>
-
-                                      <a
-                                        href={deepLink}
-                                        className="block w-full text-center py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors shadow-lg shadow-blue-900/50"
+                                  <div className="bg-black/30 p-4 rounded-lg border border-white/10">
+                                    <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">Join this channel in Bitchat</p>
+                                    <div className="flex items-center gap-3">
+                                      <p className="font-mono text-2xl font-bold text-blue-400 tracking-wider select-all flex-1">{channelName}</p>
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(channelName);
+                                          setToastMessage('Channel name copied!');
+                                        }}
+                                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors"
                                       >
-                                        Launch Offline Chat
-                                      </a>
-                                      <p className="text-[10px] text-center text-gray-500">
-                                        Requires <a href="#" className="underline text-gray-400 hover:text-white">Bitchat App</a> installed.
-                                      </p>
-                                    </div>
-
-                                    {/* QR Code */}
-                                    <div className="bg-white p-2 rounded-lg shrink-0">
-                                      <img
-                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodedLink}&bgcolor=ffffff&color=000000&margin=0`}
-                                        alt="Join Channel QR"
-                                        className="w-24 h-24"
-                                      />
+                                        Copy
+                                      </button>
                                     </div>
                                   </div>
                                 );
                               })()}
+
+                              {/* App Store Links */}
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                <a
+                                  href="https://apps.apple.com/us/app/bitchat-mesh/id6748219622"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                  <span>🍎</span> iOS App
+                                </a>
+                                <a
+                                  href="https://play.google.com/store/apps/details?id=com.bitchat.droid"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                  <span>🤖</span> Android App
+                                </a>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1947,28 +1991,40 @@ export default function App() {
                               {squadMembers.map((member, idx) => (
                                 <div
                                   key={member.uid || idx}
-                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border ${member.role === 'owner'
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-full border ${member.role === 'leader'
                                     ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800'
                                     : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800'
                                     }`}
                                 >
                                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
-                                    {(member.email || member.uid || '?').charAt(0).toUpperCase()}
+                                    {(member.name || member.email || member.uid || '?').charAt(0).toUpperCase()}
                                   </div>
                                   <div className="flex flex-col">
-                                    <span className={`font-medium text-sm ${member.role === 'owner'
+                                    <span className={`font-medium text-sm ${member.role === 'leader'
                                       ? 'text-yellow-800 dark:text-yellow-300'
                                       : 'text-green-800 dark:text-green-300'
                                       }`}>
-                                      {member.email || `User ${member.uid?.slice(0, 6)}...`}
+                                      {member.name || member.email || `User ${member.uid?.slice(0, 6)}...`}
                                     </span>
-                                    <span className={`text-xs ${member.role === 'owner'
+                                    <span className={`text-xs ${member.role === 'leader'
                                       ? 'text-yellow-600 dark:text-yellow-400'
                                       : 'text-green-600 dark:text-green-400'
                                       }`}>
-                                      {member.role === 'owner' ? '👑 Owner' : '✓ Member'}
+                                      {member.role === 'leader' ? '👑 Leader' : '✓ Member'}
                                     </span>
                                   </div>
+                                  {/* Remove Button - Only visible to leader, not for self */}
+                                  {currentSquad?.leaderId === user?.uid && member.role !== 'leader' && member.uid && (
+                                    <button
+                                      onClick={() => handleRemoveMember(member.uid, member.name || member.email || 'this member')}
+                                      className="ml-auto text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full p-1 transition-colors"
+                                      title="Remove from squad"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -2184,6 +2240,13 @@ export default function App() {
             >
               Contact
             </button>
+            <span>|</span>
+            <button
+              onClick={() => setShowHelpGuide(true)}
+              className="hover:text-gray-900 dark:hover:text-white transition-colors font-medium"
+            >
+              Help
+            </button>
           </div>
           <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
             © {new Date().getFullYear()} Carnival Planner
@@ -2197,6 +2260,19 @@ export default function App() {
           <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
         )
       }
+
+      {/* Welcome Modal (First-time users) */}
+      {showWelcomeModal && (
+        <WelcomeModal onClose={() => {
+          setShowWelcomeModal(false);
+          localStorage.setItem('carnival-planner-welcomed', 'true');
+        }} />
+      )}
+
+      {/* Help Guide Modal */}
+      {showHelpGuide && (
+        <HelpGuide onClose={() => setShowHelpGuide(false)} />
+      )}
     </div >
   );
 }

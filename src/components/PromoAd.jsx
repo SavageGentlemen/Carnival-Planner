@@ -116,13 +116,31 @@ export default function PromoAd({ placement = 'banner', className = '', onUpgrad
       });
       const filteredAds = allAds.filter(ad => ad.placement === placement);
 
-      if (filteredAds.length > 0) {
-        setAds(filteredAds);
+      // ALWAYS append Madd Colors if it matches placement
+      // Just check if we already have it to avoid duplication? The logic below overwrites.
+      // Better strategy: Use the default list as BASE if filteredAds is empty, 
+      // BUT specifically for Madd Colors, force inject it if 'allAds' didn't have it.
+
+      const maddColorsAd = DEFAULT_PREMIUM_ADS.find(ad => ad.id.includes('madd-colors') && ad.placement === placement);
+
+      let finalAds = filteredAds;
+      if (filteredAds.length === 0) {
+        finalAds = DEFAULT_PREMIUM_ADS.filter(ad => ad.placement === placement);
+      } else if (maddColorsAd) {
+        // If we have ads but not Madd Colors, add it
+        const hasMadd = filteredAds.some(ad => ad.id.includes('madd-colors'));
+        if (!hasMadd) {
+          finalAds = [...filteredAds, { ...maddColorsAd, isDefault: false }];
+        }
+      }
+
+      if (finalAds.length > 0) {
+        setAds(finalAds);
       } else {
+        // Fallback to purely default
         const defaultAds = DEFAULT_PREMIUM_ADS.filter(ad => ad.placement === placement);
         setAds(defaultAds);
       }
-      setCurrentAdIndex(0);
       setLoading(false);
     }, (err) => {
       console.error(`PromoAd [${placement}] error:`, err);

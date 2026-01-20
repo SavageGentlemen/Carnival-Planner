@@ -11,7 +11,8 @@ import {
     onSnapshot,
     arrayUnion,
     arrayRemove,
-    serverTimestamp
+    serverTimestamp,
+    deleteField
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -134,6 +135,88 @@ export const leaveSquad = async (user, squadId) => {
     await updateDoc(userRef, {
         currentSquadId: null // or deleteField()
     });
+};
+
+// --- REMOVE MEMBER (Leader only) ---
+export const removeSquadMember = async (leaderUid, squadId, memberUid) => {
+    if (!leaderUid || !squadId || !memberUid) {
+        throw new Error("Missing required parameters");
+    }
+
+    // 1. Fetch squad and verify leadership
+    const squadRef = doc(db, 'squads', squadId);
+    const squadSnap = await getDoc(squadRef);
+
+    if (!squadSnap.exists()) {
+        throw new Error("Squad not found");
+    }
+
+    const squadData = squadSnap.data();
+
+    if (squadData.leaderId !== leaderUid) {
+        throw new Error("Only the squad leader can remove members");
+    }
+
+    // 2. Prevent leader from removing themselves
+    if (memberUid === leaderUid) {
+        throw new Error("Leaders cannot remove themselves. Transfer leadership or delete the squad.");
+    }
+
+    // 3. Check if member is actually in the squad
+    if (!squadData.members || !squadData.members.includes(memberUid)) {
+        throw new Error("User is not a member of this squad");
+    }
+
+    console.log(`Removing member ${memberUid} from squad ${squadId}`);
+
+    // 4. Remove from members array and memberDetails map
+    await updateDoc(squadRef, {
+        members: arrayRemove(memberUid),
+        [`memberDetails.${memberUid}`]: deleteField()
+    });
+
+    // 5. Clear removed user's currentSquadId
+    const userRef = doc(db, 'users', memberUid);
+    try {
+        await updateDoc(userRef, {
+            currentSquadId: null
+        });
+    } catch (err) {
+        // User doc may not exist yet, that's ok
+        console.warn("Could not update removed user's profile:", err);
+    }
+
+    console.log(`Member ${memberUid} removed successfully`);
+    return { success: true };
+};
+
+// --- REGENERATE INVITE CODE (Leader only) ---
+export const regenerateInviteCode = async (leaderUid, squadId) => {
+    if (!leaderUid || !squadId) {
+        throw new Error("Missing required parameters");
+    }
+
+    const squadRef = doc(db, 'squads', squadId);
+    const squadSnap = await getDoc(squadRef);
+
+    if (!squadSnap.exists()) {
+        throw new Error("Squad not found");
+    }
+
+    const squadData = squadSnap.data();
+
+    if (squadData.leaderId !== leaderUid) {
+        throw new Error("Only the squad leader can regenerate the invite code");
+    }
+
+    const newCode = generateInviteCode();
+
+    await updateDoc(squadRef, {
+        inviteCode: newCode
+    });
+
+    console.log(`New invite code generated for squad ${squadId}: ${newCode}`);
+    return newCode;
 };
 
 // --- SYNC EVENTS ---
