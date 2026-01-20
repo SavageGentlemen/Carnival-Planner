@@ -54,7 +54,7 @@ const RARITY_COLORS = {
     LEGENDARY: 'border-yellow-400 dark:border-yellow-500'
 };
 
-export default function PassportHome({ user, isPremium, activeCarnivalId, onOpenCheckin, onViewStamps, onViewAchievements }) {
+export default function PassportHome({ user, isPremium, activeCarnivalId, onOpenCheckin, onViewStamps, onViewAchievements, onViewLeaderboard }) {
     const [profile, setProfile] = useState(null);
     const [recentStamps, setRecentStamps] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -337,7 +337,7 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, onOpen
                             <p className="text-white/70 text-sm">See how you rank</p>
                         </div>
                     </div>
-                    <button className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-sm font-medium hover:bg-white/30 transition-colors">
+                    <button onClick={onViewLeaderboard} className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-sm font-medium hover:bg-white/30 transition-colors">
                         View Rankings
                     </button>
                 </div>

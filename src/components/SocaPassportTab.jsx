@@ -9,9 +9,10 @@ import CheckinModal from './CheckinModal';
 import StampCollection from './StampCollection';
 import AchievementList from './AchievementList';
 import PassportCard from './PassportCard';
+import Leaderboard from './Leaderboard';
 
 export default function SocaPassportTab({ user, isPremium, activeCarnivalId }) {
-    const [currentView, setCurrentView] = useState('home'); // home, stamps, achievements
+    const [currentView, setCurrentView] = useState('home'); // home, stamps, achievements, leaderboard
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPassportCard, setShowPassportCard] = useState(false);
     const [profile, setProfile] = useState(null);
@@ -58,6 +59,13 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId }) {
                         onBack={() => setCurrentView('home')}
                     />
                 );
+            case 'leaderboard':
+                return (
+                    <Leaderboard
+                        user={user}
+                        onBack={() => setCurrentView('home')}
+                    />
+                );
             default:
                 return (
                     <PassportHome
@@ -68,6 +76,7 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId }) {
                         onOpenCheckin={() => setShowCheckinModal(true)}
                         onViewStamps={() => setCurrentView('stamps')}
                         onViewAchievements={() => setCurrentView('achievements')}
+                        onViewLeaderboard={() => setCurrentView('leaderboard')}
                     />
                 );
         }
