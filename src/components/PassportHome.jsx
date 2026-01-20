@@ -6,35 +6,43 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
 
-// Tier configuration
+// Tier configuration with images
 const TIER_CONFIG = {
     BRONZE: {
         name: 'Bronze',
         color: 'from-amber-600 to-amber-800',
         textColor: 'text-amber-600',
         bgColor: 'bg-amber-100 dark:bg-amber-900/30',
-        icon: '🥉'
+        icon: '🥉',
+        medalImage: '/images/passport/medal_bronze.png',
+        bgImage: '/images/passport/bg_bronze.png'
     },
     SILVER: {
         name: 'Silver',
         color: 'from-gray-400 to-gray-600',
         textColor: 'text-gray-500',
         bgColor: 'bg-gray-100 dark:bg-gray-700/30',
-        icon: '🥈'
+        icon: '🥈',
+        medalImage: '/images/passport/medal_silver.png',
+        bgImage: '/images/passport/bg_silver.png'
     },
     GOLD: {
         name: 'Gold',
         color: 'from-yellow-400 to-amber-500',
         textColor: 'text-yellow-500',
         bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
-        icon: '🥇'
+        icon: '🥇',
+        medalImage: '/images/passport/medal_gold.png',
+        bgImage: '/images/passport/bg_gold.png'
     },
     PLATINUM: {
         name: 'Platinum',
         color: 'from-purple-400 to-indigo-600',
         textColor: 'text-purple-500',
         bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-        icon: '💎'
+        icon: '💎',
+        medalImage: '/images/passport/medal_platinum.png',
+        bgImage: '/images/passport/bg_platinum.png'
     }
 };
 
@@ -125,8 +133,18 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, onOpen
 
     return (
         <div className="space-y-6 animate-fadeIn">
-            {/* Profile Header */}
-            <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${tier.color} p-6 text-white shadow-xl`}>
+            {/* Profile Header with Background Image */}
+            <div
+                className="relative overflow-hidden rounded-3xl p-6 text-white shadow-xl min-h-[180px]"
+                style={{
+                    backgroundImage: `url(${tier.bgImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                }}
+            >
+                {/* Fallback gradient overlay for better text readability */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-60`} />
+
                 {/* Decorative elements */}
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-10 -mb-10 blur-xl" />
@@ -134,26 +152,31 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, onOpen
                 <div className="relative z-10">
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl shadow-inner">
-                                {tier.icon}
+                            {/* Medal Image */}
+                            <div className="w-20 h-20 flex items-center justify-center">
+                                <img
+                                    src={tier.medalImage}
+                                    alt={`${tier.name} Medal`}
+                                    className="w-full h-full object-contain drop-shadow-lg"
+                                />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black tracking-tight">SOCA PASSPORT</h2>
-                                <p className="text-white/80 text-sm">{tier.name} Tier</p>
+                                <h2 className="text-2xl font-black tracking-tight drop-shadow-md">SOCA PASSPORT</h2>
+                                <p className="text-white/90 text-sm font-medium drop-shadow">{tier.name} Tier</p>
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-3xl font-black">{profile?.totalCredits || 0}</p>
-                            <p className="text-xs text-white/70 uppercase tracking-wider">Credits</p>
+                            <p className="text-3xl font-black drop-shadow-md">{profile?.totalCredits || 0}</p>
+                            <p className="text-xs text-white/80 uppercase tracking-wider font-medium">Credits</p>
                         </div>
                     </div>
 
                     {/* Tier Progress */}
                     {tierProgress.nextTier && (
-                        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                        <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-4">
                             <div className="flex justify-between text-sm mb-2">
                                 <span className="font-medium">{tier.name}</span>
-                                <span className="text-white/80">
+                                <span className="text-white/90">
                                     {tierProgress.creditsToNextTier} to {tierProgress.nextTier}
                                 </span>
                             </div>
