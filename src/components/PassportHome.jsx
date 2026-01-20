@@ -68,10 +68,15 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, onOpen
                 const profileResult = await getProfile();
                 setProfile(profileResult.data);
 
-                // Get recent stamps
-                const getStamps = httpsCallable(functions, 'getPassportStamps');
-                const stampsResult = await getStamps({ limit: 5 });
-                setRecentStamps(stampsResult.data.stamps || []);
+                // Get recent stamps (separate try-catch so profile still shows if stamps fail)
+                try {
+                    const getStamps = httpsCallable(functions, 'getPassportStamps');
+                    const stampsResult = await getStamps({ limit: 5 });
+                    setRecentStamps(stampsResult.data.stamps || []);
+                } catch (stampsErr) {
+                    console.warn('Error loading stamps (non-critical):', stampsErr);
+                    setRecentStamps([]);
+                }
 
             } catch (err) {
                 console.error('Error loading passport data:', err);
@@ -278,8 +283,8 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, onOpen
                             <div
                                 key={achievement.id}
                                 className={`aspect-square rounded-xl flex items-center justify-center text-2xl transition-all ${isUnlocked
-                                        ? 'bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 shadow-sm'
-                                        : 'bg-gray-100 dark:bg-gray-700 opacity-40 grayscale'
+                                    ? 'bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 shadow-sm'
+                                    : 'bg-gray-100 dark:bg-gray-700 opacity-40 grayscale'
                                     }`}
                                 title={`${achievement.name}${isUnlocked ? ' ✓' : ''}`}
                             >

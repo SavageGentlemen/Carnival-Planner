@@ -1168,90 +1168,108 @@ exports.initializePassport = onCall(
 exports.getPassportProfile = onCall(
   { cors: true, invoker: "public" },
   async (request) => {
-    if (!request.auth || !request.auth.uid) {
-      throw new HttpsError('unauthenticated', 'Must be signed in.');
-    }
+    try {
+      console.log('getPassportProfile called');
 
-    const uid = request.auth.uid;
-    const email = request.auth.token?.email || null;
-    const displayName = request.auth.token?.name || 'Carnival Lover';
+      if (!request.auth || !request.auth.uid) {
+        console.log('No auth, throwing unauthenticated');
+        throw new HttpsError('unauthenticated', 'Must be signed in.');
+      }
 
-    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
-    let profileDoc = await profileRef.get();
+      const uid = request.auth.uid;
+      const email = request.auth.token?.email || null;
+      const displayName = request.auth.token?.name || 'Carnival Lover';
 
-    // Auto-initialize if doesn't exist
-    if (!profileDoc.exists) {
-      const now = new Date();
-      const newProfile = {
-        userId: uid,
-        email,
-        displayName,
-        profilePictureUrl: null,
-        totalCredits: 0,
-        lifetimeCredits: 0,
-        currentTier: 'BRONZE',
-        totalEvents: 0,
-        countriesVisited: [],
-        unlockedAchievements: [],
-        achievementPoints: 0,
-        eventTypeStats: {
-          fete: 0,
-          jouvert: 0,
-          breakfast: 0,
-          boat_ride: 0,
-          cooler_fete: 0,
-          all_inclusive: 0
-        },
-        passportCreatedAt: now,
-        lastCheckinAt: null,
-        isPublic: false,
-        showOnLeaderboard: true
-      };
+      console.log('Getting profile for uid:', uid);
 
-      await profileRef.set(newProfile);
+      const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+      console.log('Profile ref created, getting document...');
 
+      let profileDoc = await profileRef.get();
+      console.log('Profile doc exists:', profileDoc.exists);
+
+      // Auto-initialize if doesn't exist
+      if (!profileDoc.exists) {
+        console.log('Creating new profile...');
+        const now = new Date();
+        const newProfile = {
+          userId: uid,
+          email,
+          displayName,
+          profilePictureUrl: null,
+          totalCredits: 0,
+          lifetimeCredits: 0,
+          currentTier: 'BRONZE',
+          totalEvents: 0,
+          countriesVisited: [],
+          unlockedAchievements: [],
+          achievementPoints: 0,
+          eventTypeStats: {
+            fete: 0,
+            jouvert: 0,
+            breakfast: 0,
+            boat_ride: 0,
+            cooler_fete: 0,
+            all_inclusive: 0
+          },
+          passportCreatedAt: now,
+          lastCheckinAt: null,
+          isPublic: false,
+          showOnLeaderboard: true
+        };
+
+        await profileRef.set(newProfile);
+        console.log('New profile created successfully');
+
+        return {
+          ...newProfile,
+          tierProgress: {
+            nextTier: 'SILVER',
+            creditsToNextTier: 500,
+            progressPercent: 0
+          },
+          achievementDefinitions: PASSPORT_ACHIEVEMENTS
+        };
+      }
+
+      const profile = profileDoc.data();
+      console.log('Got existing profile');
+
+      // Calculate next tier progress
+      const currentCredits = profile.totalCredits || 0;
+      let nextTier = null;
+      let creditsToNextTier = 0;
+      let progressPercent = 100;
+
+      if (profile.currentTier === 'BRONZE') {
+        nextTier = 'SILVER';
+        creditsToNextTier = TIER_THRESHOLDS.SILVER - currentCredits;
+        progressPercent = Math.floor((currentCredits / TIER_THRESHOLDS.SILVER) * 100);
+      } else if (profile.currentTier === 'SILVER') {
+        nextTier = 'GOLD';
+        creditsToNextTier = TIER_THRESHOLDS.GOLD - currentCredits;
+        progressPercent = Math.floor(((currentCredits - TIER_THRESHOLDS.SILVER) / (TIER_THRESHOLDS.GOLD - TIER_THRESHOLDS.SILVER)) * 100);
+      } else if (profile.currentTier === 'GOLD') {
+        nextTier = 'PLATINUM';
+        creditsToNextTier = TIER_THRESHOLDS.PLATINUM - currentCredits;
+        progressPercent = Math.floor(((currentCredits - TIER_THRESHOLDS.GOLD) / (TIER_THRESHOLDS.PLATINUM - TIER_THRESHOLDS.GOLD)) * 100);
+      }
+
+      console.log('Returning profile with tier progress');
       return {
-        ...newProfile,
+        ...profile,
         tierProgress: {
-          nextTier: 'SILVER',
-          creditsToNextTier: 500,
-          progressPercent: 0
+          nextTier,
+          creditsToNextTier: Math.max(0, creditsToNextTier),
+          progressPercent: Math.min(100, Math.max(0, progressPercent))
         },
         achievementDefinitions: PASSPORT_ACHIEVEMENTS
       };
+    } catch (error) {
+      console.error('getPassportProfile ERROR:', error.message);
+      console.error('Error stack:', error.stack);
+      throw new HttpsError('internal', `Failed to get profile: ${error.message}`);
     }
-
-    const profile = profileDoc.data();
-
-    // Calculate next tier progress
-    const currentCredits = profile.totalCredits || 0;
-    let nextTier = null;
-    let creditsToNextTier = 0;
-    let progressPercent = 100;
-
-    if (profile.currentTier === 'BRONZE') {
-      nextTier = 'SILVER';
-      creditsToNextTier = TIER_THRESHOLDS.SILVER - currentCredits;
-      progressPercent = Math.floor((currentCredits / TIER_THRESHOLDS.SILVER) * 100);
-    } else if (profile.currentTier === 'SILVER') {
-      nextTier = 'GOLD';
-      creditsToNextTier = TIER_THRESHOLDS.GOLD - currentCredits;
-      progressPercent = Math.floor(((currentCredits - TIER_THRESHOLDS.SILVER) / (TIER_THRESHOLDS.GOLD - TIER_THRESHOLDS.SILVER)) * 100);
-    } else if (profile.currentTier === 'GOLD') {
-      nextTier = 'PLATINUM';
-      creditsToNextTier = TIER_THRESHOLDS.PLATINUM - currentCredits;
-      progressPercent = Math.floor(((currentCredits - TIER_THRESHOLDS.GOLD) / (TIER_THRESHOLDS.PLATINUM - TIER_THRESHOLDS.GOLD)) * 100);
-    }
-
-    return {
-      ...profile,
-      tierProgress: {
-        nextTier,
-        creditsToNextTier: Math.max(0, creditsToNextTier),
-        progressPercent: Math.min(100, Math.max(0, progressPercent))
-      },
-      achievementDefinitions: PASSPORT_ACHIEVEMENTS
-    };
   }
 );
 
