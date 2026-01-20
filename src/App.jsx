@@ -38,6 +38,9 @@ import SocaPassportTab from './components/SocaPassportTab';
 import HomeHub from './components/HomeHub';
 import WelcomeModal from './components/WelcomeModal';
 import HelpGuide from './components/HelpGuide';
+import MasqueraderProfile from './components/MasqueraderProfile';
+import ProfileEditor from './components/ProfileEditor';
+import CreatorDashboard from './components/CreatorDashboard';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode } from './services/squadService'; // Squad Service
@@ -274,6 +277,10 @@ export default function App() {
     return !localStorage.getItem('carnival-planner-welcomed');
   });
   const [showHelpGuide, setShowHelpGuide] = useState(false);
+
+  // Profile & Creator State
+  const [userProfile, setUserProfile] = useState(null);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   // Email Auth State
   const [showEmailAuth, setShowEmailAuth] = useState(false);
@@ -563,6 +570,26 @@ export default function App() {
       }
     });
     return () => unsubscribe();
+  }, [user, isDemoMode]);
+
+  // 4b. Load User Profile
+  useEffect(() => {
+    if (!user || isDemoMode) {
+      setUserProfile(null);
+      return;
+    }
+
+    const loadProfile = async () => {
+      try {
+        const profileSnap = await getDoc(doc(db, 'userProfiles', user.uid));
+        if (profileSnap.exists()) {
+          setUserProfile({ id: profileSnap.id, ...profileSnap.data() });
+        }
+      } catch (err) {
+        console.log('Could not load profile:', err);
+      }
+    };
+    loadProfile();
   }, [user, isDemoMode]);
 
   useEffect(() => {
@@ -1470,8 +1497,8 @@ export default function App() {
                   <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
                     {[
                       'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport',
-                      'Packing', 'Map', 'Media', 'Info'
-                    ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
+                      'Packing', 'Map', 'Media', 'Profile', 'Creator', 'Info'
+                    ].filter(tab => isPremium || !['Map', 'Media', 'Passport', 'Creator'].includes(tab)).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => {
@@ -2138,6 +2165,38 @@ export default function App() {
                       </div>
                     )}
 
+                    {/* TAB: PROFILE (Free) */}
+                    {activeTab === 'Profile' && (
+                      <div className="animate-fadeIn">
+                        <MasqueraderProfile
+                          profileData={userProfile || {
+                            displayName: user?.displayName || 'Carnival Lover',
+                            bio: '',
+                            isPublic: false,
+                            carnivalHistory: Object.entries(carnivals || {}).filter(([_, data]) => data?.costume?.band).map(([carnivalId, data]) => ({
+                              carnivalId,
+                              year: new Date().getFullYear(),
+                              band: data.costume?.band,
+                              section: data.costume?.section
+                            }))
+                          }}
+                          isOwnProfile={true}
+                          onEdit={() => setShowProfileEditor(true)}
+                          currentUser={user}
+                        />
+                      </div>
+                    )}
+
+                    {/* TAB: CREATOR (Premium) */}
+                    {activeTab === 'Creator' && isPremium && (
+                      <div className="animate-fadeIn">
+                        <CreatorDashboard
+                          user={user}
+                          isPremium={isPremium}
+                        />
+                      </div>
+                    )}
+
                     {/* TAB: INFO & EXPORT */}
                     {activeTab === 'Info' && (
                       <div className="animate-fadeIn text-center">
@@ -2272,6 +2331,17 @@ export default function App() {
       {/* Help Guide Modal */}
       {showHelpGuide && (
         <HelpGuide onClose={() => setShowHelpGuide(false)} />
+      )}
+
+      {/* Profile Editor Modal */}
+      {showProfileEditor && (
+        <ProfileEditor
+          user={user}
+          currentProfile={userProfile}
+          carnivals={carnivals}
+          onSave={(updatedProfile) => setUserProfile(updatedProfile)}
+          onClose={() => setShowProfileEditor(false)}
+        />
       )}
     </div >
   );

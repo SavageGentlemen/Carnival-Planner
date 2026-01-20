@@ -80,5 +80,40 @@ service cloud.firestore {
         );
       }
     }
+    
+    // --- MASQUERADER PROFILES ---
+    // Public profiles - readable if public OR by owner, writable only by owner
+    match /userProfiles/{userId} {
+      allow read: if resource.data.isPublic == true || 
+                    (request.auth != null && request.auth.uid == userId);
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Username registry - for enforcing uniqueness
+    match /usernames/{username} {
+      allow read: if true;  // Anyone can check if username is taken
+      allow create: if request.auth != null && 
+                      request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && 
+                      resource.data.userId == request.auth.uid;
+    }
+    
+    // --- AFFILIATE/CREATOR PROGRAM ---
+    match /affiliates/{affiliateId} {
+      // Owner can read their own affiliate data
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Any authenticated user can apply (create)
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Only admin can approve/update
+      allow update, delete: if isAdmin();
+    }
+    
+    // Affiliate click tracking (subcollection)
+    match /affiliates/{affiliateId}/clicks/{clickId} {
+      allow create: if true;  // Allow anonymous click tracking
+      allow read: if request.auth != null && 
+                    request.auth.uid == get(/databases/$(database)/documents/affiliates/$(affiliateId)).data.userId;
+    }
   }
 }
