@@ -115,5 +115,49 @@ service cloud.firestore {
       allow read: if request.auth != null && 
                     request.auth.uid == get(/databases/$(database)/documents/affiliates/$(affiliateId)).data.userId;
     }
+    
+    // --- SOCA PASSPORT 2.0 ---
+    
+    // Passport Profiles - user can read/write their own, public profiles readable by all
+    match /passportProfiles/{userId} {
+      allow read: if resource.data.isPublic == true || 
+                    (request.auth != null && request.auth.uid == userId);
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Passport Stamps - user can read their own, create via Cloud Function
+    match /passportStamps/{stampId} {
+      allow read: if request.auth != null && 
+                    request.auth.uid == resource.data.userId;
+      // Stamps are created via Cloud Function only
+      allow create, update, delete: if false;
+    }
+    
+    // Passport Check-ins - created via Cloud Function, user can read their own
+    match /passportCheckins/{checkinId} {
+      allow read: if request.auth != null && 
+                    request.auth.uid == resource.data.userId;
+      // Check-ins are created via Cloud Function only
+      allow create, update, delete: if false;
+    }
+    
+    // Passport Events - readable by authenticated users, managed by admin
+    match /passportEvents/{eventId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    // Passport Achievements - definitions readable by all authenticated users
+    match /passportAchievements/{achievementId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    // Passport Leaderboard - public read
+    match /passportLeaderboard/{entryId} {
+      allow read: if true;
+      allow write: if false; // Updated via Cloud Function
+    }
   }
 }

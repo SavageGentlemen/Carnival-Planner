@@ -972,3 +972,616 @@ exports.getScrapedEvents = onCall(
     }
   }
 );
+
+// ===================================================================
+// SOCA PASSPORT 2.0 FUNCTIONS
+// ===================================================================
+
+// Achievement definitions (stored in code for simplicity, could be in Firestore)
+const PASSPORT_ACHIEVEMENTS = {
+  first_stamp: {
+    id: 'first_stamp',
+    name: 'First Steps',
+    description: 'Claim your first stamp',
+    icon: '🎟️',
+    category: 'MILESTONE',
+    points: 50,
+    criteria: { type: 'EVENT_COUNT', target: 1 }
+  },
+  island_hopper: {
+    id: 'island_hopper',
+    name: 'Island Hopper',
+    description: 'Check in at 3 different countries',
+    icon: '🌊',
+    category: 'TRAVEL',
+    points: 500,
+    criteria: { type: 'COUNTRY_COUNT', target: 3 }
+  },
+  sunrise_warrior: {
+    id: 'sunrise_warrior',
+    name: 'Sunrise Warrior',
+    description: 'Check in at 5 J\'ouvert or early morning events',
+    icon: '🌅',
+    category: 'EVENTS',
+    points: 300,
+    criteria: { type: 'EVENT_TYPE', target: 5, eventTypes: ['jouvert', 'breakfast', 'early_morning'] }
+  },
+  loyal_fan: {
+    id: 'loyal_fan',
+    name: 'Loyal Fan',
+    description: 'Check in to 10 events total',
+    icon: '⭐',
+    category: 'MILESTONE',
+    points: 250,
+    criteria: { type: 'EVENT_COUNT', target: 10 }
+  },
+  tier_up: {
+    id: 'tier_up',
+    name: 'Moving Up',
+    description: 'Reach Silver tier',
+    icon: '📈',
+    category: 'MILESTONE',
+    points: 200,
+    criteria: { type: 'TIER_REACHED', target: 'SILVER' }
+  }
+};
+
+// Tier thresholds
+const TIER_THRESHOLDS = {
+  BRONZE: 0,
+  SILVER: 500,
+  GOLD: 1500,
+  PLATINUM: 5000
+};
+
+// Credit amounts by rarity
+const CREDIT_AMOUNTS = {
+  COMMON: 50,
+  RARE: 75,
+  EPIC: 100,
+  LEGENDARY: 150
+};
+
+// Calculate tier from credits
+function calculateTier(totalCredits) {
+  if (totalCredits >= TIER_THRESHOLDS.PLATINUM) return 'PLATINUM';
+  if (totalCredits >= TIER_THRESHOLDS.GOLD) return 'GOLD';
+  if (totalCredits >= TIER_THRESHOLDS.SILVER) return 'SILVER';
+  return 'BRONZE';
+}
+
+// Calculate stamp rarity
+function calculateRarity(event, checkinNumber) {
+  // First 50 check-ins are LEGENDARY
+  if (checkinNumber <= 50) return 'LEGENDARY';
+  // Annual flagship events are EPIC
+  if (event.isAnnualFlagship || event.isFlagship) return 'EPIC';
+  // Small events (<500 capacity) are RARE
+  if (event.maxCapacity && event.maxCapacity < 500) return 'RARE';
+  // First 200 check-ins are RARE
+  if (checkinNumber <= 200) return 'RARE';
+  return 'COMMON';
+}
+
+// Check if achievements should be unlocked
+function checkAchievements(profile, newCheckin) {
+  const unlockedAchievements = profile.unlockedAchievements || [];
+  const newlyUnlocked = [];
+
+  for (const [id, achievement] of Object.entries(PASSPORT_ACHIEVEMENTS)) {
+    // Skip if already unlocked
+    if (unlockedAchievements.includes(id)) continue;
+
+    const { criteria } = achievement;
+    let unlocked = false;
+
+    switch (criteria.type) {
+      case 'EVENT_COUNT':
+        unlocked = profile.totalEvents >= criteria.target;
+        break;
+      case 'COUNTRY_COUNT':
+        unlocked = (profile.countriesVisited || []).length >= criteria.target;
+        break;
+      case 'TIER_REACHED':
+        unlocked = profile.currentTier === criteria.target ||
+          (criteria.target === 'SILVER' && ['SILVER', 'GOLD', 'PLATINUM'].includes(profile.currentTier)) ||
+          (criteria.target === 'GOLD' && ['GOLD', 'PLATINUM'].includes(profile.currentTier));
+        break;
+      case 'EVENT_TYPE':
+        // Count events of specific types
+        const typeCount = (profile.eventTypeStats || {})[criteria.eventTypes[0]] || 0;
+        unlocked = typeCount >= criteria.target;
+        break;
+    }
+
+    if (unlocked) {
+      newlyUnlocked.push(id);
+    }
+  }
+
+  return newlyUnlocked;
+}
+
+// ----- Initialize Passport Profile -----
+exports.initializePassport = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+    const email = request.auth.token?.email || null;
+    const displayName = request.auth.token?.name || 'Carnival Lover';
+
+    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+    const existingProfile = await profileRef.get();
+
+    if (existingProfile.exists) {
+      return { success: true, profile: existingProfile.data(), isNew: false };
+    }
+
+    const now = new Date();
+    const newProfile = {
+      userId: uid,
+      email,
+      displayName,
+      profilePictureUrl: null,
+
+      // Core Stats
+      totalCredits: 0,
+      lifetimeCredits: 0,
+      currentTier: 'BRONZE',
+      totalEvents: 0,
+      countriesVisited: [],
+
+      // Achievements
+      unlockedAchievements: [],
+      achievementPoints: 0,
+
+      // Event Type Stats (for achievements)
+      eventTypeStats: {
+        fete: 0,
+        jouvert: 0,
+        breakfast: 0,
+        boat_ride: 0,
+        cooler_fete: 0,
+        all_inclusive: 0
+      },
+
+      // Timestamps
+      passportCreatedAt: now,
+      lastCheckinAt: null,
+
+      // Settings
+      isPublic: false,
+      showOnLeaderboard: true
+    };
+
+    await profileRef.set(newProfile);
+
+    return { success: true, profile: newProfile, isNew: true };
+  }
+);
+
+// ----- Get Passport Profile -----
+exports.getPassportProfile = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+    const profileDoc = await profileRef.get();
+
+    if (!profileDoc.exists) {
+      // Auto-initialize if doesn't exist
+      const initResult = await exports.initializePassport.run({ auth: request.auth }, null);
+      return initResult.profile;
+    }
+
+    const profile = profileDoc.data();
+
+    // Calculate next tier progress
+    const currentCredits = profile.totalCredits || 0;
+    let nextTier = null;
+    let creditsToNextTier = 0;
+    let progressPercent = 100;
+
+    if (profile.currentTier === 'BRONZE') {
+      nextTier = 'SILVER';
+      creditsToNextTier = TIER_THRESHOLDS.SILVER - currentCredits;
+      progressPercent = Math.floor((currentCredits / TIER_THRESHOLDS.SILVER) * 100);
+    } else if (profile.currentTier === 'SILVER') {
+      nextTier = 'GOLD';
+      creditsToNextTier = TIER_THRESHOLDS.GOLD - currentCredits;
+      progressPercent = Math.floor(((currentCredits - TIER_THRESHOLDS.SILVER) / (TIER_THRESHOLDS.GOLD - TIER_THRESHOLDS.SILVER)) * 100);
+    } else if (profile.currentTier === 'GOLD') {
+      nextTier = 'PLATINUM';
+      creditsToNextTier = TIER_THRESHOLDS.PLATINUM - currentCredits;
+      progressPercent = Math.floor(((currentCredits - TIER_THRESHOLDS.GOLD) / (TIER_THRESHOLDS.PLATINUM - TIER_THRESHOLDS.GOLD)) * 100);
+    }
+
+    return {
+      ...profile,
+      tierProgress: {
+        nextTier,
+        creditsToNextTier: Math.max(0, creditsToNextTier),
+        progressPercent: Math.min(100, Math.max(0, progressPercent))
+      },
+      achievementDefinitions: PASSPORT_ACHIEVEMENTS
+    };
+  }
+);
+
+// ----- Get Passport Stamps -----
+exports.getPassportStamps = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+    const { limit: queryLimit = 50, rarity, carnivalId } = request.data || {};
+
+    let query = squadDb.collection('passportStamps')
+      .where('userId', '==', uid)
+      .orderBy('stampedAt', 'desc');
+
+    if (rarity) {
+      query = query.where('rarity', '==', rarity);
+    }
+
+    if (carnivalId) {
+      query = query.where('carnivalCircuit', '==', carnivalId);
+    }
+
+    const snapshot = await query.limit(queryLimit).get();
+
+    const stamps = [];
+    snapshot.forEach(doc => {
+      stamps.push({ id: doc.id, ...doc.data() });
+    });
+
+    return { stamps, count: stamps.length };
+  }
+);
+
+// ----- Passport Check-in -----
+exports.passportCheckin = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+    const { accessCode } = request.data || {};
+
+    if (!accessCode || typeof accessCode !== 'string') {
+      throw new HttpsError('invalid-argument', 'Access code is required.');
+    }
+
+    const cleanCode = accessCode.toUpperCase().trim();
+
+    // 1. Find the event by access code
+    const eventsQuery = await squadDb.collection('passportEvents')
+      .where('accessCode', '==', cleanCode)
+      .where('isActive', '==', true)
+      .limit(1)
+      .get();
+
+    if (eventsQuery.empty) {
+      throw new HttpsError('not-found', 'Invalid or expired access code.');
+    }
+
+    const eventDoc = eventsQuery.docs[0];
+    const event = { id: eventDoc.id, ...eventDoc.data() };
+
+    // 2. Check for duplicate check-in
+    const existingCheckin = await squadDb.collection('passportCheckins')
+      .where('userId', '==', uid)
+      .where('eventId', '==', event.id)
+      .limit(1)
+      .get();
+
+    if (!existingCheckin.empty) {
+      throw new HttpsError('already-exists', 'You have already checked in to this event.');
+    }
+
+    // 3. Get current check-in count for this event (for rarity calculation)
+    const checkinCountQuery = await squadDb.collection('passportCheckins')
+      .where('eventId', '==', event.id)
+      .count()
+      .get();
+    const checkinNumber = (checkinCountQuery.data().count || 0) + 1;
+
+    // 4. Calculate rarity and credits
+    const rarity = calculateRarity(event, checkinNumber);
+    const creditsEarned = CREDIT_AMOUNTS[rarity];
+
+    // 5. Get or create user profile
+    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+    let profileDoc = await profileRef.get();
+
+    if (!profileDoc.exists) {
+      // Initialize profile
+      await exports.initializePassport.run({ auth: request.auth }, null);
+      profileDoc = await profileRef.get();
+    }
+
+    const profile = profileDoc.data();
+
+    // 6. Create check-in record
+    const now = new Date();
+    const checkinRef = squadDb.collection('passportCheckins').doc();
+    const checkinData = {
+      id: checkinRef.id,
+      userId: uid,
+      eventId: event.id,
+      accessCode: cleanCode,
+      creditsEarned,
+      checkinMethod: 'CODE_ENTRY',
+      checkedInAt: now,
+      metadata: {
+        eventTitle: event.title,
+        eventDate: event.date,
+        countryCode: event.countryCode,
+        carnivalCircuit: event.carnivalCircuit
+      }
+    };
+    await checkinRef.set(checkinData);
+
+    // 7. Create stamp
+    const stampRef = squadDb.collection('passportStamps').doc();
+    const stampData = {
+      id: stampRef.id,
+      userId: uid,
+      eventId: event.id,
+      eventTitle: event.title,
+      eventDate: event.date,
+
+      // Location
+      countryCode: event.countryCode || 'XX',
+      carnivalCircuit: event.carnivalCircuit || 'unknown',
+      location: event.location || '',
+
+      // Rarity
+      rarity,
+      editionNumber: checkinNumber,
+      totalEditions: event.maxCapacity || 0, // 0 means unlimited
+
+      // Credits
+      creditsEarned,
+
+      // Meta
+      stampedAt: now,
+      checkinMethod: 'CODE_ENTRY',
+      isFavorite: false,
+
+      // Event metadata for display
+      eventType: event.eventType || 'fete'
+    };
+    await stampRef.set(stampData);
+
+    // 8. Update user profile
+    const newTotalCredits = (profile.totalCredits || 0) + creditsEarned;
+    const newLifetimeCredits = (profile.lifetimeCredits || 0) + creditsEarned;
+    const newTotalEvents = (profile.totalEvents || 0) + 1;
+    const countriesVisited = [...new Set([...(profile.countriesVisited || []), event.countryCode])];
+    const newTier = calculateTier(newTotalCredits);
+
+    // Update event type stats
+    const eventTypeStats = profile.eventTypeStats || {};
+    const eventType = event.eventType || 'fete';
+    eventTypeStats[eventType] = (eventTypeStats[eventType] || 0) + 1;
+
+    const profileUpdate = {
+      totalCredits: newTotalCredits,
+      lifetimeCredits: newLifetimeCredits,
+      totalEvents: newTotalEvents,
+      countriesVisited,
+      currentTier: newTier,
+      lastCheckinAt: now,
+      eventTypeStats
+    };
+
+    // 9. Check for new achievements
+    const tempProfile = { ...profile, ...profileUpdate };
+    const newAchievements = checkAchievements(tempProfile, checkinData);
+
+    if (newAchievements.length > 0) {
+      const achievementPoints = newAchievements.reduce((sum, id) =>
+        sum + (PASSPORT_ACHIEVEMENTS[id]?.points || 0), 0);
+
+      profileUpdate.unlockedAchievements = FieldValue.arrayUnion(...newAchievements);
+      profileUpdate.achievementPoints = (profile.achievementPoints || 0) + achievementPoints;
+
+      // Add achievement bonus credits
+      profileUpdate.totalCredits += achievementPoints;
+      profileUpdate.lifetimeCredits += achievementPoints;
+    }
+
+    await profileRef.update(profileUpdate);
+
+    // 10. Update event check-in count
+    await eventDoc.ref.update({
+      totalCheckins: FieldValue.increment(1),
+      lastCheckinAt: now
+    });
+
+    return {
+      success: true,
+      stamp: stampData,
+      creditsEarned,
+      bonusCredits: newAchievements.length > 0 ?
+        newAchievements.reduce((sum, id) => sum + (PASSPORT_ACHIEVEMENTS[id]?.points || 0), 0) : 0,
+      newTier,
+      tierChanged: newTier !== profile.currentTier,
+      newAchievements: newAchievements.map(id => PASSPORT_ACHIEVEMENTS[id]),
+      totalCredits: profileUpdate.totalCredits
+    };
+  }
+);
+
+// ----- Get Passport Leaderboard -----
+exports.getPassportLeaderboard = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const { limit: queryLimit = 25 } = request.data || {};
+
+    const snapshot = await squadDb.collection('passportProfiles')
+      .where('showOnLeaderboard', '==', true)
+      .orderBy('totalCredits', 'desc')
+      .limit(queryLimit)
+      .get();
+
+    const leaderboard = [];
+    let rank = 1;
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      leaderboard.push({
+        rank: rank++,
+        userId: doc.id,
+        displayName: data.displayName || 'Anonymous',
+        profilePictureUrl: data.profilePictureUrl,
+        totalCredits: data.totalCredits || 0,
+        currentTier: data.currentTier || 'BRONZE',
+        totalEvents: data.totalEvents || 0,
+        countriesVisited: (data.countriesVisited || []).length,
+        achievementCount: (data.unlockedAchievements || []).length
+      });
+    });
+
+    return { leaderboard };
+  }
+);
+
+// ----- Seed Passport Events (Admin Only) -----
+exports.seedPassportEvents = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    // Only allow admin to run this
+    const adminEmails = ['djkrss1@gmail.com', 'maikacooke@gmail.com'];
+    const userEmail = request.auth?.token?.email || '';
+
+    if (!adminEmails.includes(userEmail)) {
+      throw new HttpsError('permission-denied', 'Admin access required.');
+    }
+
+    const SAMPLE_EVENTS = [
+      {
+        title: "Demo Test Event",
+        date: new Date('2026-01-20T12:00:00'),
+        location: "Test Location",
+        countryCode: "TT",
+        carnivalCircuit: "trinidad",
+        accessCode: "TEST-001",
+        isActive: true,
+        isFlagship: false,
+        eventType: "fete",
+        maxCapacity: 1000,
+        organizerName: "Carnival Planner Team",
+        totalCheckins: 0
+      },
+      {
+        title: "Soca Brainwash 2026",
+        date: new Date('2026-02-23T20:00:00'),
+        location: "O2 Park, Chaguaramas",
+        countryCode: "TT",
+        carnivalCircuit: "trinidad",
+        accessCode: "BRAIN-2026",
+        isActive: true,
+        isFlagship: true,
+        eventType: "fete",
+        maxCapacity: 15000,
+        organizerName: "Island People",
+        totalCheckins: 0
+      },
+      {
+        title: "AM Bush J'ouvert",
+        date: new Date('2026-02-24T04:00:00'),
+        location: "Brian Lara Promenade",
+        countryCode: "TT",
+        carnivalCircuit: "trinidad",
+        accessCode: "AMBUSH-2026",
+        isActive: true,
+        isFlagship: false,
+        eventType: "jouvert",
+        maxCapacity: 5000,
+        organizerName: "Tribe",
+        totalCheckins: 0
+      },
+      {
+        title: "Miami Carnival Road March",
+        date: new Date('2026-10-11T09:00:00'),
+        location: "Miami-Dade Fairgrounds",
+        countryCode: "US",
+        carnivalCircuit: "miami",
+        accessCode: "MIAMI-ROAD",
+        isActive: true,
+        isFlagship: true,
+        eventType: "carnival",
+        maxCapacity: 50000,
+        organizerName: "Miami Broward Carnival",
+        totalCheckins: 0
+      },
+      {
+        title: "Sunrise Breakfast Fete",
+        date: new Date('2026-07-14T06:00:00'),
+        location: "Mas Camp, St. Lucia",
+        countryCode: "LC",
+        carnivalCircuit: "stlucia",
+        accessCode: "SUNRISE-LC",
+        isActive: true,
+        isFlagship: false,
+        eventType: "breakfast",
+        maxCapacity: 800,
+        organizerName: "Lucian Events",
+        totalCheckins: 0
+      },
+      {
+        title: "Catamaran Vibes Cruise",
+        date: new Date('2026-08-02T11:00:00'),
+        location: "Barbados Harbour",
+        countryCode: "BB",
+        carnivalCircuit: "barbados",
+        accessCode: "BOAT-VIBES",
+        isActive: true,
+        isFlagship: false,
+        eventType: "boat_ride",
+        maxCapacity: 200,
+        organizerName: "Island Cruises",
+        totalCheckins: 0
+      }
+    ];
+
+    const eventsRef = squadDb.collection('passportEvents');
+    const results = [];
+
+    for (const event of SAMPLE_EVENTS) {
+      // Check if event with this access code already exists
+      const existing = await eventsRef.where('accessCode', '==', event.accessCode).limit(1).get();
+
+      if (existing.empty) {
+        const docRef = await eventsRef.add({
+          ...event,
+          createdAt: new Date()
+        });
+        results.push({ accessCode: event.accessCode, title: event.title, status: 'created', id: docRef.id });
+      } else {
+        results.push({ accessCode: event.accessCode, title: event.title, status: 'already_exists' });
+      }
+    }
+
+    return {
+      success: true,
+      message: `Processed ${SAMPLE_EVENTS.length} events`,
+      results
+    };
+  }
+);
