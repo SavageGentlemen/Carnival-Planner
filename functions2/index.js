@@ -1173,13 +1173,52 @@ exports.getPassportProfile = onCall(
     }
 
     const uid = request.auth.uid;
-    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
-    const profileDoc = await profileRef.get();
+    const email = request.auth.token?.email || null;
+    const displayName = request.auth.token?.name || 'Carnival Lover';
 
+    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+    let profileDoc = await profileRef.get();
+
+    // Auto-initialize if doesn't exist
     if (!profileDoc.exists) {
-      // Auto-initialize if doesn't exist
-      const initResult = await exports.initializePassport.run({ auth: request.auth }, null);
-      return initResult.profile;
+      const now = new Date();
+      const newProfile = {
+        userId: uid,
+        email,
+        displayName,
+        profilePictureUrl: null,
+        totalCredits: 0,
+        lifetimeCredits: 0,
+        currentTier: 'BRONZE',
+        totalEvents: 0,
+        countriesVisited: [],
+        unlockedAchievements: [],
+        achievementPoints: 0,
+        eventTypeStats: {
+          fete: 0,
+          jouvert: 0,
+          breakfast: 0,
+          boat_ride: 0,
+          cooler_fete: 0,
+          all_inclusive: 0
+        },
+        passportCreatedAt: now,
+        lastCheckinAt: null,
+        isPublic: false,
+        showOnLeaderboard: true
+      };
+
+      await profileRef.set(newProfile);
+
+      return {
+        ...newProfile,
+        tierProgress: {
+          nextTier: 'SILVER',
+          creditsToNextTier: 500,
+          progressPercent: 0
+        },
+        achievementDefinitions: PASSPORT_ACHIEVEMENTS
+      };
     }
 
     const profile = profileDoc.data();
