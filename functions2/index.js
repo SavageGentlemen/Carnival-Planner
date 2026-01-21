@@ -1603,6 +1603,111 @@ exports.getPassportLeaderboard = onCall(
   }
 );
 
+// ----- Get Squad Passport Stats -----
+exports.getSquadPassportStats = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+
+    // Find user's squad(s)
+    // Note: Firestore array-contains check for objects is tricky if exact match needed.
+    // However, since we store full objects, we might need a workaround or check all.
+    // A better schema would be a separate 'memberUids' array field, but we work with what we have.
+    // For now, we'll simple query all plans and filter in memory or rely on client passing planId.
+    // To keep it efficient, let's try to query if we can, but 'members' schema makes it hard.
+    // Alternative: The client likely knows the planId. If passed, use it.
+
+    let { planId } = request.data || {};
+    let planData = null;
+
+    if (planId) {
+      const planDoc = await squadDb.collection('sharedPlans').doc(planId).get();
+      if (planDoc.exists) {
+        planData = planDoc.data();
+        // Verify membership
+        const isMember = planData.members?.some(m => m.uid === uid);
+        if (!isMember) planData = null;
+      }
+    }
+
+    // Fallback: search for a plan where user is a member (inefficient scan if many plans, 
+    // but assuming low volume or specialized index usually needed). 
+    // As a robust fallback without index changes: 
+    // We can't easily query the array of objects for just the UID.
+    // So we will assume the client passes the planId or we rely on the user having 
+    // a 'currentSquadId' in their profile (not currently there).
+
+    // For this MVP, if no planId provided, we return empty structure.
+    if (!planData) {
+      // Search optimization: check recent plans created by user? 
+      // Or ask 'squads' collection if that's easier?
+      // Let's rely on client context for now.
+      // Attempt one widespread query: 
+      /* 
+      const snapshot = await squadDb.collection('sharedPlans')
+         .orderBy('lastActive', 'desc')
+         .limit(20)
+         .get(); 
+      // filter in memory
+      */
+      return { inSquad: false };
+    }
+
+    // Get all member profiles
+    const memberUids = planData.members.map(m => m.uid);
+    const squadName = planData.squadName || planData.carnivalName || 'My Squad';
+
+    // Fetch up to 10 members' profiles
+    const memberProfiles = [];
+    const profilesSnapshot = await squadDb.collection('passportProfiles')
+      .where('userId', 'in', memberUids.slice(0, 10)) // Firestore 'in' limit
+      .get();
+
+    profilesSnapshot.forEach(doc => {
+      memberProfiles.push(doc.data());
+    });
+
+    // Aggregate Stats
+    let totalSquadCredits = 0;
+    let totalSquadEvents = 0;
+    const commonCountries = new Set();
+
+    memberProfiles.forEach(p => {
+      totalSquadCredits += (p.totalCredits || 0);
+      totalSquadEvents += (p.totalEvents || 0);
+      (p.countriesVisited || []).forEach(c => commonCountries.add(c));
+    });
+
+    // Sort members by credits for mini-leaderboard
+    const rankedMembers = memberProfiles
+      .sort((a, b) => (b.totalCredits || 0) - (a.totalCredits || 0))
+      .map(p => ({
+        userId: p.userId,
+        displayName: p.displayName,
+        profilePictureUrl: p.profilePictureUrl,
+        totalCredits: p.totalCredits || 0,
+        currentTier: p.currentTier || 'BRONZE'
+      }));
+
+    return {
+      inSquad: true,
+      squadName,
+      squadId: planId,
+      stats: {
+        totalCredits: totalSquadCredits,
+        totalEvents: totalSquadEvents,
+        countriesVisited: commonCountries.size,
+        memberCount: memberUids.length
+      },
+      members: rankedMembers
+    };
+  }
+);
+
 // ----- Seed Passport Events (Admin Only) -----
 exports.seedPassportEvents = onCall(
   { cors: true, invoker: "public" },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     CreditCard, Trophy, MapPin, Star, Ticket, ChevronRight,
-    Zap, Award, TrendingUp, Loader2, Sparkles, Gift
+    Zap, Award, TrendingUp, Loader2, Sparkles, Gift, Users
 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
@@ -54,11 +54,31 @@ const RARITY_COLORS = {
     LEGENDARY: 'border-yellow-400 dark:border-yellow-500'
 };
 
-export default function PassportHome({ user, isPremium, activeCarnivalId, onOpenCheckin, onViewStamps, onViewAchievements, onViewLeaderboard }) {
+export default function PassportHome({ user, isPremium, activeCarnivalId, activePlanId, onOpenCheckin, onViewStamps, onViewAchievements, onViewLeaderboard }) {
     const [profile, setProfile] = useState(null);
     const [recentStamps, setRecentStamps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [squadStats, setSquadStats] = useState(null);
+
+    // Load squad stats if in a squad
+    useEffect(() => {
+        if (!activePlanId || !user) return;
+
+        const loadSquadStats = async () => {
+            const functions = getFunctions(app);
+            const getStats = httpsCallable(functions, 'getSquadPassportStats');
+            try {
+                const result = await getStats({ planId: activePlanId });
+                if (result.data.inSquad) {
+                    setSquadStats(result.data);
+                }
+            } catch (err) {
+                console.error("Failed to load squad stats", err);
+            }
+        };
+        loadSquadStats();
+    }, [activePlanId, user]);
 
     // Load passport profile and recent stamps
     useEffect(() => {
@@ -230,6 +250,64 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, onOpen
                     <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
             </button>
+
+            {/* Squad Stats Card */}
+            {squadStats && (
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-5 shadow-lg text-white">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <Users className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">{squadStats.squadName}</h3>
+                                <p className="text-white/70 text-sm">Squad Passport Stats</p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-2xl font-bold">{squadStats.stats.totalCredits.toLocaleString()}</p>
+                            <p className="text-xs text-white/70">Total Credits</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-black/20 rounded-xl p-3 flex items-center gap-3">
+                            <Ticket className="w-5 h-5 text-purple-200" />
+                            <div>
+                                <p className="font-bold">{squadStats.stats.totalEvents}</p>
+                                <p className="text-xs text-white/60">Squad Events</p>
+                            </div>
+                        </div>
+                        <div className="bg-black/20 rounded-xl p-3 flex items-center gap-3">
+                            <MapPin className="w-5 h-5 text-blue-200" />
+                            <div>
+                                <p className="font-bold">{squadStats.stats.countriesVisited}</p>
+                                <p className="text-xs text-white/60">Countries</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Mini Member List */}
+                    <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        {squadStats.members.map((member, i) => (
+                            <div key={member.userId} className="flex-shrink-0 relative">
+                                <div className={`w-8 h-8 rounded-full border-2 ${member.userId === user.uid ? 'border-yellow-400' : 'border-white/20'} overflow-hidden bg-gray-800`}>
+                                    {member.profilePictureUrl ? (
+                                        <img src={member.profilePictureUrl} alt="" className="w-10 h-10 object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white/50">
+                                            {member.displayName ? member.displayName.charAt(0) : '?'}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 bg-gray-900 text-[8px] font-bold px-1 rounded-full border border-gray-700">
+                                    #{i + 1}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Recent Stamps */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">

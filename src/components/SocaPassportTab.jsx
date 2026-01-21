@@ -11,7 +11,7 @@ import AchievementList from './AchievementList';
 import PassportCard from './PassportCard';
 import Leaderboard from './Leaderboard';
 
-export default function SocaPassportTab({ user, isPremium, activeCarnivalId }) {
+export default function SocaPassportTab({ user, isPremium, activeCarnivalId, activePlanId }) {
     const [currentView, setCurrentView] = useState('home'); // home, stamps, achievements, leaderboard
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPassportCard, setShowPassportCard] = useState(false);
@@ -73,6 +73,7 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId }) {
                         user={user}
                         isPremium={isPremium}
                         activeCarnivalId={activeCarnivalId}
+                        activePlanId={activePlanId}
                         onOpenCheckin={() => setShowCheckinModal(true)}
                         onViewStamps={() => setCurrentView('stamps')}
                         onViewAchievements={() => setCurrentView('achievements')}

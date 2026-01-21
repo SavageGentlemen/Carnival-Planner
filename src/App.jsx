@@ -2148,6 +2148,7 @@ export default function App() {
                         <SocaPassportTab
                           user={user}
                           activeCarnivalId={activeCarnivalId}
+                          activePlanId={currentSharedPlanId}
                         />
                       </div>
                     )}
