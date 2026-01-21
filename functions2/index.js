@@ -988,24 +988,6 @@ const PASSPORT_ACHIEVEMENTS = {
     points: 50,
     criteria: { type: 'EVENT_COUNT', target: 1 }
   },
-  island_hopper: {
-    id: 'island_hopper',
-    name: 'Island Hopper',
-    description: 'Check in at 3 different countries',
-    icon: '🌊',
-    category: 'TRAVEL',
-    points: 500,
-    criteria: { type: 'COUNTRY_COUNT', target: 3 }
-  },
-  sunrise_warrior: {
-    id: 'sunrise_warrior',
-    name: 'Sunrise Warrior',
-    description: 'Check in at 5 J\'ouvert or early morning events',
-    icon: '🌅',
-    category: 'EVENTS',
-    points: 300,
-    criteria: { type: 'EVENT_TYPE', target: 5, eventTypes: ['jouvert', 'breakfast', 'early_morning'] }
-  },
   loyal_fan: {
     id: 'loyal_fan',
     name: 'Loyal Fan',
@@ -1015,6 +997,69 @@ const PASSPORT_ACHIEVEMENTS = {
     points: 250,
     criteria: { type: 'EVENT_COUNT', target: 10 }
   },
+  carnival_veteran: {
+    id: 'carnival_veteran',
+    name: 'Carnival Veteran',
+    description: 'Attend 25+ total events',
+    icon: '🎖️',
+    category: 'MILESTONE',
+    points: 300,
+    criteria: { type: 'EVENT_COUNT', target: 25 }
+  },
+  island_hopper: {
+    id: 'island_hopper',
+    name: 'Island Hopper',
+    description: 'Check in at 5 different countries',
+    icon: '🏝️',
+    category: 'TRAVEL',
+    points: 200,
+    criteria: { type: 'COUNTRY_COUNT', target: 5 }
+  },
+  globe_trotter: {
+    id: 'globe_trotter',
+    name: 'Globe Trotter',
+    description: 'Check in at 3 different countries',
+    icon: '🌍',
+    category: 'TRAVEL',
+    points: 100,
+    criteria: { type: 'COUNTRY_COUNT', target: 3 }
+  },
+  sunrise_warrior: {
+    id: 'sunrise_warrior',
+    name: 'Sunrise Warrior',
+    description: 'Attend 5 J\'ouvert or early morning events',
+    icon: '🌅',
+    category: 'EVENTS',
+    points: 150,
+    criteria: { type: 'EVENT_TYPE', target: 5, eventTypes: ['jouvert', 'breakfast'] }
+  },
+  ocean_voyager: {
+    id: 'ocean_voyager',
+    name: 'Ocean Voyager',
+    description: 'Attend 3 boat ride events',
+    icon: '🚢',
+    category: 'EVENTS',
+    points: 100,
+    criteria: { type: 'EVENT_TYPE', target: 3, eventTypes: ['boat_ride'] }
+  },
+  early_bird: {
+    id: 'early_bird',
+    name: 'Early Bird',
+    description: 'Attend 5 breakfast fetes',
+    icon: '🍳',
+    category: 'EVENTS',
+    points: 100,
+    criteria: { type: 'EVENT_TYPE', target: 5, eventTypes: ['breakfast'] }
+  },
+  mud_master: {
+    id: 'mud_master',
+    name: 'Mud Master',
+    description: 'Attend 5 J\'ouvert events',
+    icon: '🎨',
+    category: 'EVENTS',
+    points: 150,
+    criteria: { type: 'EVENT_TYPE', target: 5, eventTypes: ['jouvert'] }
+  },
   tier_up: {
     id: 'tier_up',
     name: 'Moving Up',
@@ -1023,6 +1068,33 @@ const PASSPORT_ACHIEVEMENTS = {
     category: 'MILESTONE',
     points: 200,
     criteria: { type: 'TIER_REACHED', target: 'SILVER' }
+  },
+  gold_status: {
+    id: 'gold_status',
+    name: 'Gold Status',
+    description: 'Reach Gold tier',
+    icon: '🥇',
+    category: 'MILESTONE',
+    points: 350,
+    criteria: { type: 'TIER_REACHED', target: 'GOLD' }
+  },
+  legend: {
+    id: 'legend',
+    name: 'Living Legend',
+    description: 'Reach Platinum tier',
+    icon: '👑',
+    category: 'MILESTONE',
+    points: 500,
+    criteria: { type: 'TIER_REACHED', target: 'PLATINUM' }
+  },
+  rarity_hunter: {
+    id: 'rarity_hunter',
+    name: 'Rarity Hunter',
+    description: 'Collect a Legendary stamp',
+    icon: '💎',
+    category: 'COLLECTOR',
+    points: 75,
+    criteria: { type: 'RARITY_COLLECTED', target: 'LEGENDARY' }
   }
 };
 
@@ -1083,14 +1155,27 @@ function checkAchievements(profile, newCheckin) {
         unlocked = (profile.countriesVisited || []).length >= criteria.target;
         break;
       case 'TIER_REACHED':
-        unlocked = profile.currentTier === criteria.target ||
-          (criteria.target === 'SILVER' && ['SILVER', 'GOLD', 'PLATINUM'].includes(profile.currentTier)) ||
-          (criteria.target === 'GOLD' && ['GOLD', 'PLATINUM'].includes(profile.currentTier));
+        // Check if user has reached the target tier (or higher)
+        const tierOrder = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'];
+        const targetIndex = tierOrder.indexOf(criteria.target);
+        const currentIndex = tierOrder.indexOf(profile.currentTier || 'BRONZE');
+        unlocked = currentIndex >= targetIndex;
         break;
       case 'EVENT_TYPE':
-        // Count events of specific types
-        const typeCount = (profile.eventTypeStats || {})[criteria.eventTypes[0]] || 0;
+        // Sum events of all specified types
+        const eventTypeStats = profile.eventTypeStats || {};
+        let typeCount = 0;
+        for (const eventType of criteria.eventTypes) {
+          typeCount += eventTypeStats[eventType] || 0;
+        }
         unlocked = typeCount >= criteria.target;
+        break;
+      case 'RARITY_COLLECTED':
+        // Check if user has collected a stamp of the target rarity
+        // This is checked when a new stamp is collected
+        if (newCheckin && newCheckin.rarity === criteria.target) {
+          unlocked = true;
+        }
         break;
     }
 
