@@ -9,8 +9,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
 
 // Stripe Price ID for Promoter Pro ($9.99/mo)
-// TODO: Create this price in Stripe Dashboard and update here
-const PROMOTER_PRO_PRICE_ID = 'price_PROMOTER_PRO_999'; // Replace with actual Stripe price ID
+const PROMOTER_PRO_PRICE_ID = 'price_1SsDVdJR9xpdRiXiMw7dGtpC';
 
 export default function PromoterDashboard({ user, isPremium, onExit }) {
     const [activeTab, setActiveTab] = useState('overview'); // overview, events, create, analytics
