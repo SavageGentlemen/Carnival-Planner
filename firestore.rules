@@ -101,8 +101,9 @@ service cloud.firestore {
     
     // --- AFFILIATE/CREATOR PROGRAM ---
     match /affiliates/{affiliateId} {
-      // Owner can read their own affiliate data
+      // Owner can read their own affiliate data, admin can read all
       allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if isAdmin();
       // Any authenticated user can apply (create)
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       // Only admin can approve/update
@@ -158,6 +159,12 @@ service cloud.firestore {
     match /passportLeaderboard/{entryId} {
       allow read: if true;
       allow write: if false; // Updated via Cloud Function
+    }
+    
+    // --- ADMIN MANAGEMENT ---
+    match /admins/{adminId} {
+      // Only super admin (djkrss1) can read/write admin list
+      allow read, write: if isAdmin();
     }
   }
 }
