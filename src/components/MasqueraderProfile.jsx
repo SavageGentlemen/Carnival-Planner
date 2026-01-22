@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     User, MapPin, Users, Calendar, Instagram, Twitter,
-    Globe, Edit2, Share2, Shield, ShieldCheck, Sparkles,
+    Globe, Edit2, Share2, Shield, ShieldCheck,
     Music, PartyPopper, Plane, Ticket
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
@@ -53,8 +53,7 @@ export default function MasqueraderProfile({
         isPublic,
         carnivalHistory = [],
         stats = {},
-        socialLinks = {},
-        isCreator
+        socialLinks = {}
     } = profileData;
 
     const countriesVisited = [...new Set(carnivalHistory.map(c => c.carnivalId))];
@@ -98,11 +97,6 @@ export default function MasqueraderProfile({
                             <Shield className="w-3.5 h-3.5" /> Private
                         </span>
                     )}
-                    {isCreator && (
-                        <span className="flex items-center gap-1.5 px-3 py-1 bg-yellow-500/20 backdrop-blur-md rounded-full text-yellow-200 text-xs font-medium">
-                            <Sparkles className="w-3.5 h-3.5" /> Creator
-                        </span>
-                    )}
                 </div>
             </div>
 
@@ -127,7 +121,6 @@ export default function MasqueraderProfile({
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 {displayName}
-                                {isCreator && <ShieldCheck className="w-5 h-5 text-yellow-500" />}
                             </h1>
                             {username && (
                                 <p className="text-gray-500 dark:text-gray-400">@{username}</p>

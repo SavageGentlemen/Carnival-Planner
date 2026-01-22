@@ -37,7 +37,6 @@ export default function AdminDashboard({ user }) {
         { id: 'Overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'Ads', label: 'Ad Manager', icon: Megaphone },
         { id: 'Support', label: 'Support', icon: MessageSquare },
-        { id: 'Creators', label: 'Creators', icon: Users },
         { id: 'Settings', label: 'Admins', icon: Settings },
     ];
 
@@ -74,7 +73,6 @@ export default function AdminDashboard({ user }) {
                 {activeTab === 'Overview' && <AdminAnalytics />}
                 {activeTab === 'Ads' && <AdManager />}
                 {activeTab === 'Support' && <SupportAdmin />}
-                {activeTab === 'Creators' && <CreatorRequests user={user} />}
                 {activeTab === 'Settings' && <AdminManagement user={user} isSuperAdmin={isSuperAdmin} />}
             </div>
         </div>
@@ -190,8 +188,8 @@ function CreatorRequests({ user }) {
                             <button
                                 onClick={handleAction}
                                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${confirmModal.action === 'delete' || confirmModal.action === 'rejected'
-                                        ? 'bg-red-600 text-white hover:bg-red-700'
-                                        : 'bg-green-600 text-white hover:bg-green-700'
+                                    ? 'bg-red-600 text-white hover:bg-red-700'
+                                    : 'bg-green-600 text-white hover:bg-green-700'
                                     }`}
                             >
                                 {confirmModal.action === 'approved' ? 'Approve' : confirmModal.action === 'rejected' ? 'Reject' : 'Delete'}
@@ -218,8 +216,8 @@ function CreatorRequests({ user }) {
                             key={tab.id}
                             onClick={() => setActiveFilter(tab.id)}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeFilter === tab.id
-                                    ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-pink-400 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                ? 'bg-white dark:bg-gray-700 text-pink-600 dark:text-pink-400 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                                 }`}
                         >
                             {tab.label} ({tab.count})

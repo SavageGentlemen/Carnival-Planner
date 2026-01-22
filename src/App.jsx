@@ -40,7 +40,6 @@ import WelcomeModal from './components/WelcomeModal';
 import HelpGuide from './components/HelpGuide';
 import MasqueraderProfile from './components/MasqueraderProfile';
 import ProfileEditor from './components/ProfileEditor';
-import CreatorDashboard from './components/CreatorDashboard';
 import PromoterDashboard from './components/PromoterDashboard';
 import AdminDashboard from './components/AdminDashboard';
 
@@ -1534,8 +1533,8 @@ export default function App() {
                   <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
                     {[
                       'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport',
-                      'Packing', 'Map', 'Media', 'Profile', 'Creator', 'Info'
-                    ].filter(tab => isPremium || !['Map', 'Media', 'Passport', 'Creator'].includes(tab)).map((tab) => (
+                      'Packing', 'Map', 'Media', 'Profile', 'Info'
+                    ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => {
@@ -2232,15 +2231,6 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* TAB: CREATOR (Premium) */}
-                    {activeTab === 'Creator' && isPremium && (
-                      <div className="animate-fadeIn">
-                        <CreatorDashboard
-                          user={user}
-                          isPremium={isPremium}
-                        />
-                      </div>
-                    )}
 
                     {/* TAB: PROMOTER DASHBOARD (Free/Premium) */}
                     {activeTab === 'Promoter' && (
