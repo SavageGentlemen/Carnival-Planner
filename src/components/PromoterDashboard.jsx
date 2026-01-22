@@ -8,6 +8,10 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
 
+// Stripe Price ID for Promoter Pro ($9.99/mo)
+// TODO: Create this price in Stripe Dashboard and update here
+const PROMOTER_PRO_PRICE_ID = 'price_PROMOTER_PRO_999'; // Replace with actual Stripe price ID
+
 export default function PromoterDashboard({ user, isPremium, onExit }) {
     const [activeTab, setActiveTab] = useState('overview'); // overview, events, create, analytics
     const [stats, setStats] = useState(null);
@@ -15,6 +19,7 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
     const [rewards, setRewards] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isPromoterPro, setIsPromoterPro] = useState(false); // Mock for now
+    const [isUpgrading, setIsUpgrading] = useState(false);
 
     // Create Event Form State
     const [newEvent, setNewEvent] = useState({
@@ -145,6 +150,43 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
         }
     };
 
+    // Handle upgrade to Promoter Pro
+    const handleUpgrade = async () => {
+        if (!user) {
+            alert("You must be signed in to upgrade.");
+            return;
+        }
+
+        if (PROMOTER_PRO_PRICE_ID === 'price_PROMOTER_PRO_999') {
+            alert("Promoter Pro pricing is being configured. Please try again later.");
+            return;
+        }
+
+        setIsUpgrading(true);
+        try {
+            const functions = getFunctions(app);
+            const createCheckoutSession = httpsCallable(functions, "createCheckoutSession");
+
+            const result = await createCheckoutSession({
+                priceId: PROMOTER_PRO_PRICE_ID,
+                success_url: window.location.origin,
+                cancel_url: window.location.origin
+            });
+
+            const { data } = result || {};
+            if (data && (data.url || data.checkoutUrl)) {
+                window.location.href = data.url || data.checkoutUrl;
+            } else {
+                alert("Unable to start checkout. Please try again.");
+            }
+        } catch (error) {
+            console.error("Error starting checkout:", error);
+            alert("There was a problem starting your checkout: " + error.message);
+        } finally {
+            setIsUpgrading(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -210,8 +252,19 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                             Go Pro
                         </h3>
                         <p className="text-sm opacity-90 mb-3">Unlimited events & custom codes.</p>
-                        <button className="w-full py-2 bg-white text-purple-600 font-bold rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                            Upgrade $9.99/mo
+                        <button
+                            onClick={handleUpgrade}
+                            disabled={isUpgrading}
+                            className="w-full py-2 bg-white text-purple-600 font-bold rounded-lg text-sm hover:bg-gray-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isUpgrading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Loading...
+                                </>
+                            ) : (
+                                'Upgrade $9.99/mo'
+                            )}
                         </button>
                     </div>
                 )}
