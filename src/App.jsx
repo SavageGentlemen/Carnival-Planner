@@ -44,7 +44,7 @@ import PromoterDashboard from './components/PromoterDashboard';
 import AdminDashboard from './components/AdminDashboard';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
-import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode } from './services/squadService'; // Squad Service
+import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode, getUserSquads, switchActiveSquad } from './services/squadService'; // Squad Service
 
 // --- CONFIGURATION ---
 const appId = 'carnival-planner-v1';
@@ -112,6 +112,8 @@ export default function App() {
   const [isJoiningSquad, setIsJoiningSquad] = useState(false);
   const [squadShareError, setSquadShareError] = useState('');
   const [squadShareSuccess, setSquadShareSuccess] = useState('');
+  const [userSquads, setUserSquads] = useState([]); // All squads user belongs to
+  const [loadingSquads, setLoadingSquads] = useState(false);
 
   // Import Demo Data
   // NOTE: In a real build, we might want to lazy load this, but for now standard import is fine.
@@ -216,9 +218,22 @@ export default function App() {
     }
     if (!user || !currentSquad) return;
     if (confirm("Are you sure you want to leave this squad?")) {
-      await leaveSquad(user, currentSquad.id);
-      setCurrentSquad(null);
-      setSquadMembers([]);
+      const leavingSquadId = currentSquad.id;
+      await leaveSquad(user, leavingSquadId);
+
+      // Find next available squad to switch to
+      const remainingSquads = userSquads.filter(s => s.id !== leavingSquadId);
+      if (remainingSquads.length > 0) {
+        // Switch to first remaining squad
+        await switchActiveSquad(user.uid, remainingSquads[0].id);
+        setToastMessage(`Switched to ${remainingSquads[0].name}`);
+      } else {
+        setCurrentSquad(null);
+        setSquadMembers([]);
+      }
+
+      // Reload squads list
+      loadUserSquads();
     }
   };
 
@@ -249,6 +264,35 @@ export default function App() {
     } catch (error) {
       console.error("Error removing member:", error);
       alert(`Failed to remove member: ${error.message}`);
+    }
+  };
+
+  // SQUAD: Load User's Squads
+  const loadUserSquads = async () => {
+    if (!user || isDemoMode) return;
+    setLoadingSquads(true);
+    try {
+      const squads = await getUserSquads(user.uid);
+      setUserSquads(squads);
+    } catch (err) {
+      console.error("Failed to load user squads:", err);
+    } finally {
+      setLoadingSquads(false);
+    }
+  };
+
+  // SQUAD: Switch Active Squad
+  const handleSwitchSquad = async (squadId) => {
+    if (!user || isDemoMode) return;
+    if (squadId === currentSquad?.id) return; // Already on this squad
+
+    try {
+      await switchActiveSquad(user.uid, squadId);
+      // The listener on user profile will pick up the change
+      setToastMessage('Switched squad!');
+    } catch (err) {
+      console.error("Failed to switch squad:", err);
+      alert("Failed to switch squad: " + err.message);
     }
   };
 
@@ -452,6 +496,13 @@ export default function App() {
     });
     return () => unsubUser();
   }, [user, isDemoMode, targetSquadId]); // Add targetSquadId to dependencies to avoid stale closure issues
+
+  // --- EFFECT: LOAD ALL USER SQUADS ---
+  useEffect(() => {
+    if (user && !isDemoMode) {
+      loadUserSquads();
+    }
+  }, [user, isDemoMode, targetSquadId]); // Reload when squad changes
 
   // --- EFFECT: SQUAD SUBSCRIPTION (Cleanly separated) ---
   useEffect(() => {
@@ -1876,6 +1927,42 @@ export default function App() {
                           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Your Squad</h3>
                           <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded-full">{currentCarnival.squad?.length || 0} members</span>
                         </div>
+
+                        {/* MY SQUADS SWITCHER */}
+                        {userSquads.length > 1 && (
+                          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 mb-4">
+                            <h4 className="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-2">
+                              <span>👥</span> My Squads ({userSquads.length})
+                            </h4>
+                            <div className="grid gap-2">
+                              {userSquads.map(squad => (
+                                <button
+                                  key={squad.id}
+                                  onClick={() => handleSwitchSquad(squad.id)}
+                                  className={`w-full text-left p-3 rounded-lg border transition-all flex items-center justify-between ${currentSquad?.id === squad.id
+                                    ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-400 dark:border-indigo-600'
+                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                                    }`}
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-gray-900 dark:text-white">{squad.name}</span>
+                                      {squad.isLeader && (
+                                        <span className="text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 px-1.5 py-0.5 rounded font-bold uppercase">Leader</span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                      {squad.memberCount} member{squad.memberCount !== 1 ? 's' : ''}
+                                    </p>
+                                  </div>
+                                  {currentSquad?.id === squad.id && (
+                                    <span className="text-xs bg-indigo-600 text-white px-2 py-1 rounded-full font-medium">Active</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* ROAD MODE: OFFLINE CHAT (New Feature) */}
                         <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl p-4 mb-6 shadow-lg border border-gray-700">

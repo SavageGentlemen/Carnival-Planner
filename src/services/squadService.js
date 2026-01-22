@@ -233,3 +233,37 @@ export const removeSquadEvent = async (squadId, event) => {
         sharedItinerary: arrayRemove(event)
     });
 };
+
+// --- GET USER'S SQUADS ---
+export const getUserSquads = async (userId) => {
+    if (!userId) throw new Error("User ID required");
+
+    const squadsRef = collection(db, 'squads');
+    const q = query(squadsRef, where('members', 'array-contains', userId));
+    const querySnapshot = await getDocs(q);
+
+    const squads = [];
+    querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        squads.push({
+            id: doc.id,
+            name: data.name || 'Unnamed Squad',
+            carnivalId: data.carnivalId,
+            memberCount: data.members?.length || 0,
+            isLeader: data.leaderId === userId,
+            inviteCode: data.inviteCode
+        });
+    });
+
+    return squads;
+};
+
+// --- SWITCH ACTIVE SQUAD ---
+export const switchActiveSquad = async (userId, squadId) => {
+    if (!userId) throw new Error("User ID required");
+
+    const userRef = doc(db, 'users', userId);
+    await setDoc(userRef, {
+        currentSquadId: squadId
+    }, { merge: true });
+};
