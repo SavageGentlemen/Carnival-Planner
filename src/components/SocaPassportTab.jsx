@@ -10,8 +10,9 @@ import StampCollection from './StampCollection';
 import AchievementList from './AchievementList';
 import PassportCard from './PassportCard';
 import Leaderboard from './Leaderboard';
+import RewardsList from './RewardsList';
 
-export default function SocaPassportTab({ user, isPremium, activeCarnivalId, activePlanId }) {
+export default function SocaPassportTab({ user, isPremium, activeCarnivalId, activePlanId, isDemoMode }) {
     const [currentView, setCurrentView] = useState('home'); // home, stamps, achievements, leaderboard
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPassportCard, setShowPassportCard] = useState(false);
@@ -21,6 +22,25 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
     // Load profile for sub-components
     useEffect(() => {
         if (!user) return;
+
+        // DEMO MODE - Mock Profile
+        if (isDemoMode) {
+            setProfile({
+                totalCredits: 1250,
+                currentTier: 'GOLD',
+                tierProgress: {
+                    nextTier: 'PLATINUM',
+                    creditsToNextTier: 750,
+                    progressPercent: 62
+                },
+                totalEvents: 8,
+                countriesVisited: ['TT', 'BB'],
+                unlockedAchievements: ['first-checkin', 'island-hopper'],
+                achievementPoints: 150,
+                achievementDefinitions: {} // Populate if needed for AchievementList
+            });
+            return;
+        }
 
         const loadProfile = async () => {
             try {
@@ -34,7 +54,7 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
         };
 
         loadProfile();
-    }, [user, refreshKey]);
+    }, [user, refreshKey, isDemoMode]);
 
     // Handle successful check-in
     const handleCheckinSuccess = (result) => {
@@ -66,6 +86,14 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
                         onBack={() => setCurrentView('home')}
                     />
                 );
+            case 'rewards':
+                return (
+                    <RewardsList
+                        user={user}
+                        profile={profile}
+                        onBack={() => setCurrentView('home')}
+                    />
+                );
             default:
                 return (
                     <PassportHome
@@ -74,10 +102,12 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
                         isPremium={isPremium}
                         activeCarnivalId={activeCarnivalId}
                         activePlanId={activePlanId}
+                        isDemoMode={isDemoMode}
                         onOpenCheckin={() => setShowCheckinModal(true)}
                         onViewStamps={() => setCurrentView('stamps')}
                         onViewAchievements={() => setCurrentView('achievements')}
                         onViewLeaderboard={() => setCurrentView('leaderboard')}
+                        onViewRewards={() => setCurrentView('rewards')}
                     />
                 );
         }

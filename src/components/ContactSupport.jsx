@@ -186,17 +186,26 @@ export function ContactPage({ onBack, logo, user }) {
 export function SupportAdmin() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const q = query(collection(db, 'support-requests'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setRequests(items);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(q,
+      (snapshot) => {
+        const items = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setRequests(items);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        console.error("SupportAdmin query failed:", err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
     return () => unsubscribe();
   }, []);
 
@@ -214,6 +223,15 @@ export function SupportAdmin() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800">
+        <p className="text-red-600 dark:text-red-400">Failed to load support requests: {error}</p>
+        <p className="text-sm text-gray-500 mt-2">This may require a Firestore index. Check the console.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
       <h3 className="font-bold text-lg mb-4 text-gray-800 dark:text-white flex items-center gap-2">
@@ -226,8 +244,8 @@ export function SupportAdmin() {
       ) : (
         <div className="space-y-4 max-h-96 overflow-y-auto">
           {requests.map((req) => (
-            <div 
-              key={req.id} 
+            <div
+              key={req.id}
               className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
             >
               <div className="flex justify-between items-start mb-2">

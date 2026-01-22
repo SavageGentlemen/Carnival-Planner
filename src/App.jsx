@@ -41,6 +41,8 @@ import HelpGuide from './components/HelpGuide';
 import MasqueraderProfile from './components/MasqueraderProfile';
 import ProfileEditor from './components/ProfileEditor';
 import CreatorDashboard from './components/CreatorDashboard';
+import PromoterDashboard from './components/PromoterDashboard';
+import AdminDashboard from './components/AdminDashboard';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode } from './services/squadService'; // Squad Service
@@ -544,6 +546,41 @@ export default function App() {
       }
     });
     return () => unsub();
+  }, [user, isDemoMode]);
+
+  // 3b. Admin Role Check
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (!user) { // Removed isDemoMode check for testing
+      setIsAdmin(false);
+      return;
+    }
+
+    const checkAdmin = async () => {
+      // 0. DEMO HACK
+      if (isDemoMode) {
+        setIsAdmin(true);
+        return;
+      }
+
+      // 1. Super Admin Hardcoded Check
+      if (user.email === 'djkrss1@gmail.com') {
+        setIsAdmin(true);
+        return;
+      }
+
+      // 2. Firestore Admin Check (Dynamic)
+      try {
+        const adminRef = doc(db, 'admins', user.uid);
+        const adminSnap = await getDoc(adminRef);
+        setIsAdmin(adminSnap.exists());
+      } catch (err) {
+        console.error("Admin check failed:", err);
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdmin();
   }, [user, isDemoMode]);
 
   // 4. Load Carnivals
@@ -2149,6 +2186,7 @@ export default function App() {
                           user={user}
                           activeCarnivalId={activeCarnivalId}
                           activePlanId={currentSharedPlanId}
+                          isDemoMode={isDemoMode}
                         />
                       </div>
                     )}
@@ -2169,21 +2207,27 @@ export default function App() {
                     {/* TAB: PROFILE (Free) */}
                     {activeTab === 'Profile' && (
                       <div className="animate-fadeIn">
+                        {console.log('Rendering MasqueraderProfile, isOwnProfile: true')}
                         <MasqueraderProfile
-                          profileData={userProfile || {
-                            displayName: user?.displayName || 'Carnival Lover',
-                            bio: '',
-                            isPublic: false,
-                            carnivalHistory: Object.entries(carnivals || {}).filter(([_, data]) => data?.costume?.band).map(([carnivalId, data]) => ({
-                              carnivalId,
-                              year: new Date().getFullYear(),
-                              band: data.costume?.band,
-                              section: data.costume?.section
-                            }))
+                          currentUser={user}
+                          profileData={{
+                            ...(userProfile || {
+                              displayName: user?.displayName || 'Carnival Lover',
+                              bio: '',
+                              isPublic: false,
+                              carnivalHistory: Object.entries(carnivals || {}).filter(([_, data]) => data?.costume?.band).map(([carnivalId, data]) => ({
+                                carnivalId,
+                                year: new Date().getFullYear(),
+                                band: data.costume?.band,
+                                section: data.costume?.section
+                              }))
+                            }),
+                            activeCarnivalId, // For context
+                            isPromoter: userProfile?.isPromoter || false,
+                            onAccessPromoter: () => setActiveTab('Promoter')
                           }}
                           isOwnProfile={true}
                           onEdit={() => setShowProfileEditor(true)}
-                          currentUser={user}
                         />
                       </div>
                     )}
@@ -2194,6 +2238,17 @@ export default function App() {
                         <CreatorDashboard
                           user={user}
                           isPremium={isPremium}
+                        />
+                      </div>
+                    )}
+
+                    {/* TAB: PROMOTER DASHBOARD (Free/Premium) */}
+                    {activeTab === 'Promoter' && (
+                      <div className="animate-fadeIn">
+                        <PromoterDashboard
+                          user={user}
+                          isPremium={isPremium}
+                          onExit={() => setActiveTab('Profile')}
                         />
                       </div>
                     )}
@@ -2243,12 +2298,10 @@ export default function App() {
                           <AccountSettings user={user} />
                         </div>
 
-                        {/* AD MANAGER, SUPPORT & ANALYTICS - Admin Only */}
-                        {user?.email === 'djkrss1@gmail.com' && (
+                        {/* ADMIN DASHBOARD - Dynamic Access */}
+                        {isAdmin && (
                           <div className="mt-6 text-left space-y-8">
-                            <AdManager />
-                            <SupportAdmin />
-                            <AdminAnalytics />
+                            <AdminDashboard user={user} />
                           </div>
                         )}
                       </div>

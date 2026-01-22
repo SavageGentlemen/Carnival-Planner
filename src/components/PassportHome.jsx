@@ -54,7 +54,7 @@ const RARITY_COLORS = {
     LEGENDARY: 'border-yellow-400 dark:border-yellow-500'
 };
 
-export default function PassportHome({ user, isPremium, activeCarnivalId, activePlanId, onOpenCheckin, onViewStamps, onViewAchievements, onViewLeaderboard }) {
+export default function PassportHome({ user, isPremium, activeCarnivalId, activePlanId, isDemoMode, onOpenCheckin, onViewStamps, onViewAchievements, onViewLeaderboard, onViewRewards }) {
     const [profile, setProfile] = useState(null);
     const [recentStamps, setRecentStamps] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -64,6 +64,46 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
     // Load squad stats if in a squad
     useEffect(() => {
         if (!activePlanId || !user) return;
+
+        if (!activePlanId || !user) return;
+
+        // DEMO MODE - Mock Squad Stats
+        if (isDemoMode) {
+            setSquadStats({
+                inSquad: true,
+                squadName: 'Insane Carnival Squad',
+                stats: {
+                    totalCredits: 1250,
+                    totalEvents: 8,
+                    countriesVisited: 2,
+                    memberCount: 3
+                },
+                members: [
+                    {
+                        userId: user.uid,
+                        displayName: user.displayName || 'You',
+                        profilePictureUrl: user.photoURL,
+                        totalCredits: 350,
+                        currentTier: 'BRONZE'
+                    },
+                    {
+                        userId: 'demo-2',
+                        displayName: 'Sarah J',
+                        profilePictureUrl: null,
+                        totalCredits: 500,
+                        currentTier: 'SILVER'
+                    },
+                    {
+                        userId: 'demo-3',
+                        displayName: 'Mike T',
+                        profilePictureUrl: null,
+                        totalCredits: 400,
+                        currentTier: 'BRONZE'
+                    }
+                ].sort((a, b) => b.totalCredits - a.totalCredits)
+            });
+            return;
+        }
 
         const loadSquadStats = async () => {
             const functions = getFunctions(app);
@@ -83,6 +123,31 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
     // Load passport profile and recent stamps
     useEffect(() => {
         if (!user) return;
+
+        // DEMO MODE - Mock Info
+        if (isDemoMode) {
+            setProfile({
+                totalCredits: 1250,
+                currentTier: 'GOLD',
+                tierProgress: {
+                    nextTier: 'PLATINUM',
+                    creditsToNextTier: 750,
+                    progressPercent: 62
+                },
+                totalEvents: 8,
+                countriesVisited: ['TT', 'BB'],
+                unlockedAchievements: ['first-checkin', 'island-hopper'],
+                achievementPoints: 150,
+                achievementDefinitions: {}
+            });
+            setRecentStamps([
+                { id: '1', eventTitle: 'Soca Brainwash', countryCode: 'TT', rarity: 'LEGENDARY' },
+                { id: '2', eventTitle: 'Roast Cruise', countryCode: 'BB', rarity: 'RARE' },
+                { id: '3', eventTitle: 'AM Bush', countryCode: 'TT', rarity: 'EPIC' }
+            ]);
+            setLoading(false);
+            return;
+        }
 
         const loadPassportData = async () => {
             setLoading(true);
@@ -115,7 +180,7 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
         };
 
         loadPassportData();
-    }, [user]);
+    }, [user, isDemoMode]);
 
     if (loading) {
         return (
@@ -250,6 +315,27 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
                     <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
             </button>
+
+            {/* Rewards CTA */}
+            <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-5 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                            <Gift className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg">Rewards Market</h3>
+                            <p className="text-white/80 text-sm">Redeem your credits</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onViewRewards}
+                        className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-sm font-medium hover:bg-white/30 transition-colors"
+                    >
+                        Browse Rewards
+                    </button>
+                </div>
+            </div>
 
             {/* Squad Stats Card */}
             {squadStats && (

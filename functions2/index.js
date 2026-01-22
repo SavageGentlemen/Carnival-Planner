@@ -1832,3 +1832,301 @@ exports.seedPassportEvents = onCall(
     };
   }
 );
+// ----- Create Promoter Event -----
+exports.createPromoterEvent = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const { title, date, time, location, capacity, type } = request.data;
+    const uid = request.auth.uid;
+
+    if (!title || !date) {
+      throw new HttpsError('invalid-argument', 'Title and Date are required.');
+    }
+
+    // 1. Check Promoter Status & Limits
+    const promoterProfileRef = squadDb.collection('promoterProfiles').doc(uid);
+    const promoterDoc = await promoterProfileRef.get();
+
+    let isPro = false;
+    if (promoterDoc.exists) {
+      isPro = promoterDoc.data().isPro || false;
+    } else {
+      // Auto-create basic profile
+      await promoterProfileRef.set({ isPro: false, createdAt: new Date() });
+    }
+
+    // Check active event limit for free tier
+    if (!isPro) {
+      const activeEventsQuery = await squadDb.collection('passportEvents')
+        .where('creatorId', '==', uid)
+        .where('isActive', '==', true)
+        .get();
+
+      if (activeEventsQuery.size >= 3) {
+        throw new HttpsError('resource-exhausted', 'Free limit reached (3 active events). Please upgrade to Pro.');
+      }
+    }
+
+    // 2. Generate Access Code
+    // Simple logic: FETE-XXXX (random 4 chars)
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const accessCode = `FETE-${randomSuffix}`;
+
+    // 3. Create Event
+    const eventData = {
+      title,
+      date: new Date(`${date}T${time || '12:00'}`),
+      location,
+      capacity: parseInt(capacity) || 0,
+      eventType: type || 'fete',
+      accessCode,
+      creatorId: uid,
+      isActive: true,
+      totalCheckins: 0,
+      createdAt: new Date(),
+      countryCode: 'XX', // Default, logic to infer from location needed later
+      carnivalCircuit: 'custom',
+      isFlagship: false
+    };
+
+    const docRef = await squadDb.collection('passportEvents').add(eventData);
+
+    return {
+      success: true,
+      eventId: docRef.id,
+      accessCode
+    };
+  }
+);
+
+// ----- Get Promoter Stats -----
+exports.getPromoterStats = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+
+    // 1. Get Promoter Profile (for Pro status)
+    const promoterDoc = await squadDb.collection('promoterProfiles').doc(uid).get();
+    const isPro = promoterDoc.exists ? promoterDoc.data().isPro : false;
+
+    // 2. Get Events
+    const eventsQuery = await squadDb.collection('passportEvents')
+      .where('creatorId', '==', uid)
+      .orderBy('date', 'desc')
+      .get();
+
+    const events = [];
+    let totalCheckins = 0;
+    let activeEvents = 0;
+
+    // Calculate Today's Checkins
+    // Note: Ideally checkins collection query for today, but for efficiency we'll just sum totals here for now
+    // Or we could do a separate query if needed. 
+    // Let's stick to event-level aggregates for MVP speed.
+
+    eventsQuery.forEach(doc => {
+      const data = doc.data();
+      events.push({
+        id: doc.id,
+        title: data.title,
+        date: data.date.toDate().toISOString(),
+        checkins: data.totalCheckins || 0,
+        capacity: data.capacity,
+        status: data.isActive ? 'active' : 'past',
+        accessCode: data.accessCode
+      });
+
+      totalCheckins += (data.totalCheckins || 0);
+      if (data.isActive) activeEvents++;
+    });
+
+    return {
+      stats: {
+        totalCheckins,
+        activeEvents,
+        todayCheckins: 0, // Placeholder
+        isPro
+      },
+      events: events,
+      isPro
+    };
+  }
+);
+
+// ----- Create Promoter Reward -----
+exports.createPromoterReward = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const { title, description, cost, quantity } = request.data;
+    const uid = request.auth.uid;
+
+    if (!title || !cost) {
+      throw new HttpsError('invalid-argument', 'Title and Cost are required.');
+    }
+
+    const rewardData = {
+      promoterId: uid,
+      title,
+      description: description || '',
+      cost: parseInt(cost),
+      quantity: quantity ? parseInt(quantity) : null,
+      active: true,
+      createdAt: new Date(),
+      redemptions: 0
+    };
+
+    const docRef = await squadDb.collection('promoterRewards').add(rewardData);
+
+    return { success: true, rewardId: docRef.id };
+  }
+);
+
+// ----- Get Promoter Rewards -----
+exports.getPromoterRewards = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+
+    const rewardsQuery = await squadDb.collection('promoterRewards')
+      .where('promoterId', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const rewards = [];
+    rewardsQuery.forEach(doc => {
+      rewards.push({ id: doc.id, ...doc.data() });
+    });
+
+    return { rewards };
+  }
+);
+
+// ----- Get Available Rewards (User View) -----
+exports.getAvailableRewards = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    // 1. Get all active rewards
+    const rewardsQuery = await squadDb.collection('promoterRewards')
+      .where('active', '==', true)
+      .orderBy('cost', 'asc')
+      .get();
+
+    const rewards = [];
+    rewardsQuery.forEach(doc => {
+      const data = doc.data();
+      // Only include if quantity is null (unlimited) or > 0
+      if (data.quantity === null || data.quantity > 0) {
+        rewards.push({ id: doc.id, ...data });
+      }
+    });
+
+    return { rewards };
+  }
+);
+
+// ----- Redeem Promoter Reward -----
+exports.redeemPromoterReward = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const { rewardId } = request.data;
+    const uid = request.auth.uid;
+
+    if (!rewardId) {
+      throw new HttpsError('invalid-argument', 'Reward ID is required.');
+    }
+
+    return await squadDb.runTransaction(async (transaction) => {
+      // 1. Get Reward
+      const rewardRef = squadDb.collection('promoterRewards').doc(rewardId);
+      const rewardDoc = await transaction.get(rewardRef);
+
+      if (!rewardDoc.exists) {
+        throw new HttpsError('not-found', 'Reward not found.');
+      }
+
+      const rewardData = rewardDoc.data();
+      if (!rewardData.active) {
+        throw new HttpsError('failed-precondition', 'Reward is no longer active.');
+      }
+      if (rewardData.quantity !== null && rewardData.quantity <= 0) {
+        throw new HttpsError('resource-exhausted', 'Reward is out of stock.');
+      }
+
+      // 2. Get User Profile
+      const userRef = squadDb.collection('passportProfiles').doc(uid);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists) {
+        throw new HttpsError('not-found', 'User profile not found.');
+      }
+
+      const userData = userDoc.data();
+      const currentCredits = userData.totalCredits || 0;
+
+      if (currentCredits < rewardData.cost) {
+        throw new HttpsError('failed-precondition', `Insufficient credits. You need ${rewardData.cost} but have ${currentCredits}.`);
+      }
+
+      // 3. Execute Transaction Updates
+
+      // Deduct credits
+      const newCredits = currentCredits - rewardData.cost;
+      transaction.update(userRef, { totalCredits: newCredits });
+
+      // Update Reward stats
+      const rewardUpdates = {
+        redemptions: (rewardData.redemptions || 0) + 1
+      };
+      if (rewardData.quantity !== null) {
+        rewardUpdates.quantity = rewardData.quantity - 1;
+      }
+      transaction.update(rewardRef, rewardUpdates);
+
+      // Create Redemption Record
+      const redemptionRef = squadDb.collection('rewardRedemptions').doc();
+      const redemptionCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+      transaction.set(redemptionRef, {
+        userId: uid,
+        rewardId: rewardId,
+        rewardTitle: rewardData.title,
+        cost: rewardData.cost,
+        promoterId: rewardData.promoterId,
+        timestamp: new Date(),
+        code: redemptionCode,
+        status: 'active' // active, redeemed, expired
+      });
+
+      return {
+        success: true,
+        redemptionCode,
+        remainingCredits: newCredits,
+        message: `Successfully redeemed ${rewardData.title}!`
+      };
+    });
+  }
+);

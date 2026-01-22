@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     User, MapPin, Users, Calendar, Instagram, Twitter,
     Globe, Edit2, Share2, Shield, ShieldCheck, Sparkles,
-    Music, PartyPopper, Plane
+    Music, PartyPopper, Plane, Ticket
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -68,14 +68,23 @@ export default function MasqueraderProfile({
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-                {/* Edit Button */}
+                {/* Edit & Promoter Actions */}
                 {isOwnProfile && (
-                    <button
-                        onClick={onEdit}
-                        className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/30 transition-colors"
-                    >
-                        <Edit2 className="w-5 h-5 text-white" />
-                    </button>
+                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                        <button
+                            onClick={profileData.onAccessPromoter}
+                            className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-bold hover:bg-white/30 transition-colors flex items-center gap-1.5"
+                        >
+                            <Ticket className="w-3.5 h-3.5" />
+                            {profileData.isPromoter ? 'Promoter Dashboard' : 'Become a Promoter'}
+                        </button>
+                        <button
+                            onClick={onEdit}
+                            className="p-2 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/30 transition-colors"
+                        >
+                            <Edit2 className="w-5 h-5 text-white" />
+                        </button>
+                    </div>
                 )}
 
                 {/* Privacy Badge */}
