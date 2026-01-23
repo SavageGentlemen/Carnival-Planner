@@ -1,20 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { generateMarketingContent } from '../services/marketingService';
 import { Helmet } from "react-helmet";
-// Assuming lucide-react and tailwind classes are available/compatible.
-// Note: Adapting to standard React/Tailwind without the specific "ui" folder components from shadcn/ui unless they exist.
-// If shadcn/ui is not present, I will use standard HTML/Tailwind for now or check for existing UI components.
+import html2canvas from 'html2canvas';
 
 // Helper components if UI lib is missing
-const Button = ({ children, onClick, disabled, className }) => (
-    <button
-        onClick={onClick}
-        disabled={disabled}
-        className={`px-4 py-2 rounded-md font-medium transition-colors ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-        {children}
-    </button>
-);
+const Button = ({ children, onClick, disabled, className, variant = 'primary' }) => {
+    const baseStyle = "px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center";
+    const styles = {
+        primary: "bg-purple-600 hover:bg-purple-700 text-white",
+        secondary: "bg-gray-700 hover:bg-gray-600 text-white border border-gray-600",
+        ghost: "bg-transparent hover:bg-gray-800 text-purple-400"
+    };
+
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            className={`${baseStyle} ${styles[variant]} ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+            {children}
+        </button>
+    );
+};
 
 const Textarea = ({ value, onChange, placeholder, className }) => (
     <textarea
@@ -41,6 +48,9 @@ export default function MarketingDashboard() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [results, setResults] = useState([]);
 
+    // Ref for the flyer element
+    const flyerRef = useRef(null);
+
     const platforms = ['IG', 'FB', 'TikTok', 'X'];
 
     const togglePlatform = (platform) => {
@@ -65,6 +75,7 @@ export default function MarketingDashboard() {
         setIsGenerating(true);
         try {
             const generatedContent = await generateMarketingContent(vibeInput, selectedPlatforms);
+            // Ensure specific structure if fallback returns different format
             setResults(generatedContent);
         } catch (error) {
             console.error("Generation error:", error);
@@ -79,17 +90,45 @@ export default function MarketingDashboard() {
         alert("Copied to clipboard!");
     };
 
+    const downloadFlyer = async (result) => {
+        // We target the specific flyer element for this result
+        const element = document.getElementById(`flyer-${result.platform}`);
+        if (!element) return;
+
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                backgroundColor: '#1f2937', // dark bg
+                useCORS: true
+            });
+            const link = document.createElement('a');
+            link.download = `carnival-flyer-${result.platform}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        } catch (err) {
+            console.error("Flyer generation failed:", err);
+            alert("Could not generate flyer image.");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-950 text-white p-4 md:p-8 space-y-8">
             <Helmet>
                 <title>Carnival Marketing Agent | Carnival Planner</title>
             </Helmet>
 
-            <div className="space-y-2">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-purple-400">Carnival Marketing Agent 🎭</h1>
-                <p className="text-gray-400 text-lg">
-                    Turn your fete updates into viral vibes. Powered by the Carnival Brand Engine.
-                </p>
+            <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Carnival Marketing Agent 🎭</h1>
+                    <p className="text-gray-400 text-lg">
+                        Turn your fete updates into viral vibes. Powered by Google Gemini AI & Carnival Brand Engine.
+                    </p>
+                </div>
+                {!import.meta.env.VITE_GOOGLE_API_KEY && (
+                    <div className="bg-yellow-900/30 text-yellow-500 text-xs p-2 rounded border border-yellow-800 max-w-[200px]">
+                        ⚠️ Simulation Mode. Add VITE_GOOGLE_API_KEY to .env for Real AI.
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -133,12 +172,15 @@ export default function MarketingDashboard() {
                         </div>
 
                         <Button
-                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg h-12 flex items-center justify-center"
+                            className="w-full h-12 text-lg"
                             onClick={handleGenerate}
                             disabled={isGenerating}
                         >
                             {isGenerating ? (
-                                <span>Cooking up Vibes...</span>
+                                <span className="flex items-center gap-2">
+                                    <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></span>
+                                    Generating...
+                                </span>
                             ) : (
                                 "Generate Content 🚀"
                             )}
@@ -160,30 +202,73 @@ export default function MarketingDashboard() {
                                     </span>
                                 </div>
                                 <div className="p-6 space-y-6">
-
-                                    {/* Copy Section */}
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Caption</h3>
-                                            <button className="text-xs text-purple-400 hover:text-purple-300 font-medium" onClick={() => copyToClipboard(result.caption + "\n\n" + result.hashtags.join(" "))}>
-                                                Copy Full Post
-                                            </button>
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        {/* Text Content */}
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Caption</h3>
+                                                <button className="text-xs text-purple-400 hover:text-purple-300 font-medium" onClick={() => copyToClipboard(result.caption + "\n\n" + result.hashtags.join(" "))}>
+                                                    Copy Text
+                                                </button>
+                                            </div>
+                                            <div className="bg-gray-800/50 p-4 rounded-md whitespace-pre-wrap text-sm leading-relaxed border border-gray-700/50 h-[250px] overflow-y-auto">
+                                                {result.caption}
+                                                <br /><br />
+                                                <span className="text-purple-400/80">{result.hashtags.join(" ")}</span>
+                                            </div>
                                         </div>
-                                        <div className="bg-gray-800/50 p-4 rounded-md whitespace-pre-wrap text-sm leading-relaxed border border-gray-700/50">
-                                            {result.caption}
-                                            <br /><br />
-                                            <span className="text-purple-400/80">{result.hashtags.join(" ")}</span>
+
+                                        {/* Flyer Preview / Visual Strategy */}
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Flyer Preview</h3>
+                                                <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => downloadFlyer(result)}>
+                                                    Download Image 📥
+                                                </Button>
+                                            </div>
+
+                                            {/* This is the element we will capture */}
+                                            <div
+                                                id={`flyer-${result.platform}`}
+                                                className="relative aspect-[4/5] bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 rounded-lg p-6 flex flex-col justify-between overflow-hidden shadow-2xl border border-white/10"
+                                            >
+                                                {/* Background Decorations */}
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/20 rounded-full blur-3xl"></div>
+                                                <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl"></div>
+
+                                                {/* Header */}
+                                                <div className="relative z-10">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-lg">🎭</div>
+                                                        <span className="text-xs font-bold tracking-widest uppercase text-white/70">Carnival Planner</span>
+                                                    </div>
+                                                    <h2 className="text-2xl font-black text-white leading-tight drop-shadow-lg">
+                                                        {vibeInput.length > 30 ? vibeInput.substring(0, 30) + "..." : vibeInput}
+                                                    </h2>
+                                                </div>
+
+                                                {/* Body - Snippet of caption */}
+                                                <div className="relative z-10 my-4 bg-black/20 backdrop-blur-sm p-3 rounded border border-white/10">
+                                                    <p className="text-sm font-medium text-white/90 leading-relaxed line-clamp-4">
+                                                        {result.caption ? result.caption.split('\n')[0] : "Enjoy the vibes!"}
+                                                    </p>
+                                                </div>
+
+                                                {/* Footer */}
+                                                <div className="relative z-10 text-center">
+                                                    <div className="inline-block px-4 py-2 bg-yellow-500 text-black font-bold text-xs uppercase tracking-wider rounded-full shadow-lg">
+                                                        Download App 📲
+                                                    </div>
+                                                    <p className="mt-2 text-[10px] text-white/50">www.carnival-planner.com</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Visual Strategy Note */}
+                                            <div className="text-xs text-gray-400 italic">
+                                                💡 AI Suggestion: {result.visualStrategy}
+                                            </div>
                                         </div>
                                     </div>
-
-                                    {/* Visual Strategy */}
-                                    <div className="space-y-2">
-                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Visual Strategy</h3>
-                                        <div className="bg-teal-900/20 p-4 rounded-md text-sm border-l-4 border-teal-500 text-gray-300">
-                                            {result.visualStrategy}
-                                        </div>
-                                    </div>
-
                                 </div>
                             </div>
                         ))
