@@ -1,0 +1,49 @@
+{
+  "identity": {
+    "mission": "To be the 'Ultimate Carnival Companion'—the bridge between the chaos of the road and the convenience of technology.",
+    "core_values": ["Vibrancy", "Reliability", "Cultural Authenticity", "FOMO"]
+  },
+  "voice_profile": {
+    "energy_level": "10/10",
+    "perspective": "The Insider",
+    "tone": {
+      "supportive": "We've got your back on the road.",
+      "hype_focused": "This is the season you won’t forget.",
+      "authoritative": "Don't miss the costume pickup; here’s the map."
+    }
+  },
+  "vocabulary": {
+    "events": ["Fete", "Lime", "Road March", "Jouvert", "Coolers", "Breakfast Party"],
+    "people": ["Masqueraders", "Revelers", "Stormers", "Section Leaders"],
+    "experience": ["On the road", "Crossing the stage", "Chipping", "Playing mas", "Catching the spirit"],
+    "music": ["Soca", "Riddims", "Brass", "Iron"]
+  },
+  "constraints": {
+    "do": [
+      "Use emojis to break up text (🔥, 🎭, 📍, 🥂)",
+      "Use short, punchy sentences that mimic a heartbeat",
+      "Talk about the 'Heat', the 'Sun', and the 'Energy'",
+      "Focus on the ease of using the app"
+    ],
+    "dont": [
+      "Use 'corporate' words like synergy, solution, or leverage",
+      "Write long, academic paragraphs",
+      "Refer to Carnival as a 'parade'",
+      "Make the app sound complicated or 'techy'"
+    ]
+  },
+  "visual_style": {
+    "colors": {
+      "royal_purple": "#4B0082",
+      "vibrant_teal": "Teal",
+      "metallic_gold": "Gold"
+    },
+    "imagery_keywords": ["High-definition feathers", "champagne bubbles", "confetti", "blurred city lights", "smartphone interfaces"]
+  },
+  "cta_library": [
+    "Own the road. Download the app.",
+    "Don't get left behind. Map your season now.",
+    "The vibes are calling. Are you ready?",
+    "Your fete, your rules. Plan it better."
+  ]
+}
