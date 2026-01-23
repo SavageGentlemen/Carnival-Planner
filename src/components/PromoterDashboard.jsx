@@ -3,7 +3,8 @@ import {
     LayoutDashboard, Calendar, Plus, BarChart3, Settings,
     Ticket, Users, MapPin, Clock, Search, Filter,
     ChevronRight, ArrowUpRight, Copy, Check, MoreVertical,
-    Sparkles, ShieldCheck, AlertCircle, Loader2, DollarSign, Gift
+    Sparkles, ShieldCheck, AlertCircle, Loader2, DollarSign, Gift,
+    Image as ImageIcon, Download
 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
@@ -234,6 +235,12 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                         label="Rewards"
                         icon={<Gift className="w-5 h-5" />}
                         onClick={() => setActiveTab('rewards')}
+                    />
+                    <NavButton
+                        active={activeTab === 'resources'}
+                        label="Resources"
+                        icon={<ImageIcon className="w-5 h-5" />}
+                        onClick={() => setActiveTab('resources')}
                     />
                     <NavButton
                         active={activeTab === 'analytics'}
@@ -500,6 +507,81 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                         </div>
                     </div>
                 )}
+
+                {/* RESOURCES TAB */}
+                {activeTab === 'resources' && (
+                    <div className="space-y-6">
+                        <div className="bg-gradient-to-r from-teal-500 to-blue-600 rounded-xl p-8 text-white mb-6">
+                            <h2 className="text-2xl font-bold mb-2">Promoter Toolkit</h2>
+                            <p className="opacity-90 max-w-xl">
+                                High-quality visual assets to help you promote your events and the Carnival Planner app.
+                                Download and share on your social media channels.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {/* Square Ad */}
+                            <ResourceCard
+                                title="Instagram Post"
+                                description="Square format (1:1) perfect for Feed posts."
+                                image="/assets/promoter-ads/ad-social-square.png"
+                                type="Social Media"
+                            />
+
+                            {/* Portrait Ad */}
+                            <ResourceCard
+                                title="Story / Reel"
+                                description="Portrait format (9:16) for Stories and TikTok."
+                                image="/assets/promoter-ads/ad-story-portrait.png"
+                                type="Social Media"
+                                portrait
+                            />
+
+                            {/* Landscape Ad */}
+                            <ResourceCard
+                                title="Web Banner"
+                                description="Landscape format for banners and headers."
+                                image="/assets/promoter-ads/ad-banner-landscape.png"
+                                type="Web Asset"
+                                className="lg:col-span-2"
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ResourceCard({ title, description, image, type, portrait, className = "" }) {
+    return (
+        <div className={`bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col ${className}`}>
+            <div className={`relative bg-gray-100 dark:bg-gray-900 group ${portrait ? 'aspect-[9/16]' : 'aspect-video'}`}>
+                <img
+                    src={image}
+                    alt={title}
+                    className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                    <a
+                        href={image}
+                        download
+                        className="px-4 py-2 bg-white text-gray-900 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-100 transition-colors"
+                    >
+                        <Download className="w-4 h-4" /> Download
+                    </a>
+                </div>
+            </div>
+            <div className="p-4 flex-1 flex flex-col">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <h3 className="font-bold text-gray-900 dark:text-white">{title}</h3>
+                        <p className="text-sm text-gray-500">{description}</p>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                        {type}
+                    </span>
+                </div>
             </div>
         </div>
     );
