@@ -47,6 +47,32 @@ export default function MarketingDashboard() {
     const [selectedPlatforms, setSelectedPlatforms] = useState(['IG']);
     const [isGenerating, setIsGenerating] = useState(false);
     const [results, setResults] = useState([]);
+    const [flyerStyle, setFlyerStyle] = useState('vibrant');
+
+    // Flyer Styles Configuration
+    const flyerStyles = {
+        vibrant: {
+            name: "Vibrant",
+            bg: "bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900",
+            text: "text-white",
+            accent: "bg-white/10",
+            border: "border-white/10"
+        },
+        midnight: {
+            name: "Midnight",
+            bg: "bg-gray-950",
+            text: "text-white",
+            accent: "bg-purple-900/30",
+            border: "border-gray-800"
+        },
+        gold: {
+            name: "Carnival Gold",
+            bg: "bg-gradient-to-br from-yellow-600 via-amber-500 to-yellow-700",
+            text: "text-white",
+            accent: "bg-black/20",
+            border: "border-white/20"
+        }
+    };
 
     // Ref for the flyer element
     const flyerRef = useRef(null);
@@ -211,10 +237,18 @@ export default function MarketingDashboard() {
                                                     Copy Text
                                                 </button>
                                             </div>
-                                            <div className="bg-gray-800/50 p-4 rounded-md whitespace-pre-wrap text-sm leading-relaxed border border-gray-700/50 h-[250px] overflow-y-auto">
-                                                {result.caption}
-                                                <br /><br />
-                                                <span className="text-purple-400/80">{result.hashtags.join(" ")}</span>
+
+                                            <textarea
+                                                className="w-full bg-gray-800/50 p-4 rounded-md text-sm leading-relaxed border border-gray-700/50 h-[250px] focus:ring-2 focus:ring-purple-600 focus:outline-none resize-none"
+                                                value={result.caption}
+                                                onChange={(e) => {
+                                                    const newResults = [...results];
+                                                    newResults[index].caption = e.target.value;
+                                                    setResults(newResults);
+                                                }}
+                                            />
+                                            <div className="text-xs text-gray-500">
+                                                Hashtags: <span className="text-purple-400/80">{result.hashtags.join(" ")}</span>
                                             </div>
                                         </div>
 
@@ -227,10 +261,26 @@ export default function MarketingDashboard() {
                                                 </Button>
                                             </div>
 
+                                            {/* Style Selector */}
+                                            <div className="flex gap-2">
+                                                {Object.entries(flyerStyles).map(([key, style]) => (
+                                                    <button
+                                                        key={key}
+                                                        onClick={() => setFlyerStyle(key)}
+                                                        className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${flyerStyle === key
+                                                            ? 'bg-white text-purple-900 ring-2 ring-purple-500'
+                                                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                                            }`}
+                                                    >
+                                                        {style.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+
                                             {/* This is the element we will capture */}
                                             <div
                                                 id={`flyer-${result.platform}`}
-                                                className="relative aspect-[4/5] bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 rounded-lg p-6 flex flex-col justify-between overflow-hidden shadow-2xl border border-white/10"
+                                                className={`relative aspect-[4/5] ${flyerStyles[flyerStyle].bg} rounded-lg p-6 flex flex-col justify-between overflow-hidden shadow-2xl border ${flyerStyles[flyerStyle].border}`}
                                             >
                                                 {/* Background Decorations */}
                                                 <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/20 rounded-full blur-3xl"></div>
@@ -239,17 +289,17 @@ export default function MarketingDashboard() {
                                                 {/* Header */}
                                                 <div className="relative z-10">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-lg">🎭</div>
-                                                        <span className="text-xs font-bold tracking-widest uppercase text-white/70">Carnival Planner</span>
+                                                        <div className={`w-8 h-8 rounded-full ${flyerStyles[flyerStyle].accent} flex items-center justify-center text-lg`}>🎭</div>
+                                                        <span className={`text-xs font-bold tracking-widest uppercase ${flyerStyles[flyerStyle].text} opacity-70`}>Carnival Planner</span>
                                                     </div>
-                                                    <h2 className="text-2xl font-black text-white leading-tight drop-shadow-lg">
+                                                    <h2 className={`text-2xl font-black ${flyerStyles[flyerStyle].text} leading-tight drop-shadow-lg`}>
                                                         {vibeInput.length > 30 ? vibeInput.substring(0, 30) + "..." : vibeInput}
                                                     </h2>
                                                 </div>
 
                                                 {/* Body - Snippet of caption */}
-                                                <div className="relative z-10 my-4 bg-black/20 backdrop-blur-sm p-3 rounded border border-white/10">
-                                                    <p className="text-sm font-medium text-white/90 leading-relaxed line-clamp-4">
+                                                <div className={`relative z-10 my-4 ${flyerStyles[flyerStyle].accent} backdrop-blur-sm p-3 rounded border ${flyerStyles[flyerStyle].border}`}>
+                                                    <p className={`text-sm font-medium ${flyerStyles[flyerStyle].text} opacity-90 leading-relaxed line-clamp-4`}>
                                                         {result.caption ? result.caption.split('\n')[0] : "Enjoy the vibes!"}
                                                     </p>
                                                 </div>
@@ -283,6 +333,6 @@ export default function MarketingDashboard() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

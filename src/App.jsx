@@ -1586,7 +1586,7 @@ export default function App() {
                     {[
                       'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport',
                       'Packing', 'Map', 'Media', 'Profile', 'Promoter', 'Marketing', 'Info'
-                    ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
+                    ].filter(tab => (isPremium || !['Map', 'Media', 'Passport'].includes(tab)) && (isAdmin || tab !== 'Marketing')).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => {
@@ -2321,7 +2321,7 @@ export default function App() {
 
 
                     {/* TAB: MARKETING AGENT */}
-                    {activeTab === 'Marketing' && (
+                    {activeTab === 'Marketing' && isAdmin && (
                       <div className="animate-fadeIn">
                         <MarketingDashboard />
                       </div>
