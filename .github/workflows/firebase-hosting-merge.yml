@@ -10,7 +10,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build with API Key
         run: |
-          echo "API Key is set: $(if [ -n \"$VITE_GOOGLE_API_KEY\" ]; then echo 'YES'; else echo 'NO'; fi)"
+          echo "VITE_GOOGLE_API_KEY=$VITE_GOOGLE_API_KEY" > .env
+          echo "Created .env file with API key (length: ${#VITE_GOOGLE_API_KEY})"
           npm ci && npm run build
         env:
           VITE_GOOGLE_API_KEY: ${{ secrets.VITE_GOOGLE_API_KEY }}
