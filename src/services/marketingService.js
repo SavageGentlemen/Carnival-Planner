@@ -5,12 +5,18 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 let genAI = null;
 
+// Debug logging for production
+console.log('[MarketingService] API_KEY exists:', !!API_KEY);
+console.log('[MarketingService] API_KEY value (first 10 chars):', API_KEY ? API_KEY.substring(0, 10) + '...' : 'undefined');
+
 if (API_KEY) {
     genAI = new GoogleGenerativeAI(API_KEY);
+    console.log('[MarketingService] genAI initialized:', !!genAI);
 }
 
 // Export for component use
 export const isSimulationMode = !genAI;
+console.log('[MarketingService] isSimulationMode:', isSimulationMode);
 
 // Fallback Simulation (Original Code)
 const getSimulatedResponse = async (vibeInput, platforms) => {
