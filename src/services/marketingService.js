@@ -9,6 +9,9 @@ if (API_KEY) {
     genAI = new GoogleGenerativeAI(API_KEY);
 }
 
+// Export for component use
+export const isSimulationMode = !genAI;
+
 // Fallback Simulation (Original Code)
 const getSimulatedResponse = async (vibeInput, platforms) => {
     // Agent A: The Copywriter

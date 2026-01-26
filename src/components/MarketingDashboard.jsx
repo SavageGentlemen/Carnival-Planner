@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { generateMarketingContent } from '../services/marketingService';
+import { generateMarketingContent, isSimulationMode } from '../services/marketingService';
 import { Helmet } from "react-helmet";
 import html2canvas from 'html2canvas';
 
@@ -150,7 +150,7 @@ export default function MarketingDashboard() {
                         Turn your fete updates into viral vibes. Powered by Google Gemini AI & Carnival Brand Engine.
                     </p>
                 </div>
-                {!import.meta.env.VITE_GOOGLE_API_KEY && (
+                {isSimulationMode && (
                     <div className="bg-yellow-900/30 text-yellow-500 text-xs p-2 rounded border border-yellow-800 max-w-[200px]">
                         ⚠️ Simulation Mode. Add VITE_GOOGLE_API_KEY to .env for Real AI.
                     </div>
