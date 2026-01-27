@@ -143,7 +143,8 @@ export default function MarketingDashboard() {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                // clean up after a delay to ensure mobile browsers handle it
+                setTimeout(() => URL.revokeObjectURL(url), 100);
             }, 'image/png');
         } catch (err) {
             console.error("Flyer generation failed:", err);
@@ -190,6 +191,15 @@ export default function MarketingDashboard() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    const openAiImageInNewTab = () => {
+        if (!aiImage) return;
+        const newWindow = window.open();
+        if (newWindow) {
+            newWindow.document.write(`<img src="data:${aiImage.mimeType};base64,${aiImage.data}" style="max-width: 100%; height: auto;">`);
+            newWindow.document.title = "AI Generated Image";
+        }
     };
 
     return (
@@ -294,9 +304,14 @@ export default function MarketingDashboard() {
                             <div className="mt-4 space-y-3">
                                 <div className="flex justify-between items-center">
                                     <h3 className="text-sm font-semibold text-gray-300">AI Generated Image</h3>
-                                    <Button variant="secondary" className="px-3 py-1 text-xs" onClick={downloadAiImage}>
-                                        Download 📥
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="ghost" className="px-2 py-1 text-xs" onClick={openAiImageInNewTab} title="Open in new tab to save">
+                                            Open ↗
+                                        </Button>
+                                        <Button variant="secondary" className="px-3 py-1 text-xs" onClick={downloadAiImage}>
+                                            Download 📥
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div className="rounded-lg overflow-hidden border border-purple-500/50">
                                     <img
@@ -352,9 +367,26 @@ export default function MarketingDashboard() {
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center">
                                                 <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Flyer Preview</h3>
-                                                <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => downloadFlyer(result)}>
-                                                    Download Image 📥
-                                                </Button>
+                                                <div className="flex gap-2">
+                                                    <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => {
+                                                        const element = document.getElementById(`flyer-${result.platform}`);
+                                                        if (element) {
+                                                            html2canvas(element, { scale: 2, backgroundColor: '#1f2937', useCORS: true })
+                                                                .then(canvas => {
+                                                                    const win = window.open();
+                                                                    if (win) {
+                                                                        win.document.write(`<img src="${canvas.toDataURL()}" style="max-width: 100%; height: auto;">`);
+                                                                        win.document.title = "Carnival Flyer";
+                                                                    }
+                                                                });
+                                                        }
+                                                    }} title="Open in new tab">
+                                                        Open ↗
+                                                    </Button>
+                                                    <Button variant="secondary" className="px-3 py-1 text-xs" onClick={() => downloadFlyer(result)}>
+                                                        Download 📥
+                                                    </Button>
+                                                </div>
                                             </div>
 
                                             {/* Style Selector */}
