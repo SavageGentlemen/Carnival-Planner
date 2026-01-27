@@ -18,10 +18,10 @@ export const bandDirectory = [
     // --- JAMAICA CARNIVAL ---
     { name: 'Xodus Carnival', carnivalId: 'jamaica', type: 'mas', website: 'https://xoduscarnival.com', tags: ['Premium', 'Big Band'] },
     { name: 'Bacchanal Jamaica', carnivalId: 'jamaica', type: 'mas', website: 'https://bacchanaljamaica.com', tags: ['Legacy', 'Big Band'] },
-    { name: 'Xaymaca International', carnivalId: 'jamaica', type: 'mas', website: 'https://xaymacainternational.com', tags: ['Premium', 'Vibes'] },
-    { name: 'Yardmas Carnival', carnivalId: 'jamaica', type: 'mas', website: 'https://yardmas.com', tags: ['New', 'Local'] },
-    { name: 'GenX Jamaica', carnivalId: 'jamaica', type: 'mas', website: 'https://genxcarnival.com', tags: ['Miami Link', 'Fun'] },
-    { name: 'Ocho Rios Carnival', carnivalId: 'jamaica', type: 'mas', tags: ['North Coast', 'Holiday'] },
+    { name: 'Xaymaca International', carnivalId: 'jamaica', type: 'mas', website: 'https://yardmascarnival.com', tags: ['Premium', 'Vibes', 'YardMas Section'] },
+    { name: 'Yardmas Carnival', carnivalId: 'jamaica', type: 'mas', website: 'https://yardmascarnival.com', tags: ['Big Band', 'Local'] },
+    { name: 'GenX Jamaica', carnivalId: 'jamaica', type: 'mas', website: 'https://genxsjamaica.com', tags: ['Miami Link', 'Fun'] },
+    { name: 'Ocho Rios Carnival', carnivalId: 'jamaica', type: 'mas', website: 'https://jamaica-carnival.com', tags: ['North Coast', 'Holiday'] },
 
     // --- MIAMI CARNIVAL ---
     { name: 'GenX Carnival', carnivalId: 'miami', type: 'mas', website: 'https://genx.carnival-tribe.com', tags: ['Big Band', 'Winner'] },
