@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { generateMarketingContent, isSimulationMode } from '../services/marketingService';
+import { generateMarketingContent, generateMarketingImage, isSimulationMode } from '../services/marketingService';
 import { Helmet } from "react-helmet";
 import html2canvas from 'html2canvas';
 
@@ -48,6 +48,8 @@ export default function MarketingDashboard() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [results, setResults] = useState([]);
     const [flyerStyle, setFlyerStyle] = useState('vibrant');
+    const [aiImage, setAiImage] = useState(null);
+    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
     // Flyer Styles Configuration
     const flyerStyles = {
@@ -127,14 +129,67 @@ export default function MarketingDashboard() {
                 backgroundColor: '#1f2937', // dark bg
                 useCORS: true
             });
-            const link = document.createElement('a');
-            link.download = `carnival-flyer-${result.platform}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
+
+            // Use blob for better download handling
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    alert("Could not generate flyer image.");
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `carnival-flyer-${result.platform}.png`;
+                link.href = url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
         } catch (err) {
             console.error("Flyer generation failed:", err);
             alert("Could not generate flyer image.");
         }
+    };
+
+    // Generate AI Image
+    const handleGenerateAiImage = async () => {
+        if (!vibeInput.trim()) {
+            alert("Please enter a topic/idea first!");
+            return;
+        }
+
+        setIsGeneratingImage(true);
+        setAiImage(null);
+
+        try {
+            const result = await generateMarketingImage(vibeInput, flyerStyle);
+
+            if (result.success) {
+                setAiImage({
+                    data: result.imageData,
+                    mimeType: result.mimeType
+                });
+            } else {
+                alert(result.error || "Failed to generate image. Try a different prompt.");
+            }
+        } catch (error) {
+            console.error("AI image generation error:", error);
+            alert("Failed to generate image. Please try again.");
+        } finally {
+            setIsGeneratingImage(false);
+        }
+    };
+
+    // Download AI generated image
+    const downloadAiImage = () => {
+        if (!aiImage) return;
+
+        const link = document.createElement('a');
+        link.download = `carnival-ai-image-${Date.now()}.png`;
+        link.href = `data:${aiImage.mimeType};base64,${aiImage.data}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -211,6 +266,47 @@ export default function MarketingDashboard() {
                                 "Generate Content 🚀"
                             )}
                         </Button>
+
+                        {/* AI Image Generation */}
+                        <div className="pt-4 border-t border-gray-700 mt-4">
+                            <Button
+                                className="w-full h-10"
+                                variant="secondary"
+                                onClick={handleGenerateAiImage}
+                                disabled={isGeneratingImage || isSimulationMode}
+                            >
+                                {isGeneratingImage ? (
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></span>
+                                        Creating Image...
+                                    </span>
+                                ) : (
+                                    "✨ Generate AI Image"
+                                )}
+                            </Button>
+                            {isSimulationMode && (
+                                <p className="text-xs text-gray-500 mt-2 text-center">AI Image requires API key</p>
+                            )}
+                        </div>
+
+                        {/* AI Image Preview */}
+                        {aiImage && (
+                            <div className="mt-4 space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-sm font-semibold text-gray-300">AI Generated Image</h3>
+                                    <Button variant="secondary" className="px-3 py-1 text-xs" onClick={downloadAiImage}>
+                                        Download 📥
+                                    </Button>
+                                </div>
+                                <div className="rounded-lg overflow-hidden border border-purple-500/50">
+                                    <img
+                                        src={`data:${aiImage.mimeType};base64,${aiImage.data}`}
+                                        alt="AI Generated Carnival Image"
+                                        className="w-full h-auto"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

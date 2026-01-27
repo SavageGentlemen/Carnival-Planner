@@ -76,6 +76,69 @@ const getSimulatedResponse = async (vibeInput, platforms) => {
 }
 
 
+// Generate AI Image using Gemini
+export async function generateMarketingImage(vibeInput, style = 'vibrant') {
+    if (!genAI) {
+        console.warn("No Google API Key found. Cannot generate AI images.");
+        return { success: false, error: "API key not configured" };
+    }
+
+    try {
+        // Use gemini-2.0-flash-exp model for image generation
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash-exp",
+            generationConfig: {
+                responseModalities: ["image", "text"],
+            }
+        });
+
+        // Build a carnival-themed image prompt
+        const styleDescriptions = {
+            vibrant: "vibrant colors, purple and gold accents, energetic festival atmosphere",
+            midnight: "dark moody aesthetic, neon lights, nightlife carnival vibes",
+            gold: "golden hour sunset, warm amber tones, luxurious carnival feeling"
+        };
+
+        const prompt = `Create a stunning social media marketing image for a Caribbean Carnival event. 
+Theme: ${vibeInput}
+Style: ${styleDescriptions[style] || styleDescriptions.vibrant}
+Requirements:
+- High-energy carnival celebration imagery
+- Colorful feathers, costumes, or festival elements
+- Modern, Instagram-worthy aesthetic
+- Professional marketing quality
+- No text overlays (we'll add those separately)
+- 4:5 aspect ratio for social media`;
+
+        console.log('[MarketingService] Generating AI image with prompt:', prompt.substring(0, 100) + '...');
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+
+        // Extract image from response
+        if (response.candidates && response.candidates[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+                if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
+                    console.log('[MarketingService] AI image generated successfully');
+                    return {
+                        success: true,
+                        imageData: part.inlineData.data,
+                        mimeType: part.inlineData.mimeType
+                    };
+                }
+            }
+        }
+
+        // If no image was generated, return error
+        console.warn('[MarketingService] No image in response');
+        return { success: false, error: "No image generated. Try a different prompt." };
+
+    } catch (error) {
+        console.error("[MarketingService] Image generation error:", error);
+        return { success: false, error: error.message || "Failed to generate image" };
+    }
+}
+
 export async function generateMarketingContent(vibeInput, platforms) {
     // If no API key, use simulation
     if (!genAI) {
