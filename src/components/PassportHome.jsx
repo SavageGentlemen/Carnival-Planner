@@ -15,6 +15,7 @@ const TIER_CONFIG = {
         bgColor: 'bg-amber-100 dark:bg-amber-900/30',
         icon: '🥉',
         medalImage: '/images/passport/medal_bronze.png',
+        medalVideo: '/images/passport/medal_bronze_vid.mp4',
         bgImage: '/images/passport/bg_bronze.png'
     },
     SILVER: {
@@ -24,6 +25,7 @@ const TIER_CONFIG = {
         bgColor: 'bg-gray-100 dark:bg-gray-700/30',
         icon: '🥈',
         medalImage: '/images/passport/medal_silver.png',
+        medalVideo: '/images/passport/medal_silver_vid.mp4',
         bgImage: '/images/passport/bg_silver.png'
     },
     GOLD: {
@@ -33,6 +35,7 @@ const TIER_CONFIG = {
         bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
         icon: '🥇',
         medalImage: '/images/passport/medal_gold.png',
+        medalVideo: '/images/passport/medal_gold_vid.mp4',
         bgImage: '/images/passport/bg_gold.png'
     },
     PLATINUM: {
@@ -42,6 +45,7 @@ const TIER_CONFIG = {
         bgColor: 'bg-purple-100 dark:bg-purple-900/30',
         icon: '💎',
         medalImage: '/images/passport/medal_platinum.png',
+        medalVideo: '/images/passport/medal_platinum_vid.mp4',
         bgImage: '/images/passport/bg_platinum.png'
     }
 };
@@ -239,10 +243,13 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
                         <div className="flex items-center gap-4">
                             {/* Medal Image */}
                             <div className="w-20 h-20 flex items-center justify-center">
-                                <img
-                                    src={tier.medalImage}
-                                    alt={`${tier.name} Medal`}
+                                <video
+                                    src={tier.medalVideo}
                                     className="w-full h-full object-contain drop-shadow-lg"
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
                                 />
                             </div>
                             <div>
