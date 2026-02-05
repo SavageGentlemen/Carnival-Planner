@@ -42,6 +42,7 @@ import MasqueraderProfile from './components/MasqueraderProfile';
 import ProfileEditor from './components/ProfileEditor';
 import PromoterDashboard from './components/PromoterDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import MarketingDashboard from './components/MarketingDashboard';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode, getUserSquads, switchActiveSquad } from './services/squadService'; // Squad Service
@@ -1584,8 +1585,8 @@ export default function App() {
                   <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
                     {[
                       'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport',
-                      'Packing', 'Map', 'Media', 'Profile', 'Info'
-                    ].filter(tab => isPremium || !['Map', 'Media', 'Passport'].includes(tab)).map((tab) => (
+                      'Packing', 'Map', 'Media', 'Profile', 'Promoter', 'Marketing', 'Info'
+                    ].filter(tab => (isPremium || !['Map', 'Media', 'Passport'].includes(tab)) && (isAdmin || tab !== 'Marketing')).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => {
@@ -2318,6 +2319,13 @@ export default function App() {
                       </div>
                     )}
 
+
+                    {/* TAB: MARKETING AGENT */}
+                    {activeTab === 'Marketing' && isAdmin && (
+                      <div className="animate-fadeIn">
+                        <MarketingDashboard />
+                      </div>
+                    )}
 
                     {/* TAB: PROMOTER DASHBOARD (Free/Premium) */}
                     {activeTab === 'Promoter' && (

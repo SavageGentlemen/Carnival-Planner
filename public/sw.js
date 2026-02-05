@@ -33,15 +33,18 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  
+
   const url = new URL(event.request.url);
-  
-  if (url.pathname.startsWith('/assets/') || 
-      url.pathname.endsWith('.js') || 
-      url.pathname.endsWith('.css') ||
-      url.pathname.endsWith('.png') ||
-      url.pathname.endsWith('.jpg') ||
-      url.pathname.endsWith('.svg')) {
+
+  // Strictly ignore non-HTTP/HTTPS schemes (blob:, data:, chrome-extension:, etc.)
+  if (!url.protocol.startsWith('http')) return;
+
+  if (url.pathname.startsWith('/assets/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.jpg') ||
+    url.pathname.endsWith('.svg')) {
     event.respondWith(
       caches.open(STATIC_CACHE).then((cache) => {
         return cache.match(event.request).then((cached) => {
@@ -57,10 +60,10 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  
-  if (url.origin === location.origin && 
-      !url.pathname.includes('firestore') && 
-      !url.pathname.includes('firebase')) {
+
+  if (url.origin === location.origin &&
+    !url.pathname.includes('firestore') &&
+    !url.pathname.includes('firebase')) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {

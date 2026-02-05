@@ -2,7 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Explicitly load env vars for production build
+const VITE_GOOGLE_API_KEY = process.env.VITE_GOOGLE_API_KEY || '';
+
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_GOOGLE_API_KEY': JSON.stringify(VITE_GOOGLE_API_KEY),
+  },
   plugins: [
     react(),
     VitePWA({
@@ -60,7 +66,12 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5000,
-    allowedHosts: true
+    allowedHosts: true,
+    headers: {
+      // Required for Firebase Auth popup to work correctly
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'credentialless'
+    }
   },
   build: {
     outDir: 'dist',
