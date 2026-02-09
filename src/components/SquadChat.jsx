@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User as UserIcon, Camera, Image as ImageIcon, X } from 'lucide-react';
+import { Send, Bot, User as UserIcon, Camera, Image as ImageIcon, X, Video } from 'lucide-react';
 import { subscribeToMessages, sendMessage } from '../services/chatService';
+import SquadLiveStream from './SquadLiveStream';
 
-export default function SquadChat({ squadId, user, isDemoMode }) {
+export default function SquadChat({ squadId, user, isDemoMode, isPremium }) {
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
     const [selectedImage, setSelectedImage] = useState(null); // File object
     const [previewUrl, setPreviewUrl] = useState(null);
+    const [activeRoomId, setActiveRoomId] = useState(null); // VDO.Ninja room for live streaming
+    const [showLiveStream, setShowLiveStream] = useState(false);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -62,6 +65,17 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
         }
     };
 
+    // Live stream handlers
+    const handleStartStream = (roomId) => {
+        setActiveRoomId(roomId);
+        setShowLiveStream(true);
+    };
+
+    const handleEndStream = () => {
+        setActiveRoomId(null);
+        setShowLiveStream(false);
+    };
+
     if (!squadId) {
         return (
             <div className="flex flex-col h-[300px] items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center">
@@ -92,10 +106,40 @@ export default function SquadChat({ squadId, user, isDemoMode }) {
                         </p>
                     </div>
                 </div>
-                {isDemoMode && (
-                    <span className="px-2 py-1 text-[10px] font-black tracking-widest bg-yellow-400 text-yellow-900 rounded uppercase">Demo</span>
-                )}
+                <div className="flex items-center gap-2">
+                    {isPremium && !activeRoomId && (
+                        <button
+                            onClick={() => setShowLiveStream(true)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-pink-500/80 hover:bg-pink-500 text-white text-xs font-semibold rounded-lg transition-colors"
+                        >
+                            <Video className="w-3.5 h-3.5" />
+                            Go Live
+                        </button>
+                    )}
+                    {activeRoomId && (
+                        <span className="flex items-center gap-1 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded animate-pulse">
+                            🔴 LIVE
+                        </span>
+                    )}
+                    {isDemoMode && (
+                        <span className="px-2 py-1 text-[10px] font-black tracking-widest bg-yellow-400 text-yellow-900 rounded uppercase">Demo</span>
+                    )}
+                </div>
             </div>
+
+            {/* Live Stream Area */}
+            {(showLiveStream || activeRoomId) && (
+                <div className="p-3 bg-gray-100 dark:bg-gray-900">
+                    <SquadLiveStream
+                        squadId={squadId}
+                        isPremium={isPremium}
+                        isHost={isPremium}
+                        activeRoomId={activeRoomId}
+                        onStartStream={handleStartStream}
+                        onEndStream={handleEndStream}
+                    />
+                </div>
+            )}
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">

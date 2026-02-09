@@ -2213,6 +2213,7 @@ export default function App() {
                             squadId={currentSquad?.id}
                             user={user}
                             isDemoMode={isDemoMode}
+                            isPremium={isPremium}
                           />
                         </div>
 
