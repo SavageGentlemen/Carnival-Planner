@@ -75,8 +75,9 @@ export default function SquadLiveStream({
         );
     }
 
-    // Active stream view
-    const streamUrl = isHost && isStreaming
+    // Active stream view - isHost is determined by who started the stream
+    // If activeRoomId exists, we're viewing; host shows different URL
+    const streamUrl = isHost
         ? getHostUrl(activeRoomId)
         : getViewerUrl(activeRoomId);
 

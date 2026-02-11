@@ -267,3 +267,57 @@ export const switchActiveSquad = async (userId, squadId) => {
         currentSquadId: squadId
     }, { merge: true });
 };
+
+// --- LIVE STREAM: Start streaming (stores room ID for squad) ---
+export const startLiveStream = async (squadId, userId, roomId) => {
+    if (!squadId || !roomId) throw new Error("Squad ID and Room ID required");
+
+    const squadRef = doc(db, 'squads', squadId);
+    await updateDoc(squadRef, {
+        liveStream: {
+            roomId: roomId,
+            hostId: userId,
+            startedAt: new Date().toISOString()
+        }
+    });
+
+    console.log(`Live stream started for squad ${squadId}: ${roomId}`);
+    return { roomId };
+};
+
+// --- LIVE STREAM: End streaming ---
+export const endLiveStream = async (squadId, userId) => {
+    if (!squadId) throw new Error("Squad ID required");
+
+    const squadRef = doc(db, 'squads', squadId);
+    const squadSnap = await getDoc(squadRef);
+
+    if (squadSnap.exists()) {
+        const data = squadSnap.data();
+        // Only the host can end the stream
+        if (data.liveStream?.hostId === userId) {
+            await updateDoc(squadRef, {
+                liveStream: deleteField()
+            });
+            console.log(`Live stream ended for squad ${squadId}`);
+        }
+    }
+};
+
+// --- LIVE STREAM: Subscribe to stream status ---
+export const subscribeToLiveStream = (squadId, callback) => {
+    if (!squadId) {
+        callback(null);
+        return () => { };
+    }
+
+    const squadRef = doc(db, 'squads', squadId);
+    return onSnapshot(squadRef, (doc) => {
+        if (doc.exists()) {
+            const data = doc.data();
+            callback(data.liveStream || null);
+        } else {
+            callback(null);
+        }
+    });
+};

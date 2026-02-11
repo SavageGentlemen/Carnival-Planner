@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User as UserIcon, Camera, Image as ImageIcon, X, Video } from 'lucide-react';
 import { subscribeToMessages, sendMessage } from '../services/chatService';
+import { startLiveStream, endLiveStream, subscribeToLiveStream } from '../services/squadService';
 import SquadLiveStream from './SquadLiveStream';
 
 export default function SquadChat({ squadId, user, isDemoMode, isPremium }) {
@@ -9,6 +10,7 @@ export default function SquadChat({ squadId, user, isDemoMode, isPremium }) {
     const [selectedImage, setSelectedImage] = useState(null); // File object
     const [previewUrl, setPreviewUrl] = useState(null);
     const [activeRoomId, setActiveRoomId] = useState(null); // VDO.Ninja room for live streaming
+    const [streamHostId, setStreamHostId] = useState(null); // Who started the stream
     const [showLiveStream, setShowLiveStream] = useState(false);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -34,6 +36,25 @@ export default function SquadChat({ squadId, user, isDemoMode, isPremium }) {
             if (previewUrl) URL.revokeObjectURL(previewUrl);
         };
     }, [previewUrl]);
+
+    // Subscribe to live stream status from Firestore
+    useEffect(() => {
+        if (!squadId || isDemoMode) return;
+
+        const unsubscribe = subscribeToLiveStream(squadId, (liveStream) => {
+            if (liveStream?.roomId) {
+                setActiveRoomId(liveStream.roomId);
+                setStreamHostId(liveStream.hostId || null);
+                setShowLiveStream(true);
+            } else {
+                setActiveRoomId(null);
+                setStreamHostId(null);
+                setShowLiveStream(false);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [squadId, isDemoMode]);
 
     const handleFileSelect = (e) => {
         if (e.target.files && e.target.files[0]) {
@@ -65,15 +86,35 @@ export default function SquadChat({ squadId, user, isDemoMode, isPremium }) {
         }
     };
 
-    // Live stream handlers
-    const handleStartStream = (roomId) => {
+    // Live stream handlers - sync with Firestore
+    const handleStartStream = async (roomId) => {
         setActiveRoomId(roomId);
         setShowLiveStream(true);
+
+        // Sync to Firestore so all squad members see the stream
+        if (squadId && user?.uid && !isDemoMode) {
+            try {
+                await startLiveStream(squadId, user.uid, roomId);
+                console.log('Live stream synced to Firestore');
+            } catch (err) {
+                console.error('Failed to sync stream to Firestore:', err);
+            }
+        }
     };
 
-    const handleEndStream = () => {
+    const handleEndStream = async () => {
         setActiveRoomId(null);
         setShowLiveStream(false);
+
+        // Remove from Firestore
+        if (squadId && user?.uid && !isDemoMode) {
+            try {
+                await endLiveStream(squadId, user.uid);
+                console.log('Live stream ended in Firestore');
+            } catch (err) {
+                console.error('Failed to end stream in Firestore:', err);
+            }
+        }
     };
 
     if (!squadId) {
@@ -133,7 +174,7 @@ export default function SquadChat({ squadId, user, isDemoMode, isPremium }) {
                     <SquadLiveStream
                         squadId={squadId}
                         isPremium={isPremium}
-                        isHost={isPremium}
+                        isHost={streamHostId === user?.uid || (!streamHostId && isPremium)}
                         activeRoomId={activeRoomId}
                         onStartStream={handleStartStream}
                         onEndStream={handleEndStream}
