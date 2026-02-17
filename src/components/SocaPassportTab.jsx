@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Share2 } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
 
@@ -119,8 +119,8 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
             {currentView === 'home' && (
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-teal-100 dark:bg-teal-900/30 rounded-xl">
-                            <CreditCard className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                        <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
+                            <img src="/images/passport/icon_passport.png" alt="Soca Passport" className="w-full h-full object-cover" />
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Soca Passport</h2>
