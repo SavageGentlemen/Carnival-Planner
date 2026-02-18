@@ -43,6 +43,7 @@ import ProfileEditor from './components/ProfileEditor';
 import PromoterDashboard from './components/PromoterDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import MarketingDashboard from './components/MarketingDashboard';
+import AppsPage from './components/AppsPage';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode, getUserSquads, switchActiveSquad } from './services/squadService'; // Squad Service
@@ -78,6 +79,7 @@ export default function App() {
   // --- STATE ---
   const [user, setUser] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
+  const [isAppsPage] = useState(window.location.pathname === '/apps');
 
   // Data
   const [carnivals, setCarnivals] = useState({});
@@ -1277,6 +1279,11 @@ export default function App() {
   const budgetTotal = currentCarnival?.budget?.reduce((acc, item) => acc + (item.cost || 0), 0) || 0;
   const costumeBalance = currentCarnival?.costume ? (currentCarnival.costume.total - currentCarnival.costume.paid) : 0;
   const curatedEvents = currentCarnival ? (POPULAR_EVENTS[activeCarnivalId] || POPULAR_EVENTS.default) : [];
+
+  // --- VIEW: APPS PAGE ---
+  if (isAppsPage) {
+    return <AppsPage />;
+  }
 
   // --- VIEW: LEGAL PAGES & CONTACT ---
   if (activeLegalPage) {
