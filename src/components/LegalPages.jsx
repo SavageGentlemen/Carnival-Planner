@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Shield, FileText, Cookie, CreditCard } from 'lucide-react';
 
-const COMPANY_NAME = 'Carnival Planner';
+const COMPANY_NAME = 'Caribbean Carnival Planner';
 const COMPANY_EMAIL = 'support@carnival-planner.com';
 const LAST_UPDATED = 'December 12, 2025';
 
@@ -9,7 +9,7 @@ export function PrivacyPolicy({ onBack, logo }) {
   return (
     <LegalPageWrapper title="Privacy Policy" icon={Shield} onBack={onBack} logo={logo}>
       <p className="text-gray-400 mb-6">Last Updated: {LAST_UPDATED}</p>
-      
+
       <Section title="1. Introduction">
         <p>{COMPANY_NAME} ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application and website (collectively, the "Service").</p>
       </Section>
@@ -119,7 +119,7 @@ export function TermsOfService({ onBack, logo }) {
       <Section title="3. User Accounts">
         <h4 className="font-semibold text-white mb-2">3.1 Registration</h4>
         <p className="mb-4">You must sign in with a valid Google account to use the Service. You are responsible for maintaining the security of your account.</p>
-        
+
         <h4 className="font-semibold text-white mb-2">3.2 Account Responsibilities</h4>
         <ul className="list-disc list-inside space-y-1">
           <li>You must provide accurate information</li>
@@ -206,7 +206,7 @@ export function CookiePolicy({ onBack, logo }) {
 
       <Section title="2. How We Use Cookies">
         <p className="mb-4">{COMPANY_NAME} uses cookies and similar technologies for the following purposes:</p>
-        
+
         <h4 className="font-semibold text-white mb-2">2.1 Essential Cookies (Required)</h4>
         <p className="mb-4">These cookies are necessary for the Service to function and cannot be disabled:</p>
         <ul className="list-disc list-inside mb-4 space-y-1">
@@ -379,7 +379,7 @@ function LegalPageWrapper({ title, icon: Icon, onBack, logo, children }) {
         <div className="absolute w-[600px] h-[600px] bg-gradient-to-r from-pink-500/20 to-purple-500/20 rounded-full blur-3xl -top-48 -right-48" />
         <div className="absolute w-[400px] h-[400px] bg-gradient-to-r from-blue-500/15 to-cyan-500/15 rounded-full blur-3xl bottom-0 left-0" />
       </div>
-      
+
       <div className="relative max-w-4xl mx-auto px-6 py-12">
         <button
           onClick={onBack}
@@ -404,7 +404,7 @@ function LegalPageWrapper({ title, icon: Icon, onBack, logo, children }) {
         </div>
 
         <footer className="mt-12 text-center text-gray-500 text-sm">
-          <p>Carnival Planner - Plan your Mas. Track your Fetes. Coordinate your Squad.</p>
+          <p>Caribbean Carnival Planner - Plan your Mas. Track your Fetes. Coordinate your Squad.</p>
         </footer>
       </div>
     </div>

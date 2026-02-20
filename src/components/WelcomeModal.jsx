@@ -22,7 +22,7 @@ export default function WelcomeModal({ onClose }) {
                     >
                         <X className="w-6 h-6" />
                     </button>
-                    <h2 className="text-2xl font-black mb-1">Welcome to Carnival Planner! 🎭</h2>
+                    <h2 className="text-2xl font-black mb-1">Welcome to Caribbean Carnival Planner! 🎭</h2>
                     <p className="text-white/90 text-sm">Your all-in-one Caribbean carnival companion</p>
                 </div>
 

@@ -47,7 +47,7 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-indigo-600 flex items-center justify-center font-bold text-sm">
               CP
             </div>
-            <span className="font-bold tracking-tight text-white/90">Carnival Planner</span>
+            <span className="font-bold tracking-tight text-white/90">Caribbean Carnival Planner</span>
           </div>
           <button
             onClick={onGetStarted}
@@ -259,7 +259,7 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
 
       {/* Footer Decoration */}
       <div className="w-full border-t border-white/10 p-8 text-center text-gray-600 text-sm">
-        &copy; 2026 Carnival Planner. Built for the culture.
+        &copy; 2026 Caribbean Carnival Planner. Built for the culture.
       </div>
     </div>
   );

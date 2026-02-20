@@ -48,7 +48,7 @@ export default function HelpGuide({ onClose }) {
                 <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 p-4 flex items-center justify-between rounded-t-2xl">
                     <div className="flex items-center gap-2">
                         <HelpCircle className="w-6 h-6 text-purple-500" />
-                        <h2 className="text-xl font-bold text-gray-800 dark:text-white">How to Use Carnival Planner</h2>
+                        <h2 className="text-xl font-bold text-gray-800 dark:text-white">How to Use Caribbean Carnival Planner</h2>
                     </div>
                     <button
                         onClick={onClose}

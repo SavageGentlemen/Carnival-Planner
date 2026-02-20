@@ -205,7 +205,7 @@ export default function MarketingDashboard() {
     return (
         <div className="min-h-screen bg-gray-950 text-white p-4 md:p-8 space-y-8">
             <Helmet>
-                <title>Carnival Marketing Agent | Carnival Planner</title>
+                <title>Carnival Marketing Agent | Caribbean Carnival Planner</title>
             </Helmet>
 
             <div className="flex justify-between items-start">
@@ -418,7 +418,7 @@ export default function MarketingDashboard() {
                                                 <div className="relative z-10">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <div className={`w-8 h-8 rounded-full ${flyerStyles[flyerStyle].accent} flex items-center justify-center text-lg`}>🎭</div>
-                                                        <span className={`text-xs font-bold tracking-widest uppercase ${flyerStyles[flyerStyle].text} opacity-70`}>Carnival Planner</span>
+                                                        <span className={`text-xs font-bold tracking-widest uppercase ${flyerStyles[flyerStyle].text} opacity-70`}>Caribbean Carnival Planner</span>
                                                     </div>
                                                     <h2 className={`text-2xl font-black ${flyerStyles[flyerStyle].text} leading-tight drop-shadow-lg`}>
                                                         {vibeInput.length > 30 ? vibeInput.substring(0, 30) + "..." : vibeInput}

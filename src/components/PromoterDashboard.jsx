@@ -514,7 +514,7 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                         <div className="bg-gradient-to-r from-teal-500 to-blue-600 rounded-xl p-8 text-white mb-6">
                             <h2 className="text-2xl font-bold mb-2">Promoter Toolkit</h2>
                             <p className="opacity-90 max-w-xl">
-                                High-quality visual assets to help you promote your events and the Carnival Planner app.
+                                High-quality visual assets to help you promote your events and the Caribbean Carnival Planner app.
                                 Download and share on your social media channels.
                             </p>
                         </div>

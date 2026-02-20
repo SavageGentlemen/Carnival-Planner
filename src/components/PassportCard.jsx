@@ -62,7 +62,7 @@ export default function PassportCard({ profile, isOpen, onClose }) {
     const handleShare = async () => {
         const shareData = {
             title: 'My Soca Passport',
-            text: `I'm a ${tier} tier carnivalist with ${profile?.totalCredits || 0} credits! Check out my Soca Passport on Carnival Planner.`,
+            text: `I'm a ${tier} tier carnivalist with ${profile?.totalCredits || 0} credits! Check out my Soca Passport on Caribbean Carnival Planner.`,
             url: window.location.origin
         };
 
@@ -166,7 +166,7 @@ export default function PassportCard({ profile, isOpen, onClose }) {
                         <div className="relative flex items-center justify-between">
                             <div className="flex items-center gap-1">
                                 <Sparkles className="w-3 h-3 opacity-70" />
-                                <span className="text-[10px] font-medium opacity-70">Carnival Planner</span>
+                                <span className="text-[10px] font-medium opacity-70">Caribbean Carnival Planner</span>
                             </div>
                             <p className="text-[10px] font-mono opacity-50">
                                 {new Date().getFullYear()}

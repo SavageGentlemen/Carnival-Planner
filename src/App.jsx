@@ -43,7 +43,6 @@ import ProfileEditor from './components/ProfileEditor';
 import PromoterDashboard from './components/PromoterDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import MarketingDashboard from './components/MarketingDashboard';
-import AppsPage from './components/AppsPage';
 
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode, getUserSquads, switchActiveSquad } from './services/squadService'; // Squad Service
@@ -79,7 +78,6 @@ export default function App() {
   // --- STATE ---
   const [user, setUser] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
-  const [isAppsPage] = useState(window.location.pathname === '/apps');
 
   // Data
   const [carnivals, setCarnivals] = useState({});
@@ -1280,11 +1278,6 @@ export default function App() {
   const costumeBalance = currentCarnival?.costume ? (currentCarnival.costume.total - currentCarnival.costume.paid) : 0;
   const curatedEvents = currentCarnival ? (POPULAR_EVENTS[activeCarnivalId] || POPULAR_EVENTS.default) : [];
 
-  // --- VIEW: APPS PAGE ---
-  if (isAppsPage) {
-    return <AppsPage />;
-  }
-
   // --- VIEW: LEGAL PAGES & CONTACT ---
   if (activeLegalPage) {
     const legalProps = { onBack: () => setActiveLegalPage(null), logo };
@@ -1372,7 +1365,7 @@ export default function App() {
       <header className="bg-white dark:bg-gray-800 shadow-sm py-4 px-4 flex justify-between items-center sticky top-0 z-20 transition-colors">
         <div className="flex items-center gap-2">
           <img src={logo} alt="Logo" className="w-8 h-8" />
-          <h1 className="text-lg font-bold text-gray-800 dark:text-white hidden sm:block">Carnival Planner</h1>
+          <h1 className="text-lg font-bold text-gray-800 dark:text-white hidden sm:block">Caribbean Carnival Planner</h1>
         </div>
         {user && (
           <div className="flex items-center gap-3">
@@ -2395,7 +2388,7 @@ export default function App() {
                         <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
                           <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
                           <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
-                          <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
+                          <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Caribbean Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
 
                           <button
                             onClick={handleExport}
@@ -2498,7 +2491,7 @@ export default function App() {
             </button>
           </div>
           <p className="text-gray-400 dark:text-gray-500 text-xs mt-3">
-            © {new Date().getFullYear()} Carnival Planner
+            © {new Date().getFullYear()} Caribbean Carnival Planner
           </p>
         </div>
       </footer >
