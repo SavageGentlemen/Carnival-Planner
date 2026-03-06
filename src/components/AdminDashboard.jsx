@@ -14,6 +14,7 @@ import AdminAnalytics from './AdminAnalytics';
 import AdManager from './AdManager';
 import { SupportAdmin } from './ContactSupport';
 import SponsorshipManager from './SponsorshipManager';
+import AffiliateManager from './AffiliateManager';
 
 export default function AdminDashboard({ user }) {
     const [activeTab, setActiveTab] = useState('Overview');
@@ -38,6 +39,7 @@ export default function AdminDashboard({ user }) {
         { id: 'Overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'Ads', label: 'Ad Manager', icon: Megaphone },
         { id: 'Sponsorships', label: 'Sponsorships', icon: Target },
+        { id: 'Affiliates', label: 'Affiliates', icon: Users },
         { id: 'Support', label: 'Support', icon: MessageSquare },
         { id: 'Settings', label: 'Admins', icon: Settings },
     ];
@@ -75,6 +77,7 @@ export default function AdminDashboard({ user }) {
                 {activeTab === 'Overview' && <AdminAnalytics />}
                 {activeTab === 'Ads' && <AdManager />}
                 {activeTab === 'Sponsorships' && <SponsorshipManager />}
+                {activeTab === 'Affiliates' && <AffiliateManager />}
                 {activeTab === 'Support' && <SupportAdmin />}
                 {activeTab === 'Settings' && <AdminManagement user={user} isSuperAdmin={isSuperAdmin} />}
             </div>
