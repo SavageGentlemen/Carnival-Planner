@@ -136,14 +136,16 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
           <span>📍  Trinidad 2026 Ready</span>
           <span>💰  Expense Tracking</span>
           <span>🎵  Soca Included</span>
+          <span>🤝  Become an Ambassador</span>
+          <span>📢  Sponsor the Culture</span>
           <span>🛂  Passport Sync Active</span>
-          <span>🌍  Global Carnival Database</span>
           <span>✨  350+ Live Squads</span>
           <span>📍  Trinidad 2026 Ready</span>
           <span>💰  Expense Tracking</span>
           <span>🎵  Soca Included</span>
+          <span>🤝  Become an Ambassador</span>
+          <span>📢  Sponsor the Culture</span>
           <span>🛂  Passport Sync Active</span>
-          <span>🌍  Global Carnival Database</span>
         </div>
       </div>
 
@@ -262,6 +264,51 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
                 <span className="text-[10px] font-bold text-yellow-400">🥇 12 STAMPS</span>
                 <span className="text-[10px] text-gray-500">FEB 2026</span>
               </div>
+            </div>
+          </div>
+
+          {/* Card 5: Affiliates */}
+          <div className="relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-pink-500/30 transition-all p-8">
+            <div className="absolute inset-0 bg-gradient-to-tr from-pink-900/10 to-transparent z-10" />
+            <div className="relative z-20 h-full flex flex-col justify-end">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500/30 to-purple-500/20 flex items-center justify-center mb-4 text-pink-400 border border-pink-500/20">
+                <Zap />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Ambassadors</h3>
+              <p className="text-gray-400 space-y-2">
+                <span>Join the Decentralized Sales Fleet.</span>
+                <br />
+                <span className="text-sm">Promote the app, earn 20% recurring commissions, and get paid via Stripe.</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Card 6: Sponsorships */}
+          <div className="md:col-span-2 relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-blue-500/30 transition-all p-8 flex items-center justify-between">
+            <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-blue-900/20 to-transparent z-0"></div>
+            <div className="max-w-md relative z-10">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/30 to-cyan-500/20 flex items-center justify-center mb-4 text-blue-400 border border-blue-500/20">
+                <Globe />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Direct Sponsorship Engine</h3>
+              <p className="text-gray-400 mb-4">Are you a promoter, band, or brand? Sponsor the culture directly.</p>
+              <ul className="text-sm text-gray-400 space-y-2">
+                <li className="flex items-center gap-2"><span className="text-blue-400">✓</span> Target high-intent traveling masqueraders</li>
+                <li className="flex items-center gap-2"><span className="text-blue-400">✓</span> Premium banner spaces across the platform</li>
+                <li className="flex items-center gap-2"><span className="text-blue-400">✓</span> 100% direct revenue (no middlemen margins)</li>
+              </ul>
+            </div>
+            {/* Ad Mockup Visual */}
+            <div className="hidden sm:block relative w-64 h-32 bg-gray-800 rounded-xl border border-gray-700 shadow-2xl z-10 p-3 flex flex-col justify-between">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[8px] uppercase tracking-wider text-gray-500 font-bold">Sponsored Fete</span>
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+              </div>
+              <div className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded flex items-center justify-center font-black text-white text-sm shadow-inner">
+                SOCA BRAINWASH 🔥
+              </div>
+              <div className="mt-2 h-2 w-3/4 bg-gray-700 rounded-full"></div>
+              <div className="mt-1 h-2 w-1/2 bg-gray-700 rounded-full"></div>
             </div>
           </div>
         </div>
