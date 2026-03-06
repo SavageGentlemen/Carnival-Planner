@@ -1,10 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ExternalLink, Filter, MapPin, Feather } from 'lucide-react';
+import { Search, ExternalLink, Filter, MapPin, Feather, Box } from 'lucide-react';
 import { bandDirectory } from '../data/bandDirectory';
 
-export default function CostumeDirectory({ carnivalId }) {
+const ModelViewer = React.lazy(() => import('./ModelViewer'));
+
+export default function CostumeDirectory({ carnivalId, isPremium = false }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState('all');
+    const [view3dModel, setView3dModel] = useState(null);
 
     const filteredBands = useMemo(() => {
         return bandDirectory.filter(band => {
@@ -109,6 +112,17 @@ export default function CostumeDirectory({ carnivalId }) {
                                 </span>
                             ))}
                         </div>
+
+                        {/* 3D Try-on button — shows for bands with modelUrl */}
+                        {isPremium && band.modelUrl && (
+                            <button
+                                onClick={() => setView3dModel({ url: band.modelUrl, usdzUrl: band.usdzUrl, title: band.name })}
+                                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold rounded-lg hover:from-purple-500 hover:to-pink-500 transition-all"
+                            >
+                                <Box className="w-3.5 h-3.5" />
+                                Try in 3D
+                            </button>
+                        )}
                     </div>
                 ))}
             </div>
@@ -118,6 +132,19 @@ export default function CostumeDirectory({ carnivalId }) {
                     <Feather className="w-12 h-12 mx-auto mb-3 opacity-20" />
                     <p>No bands found matching your search.</p>
                 </div>
+            )}
+
+            {/* 3D Model Viewer overlay */}
+            {view3dModel && (
+                <React.Suspense fallback={null}>
+                    <ModelViewer
+                        modelUrl={view3dModel.url}
+                        usdzUrl={view3dModel.usdzUrl}
+                        title={view3dModel.title}
+                        onClose={() => setView3dModel(null)}
+                        isPremium={isPremium}
+                    />
+                </React.Suspense>
             )}
         </div>
     );

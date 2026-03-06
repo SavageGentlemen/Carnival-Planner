@@ -19,33 +19,60 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import app, { auth, db, requestNotificationPermission, onForegroundMessage } from './firebase';
 import logo from './assets/carnival-logo.png';
 import { carnivalData } from './carnivals';
-import FeteMap from './components/FeteMap';
-import SquadChat from './components/SquadChat';
-import MediaVault from './components/MediaVault';
-import VibesPlayer from './components/VibesPlayer';
-import AdminCleanup from './components/AdminCleanup'; // Admin tool
-import VoiceScheduler from './components/VoiceScheduler'; // FREE AI Feature
+
+// ── CRITICAL PATH (static imports — needed for initial render) ──
 import PromoAd from './components/PromoAd';
-import AdManager from './components/AdManager';
-import AdminAnalytics from './components/AdminAnalytics';
-import CostumeDirectory from './components/CostumeDirectory';
 import SplashPage from './components/SplashPage';
 import { PrivacyPolicy, TermsOfService, CookiePolicy, RefundPolicy } from './components/LegalPages';
 import InstallPrompt from './components/InstallPrompt';
 import { ContactPage, SupportAdmin } from './components/ContactSupport';
-import AccountSettings from './components/AccountSettings';
-import SocaPassportTab from './components/SocaPassportTab';
 import HomeHub from './components/HomeHub';
 import WelcomeModal from './components/WelcomeModal';
 import HelpGuide from './components/HelpGuide';
-import MasqueraderProfile from './components/MasqueraderProfile';
-import ProfileEditor from './components/ProfileEditor';
-import PromoterDashboard from './components/PromoterDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import MarketingDashboard from './components/MarketingDashboard';
-
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
-import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode, getUserSquads, switchActiveSquad } from './services/squadService'; // Squad Service
+import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode, getUserSquads, switchActiveSquad } from './services/squadService';
+import { useAffiliate } from './components/AffiliateProvider';
+
+// ── LAZY-LOADED (code-split — only loaded when user navigates to tab) ──
+// Loading fallback component
+const LazyFallback = () => (
+  <div className="flex items-center justify-center py-16">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+  </div>
+);
+
+const FeteMap = React.lazy(() => import('./components/FeteMap'));
+const SquadChat = React.lazy(() => import('./components/SquadChat'));
+const MediaVault = React.lazy(() => import('./components/MediaVault'));
+const VibesPlayer = React.lazy(() => import('./components/VibesPlayer'));
+const AdminCleanup = React.lazy(() => import('./components/AdminCleanup'));
+const VoiceScheduler = React.lazy(() => import('./components/VoiceScheduler'));
+const AdManager = React.lazy(() => import('./components/AdManager'));
+const AdminAnalytics = React.lazy(() => import('./components/AdminAnalytics'));
+const CostumeDirectory = React.lazy(() => import('./components/CostumeDirectory'));
+const AccountSettings = React.lazy(() => import('./components/AccountSettings'));
+const SocaPassportTab = React.lazy(() => import('./components/SocaPassportTab'));
+const MasqueraderProfile = React.lazy(() => import('./components/MasqueraderProfile'));
+const ProfileEditor = React.lazy(() => import('./components/ProfileEditor'));
+const PromoterDashboard = React.lazy(() => import('./components/PromoterDashboard'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const MarketingDashboard = React.lazy(() => import('./components/MarketingDashboard'));
+const MarketplacePage = React.lazy(() => import('./components/marketplace/MarketplacePage'));
+const SocaVoid = React.lazy(() => import('./components/SocaVoid'));
+const Leaderboard = React.lazy(() => import('./components/Leaderboard'));
+const PassportHome = React.lazy(() => import('./components/PassportHome'));
+const StampCollection = React.lazy(() => import('./components/StampCollection'));
+const AchievementList = React.lazy(() => import('./components/AchievementList'));
+const RewardsList = React.lazy(() => import('./components/RewardsList'));
+const PassportCard = React.lazy(() => import('./components/PassportCard'));
+const CheckinModal = React.lazy(() => import('./components/CheckinModal'));
+const SquadLiveStream = React.lazy(() => import('./components/SquadLiveStream'));
+const VibeAlert = React.lazy(() => import('./components/VibeAlert'));
+const SquadVoice = React.lazy(() => import('./components/SquadVoice'));
+const WearableMonitor = React.lazy(() => import('./components/WearableMonitor'));
+
+// ── SWR FIRESTORE CACHING ──
+import { useFirestoreDoc } from './hooks/useFirestoreSWR';
 
 // --- CONFIGURATION ---
 const appId = 'carnival-planner-v1';
@@ -76,6 +103,7 @@ const POPULAR_EVENTS = {
 
 export default function App() {
   // --- STATE ---
+  const { affiliateRef } = useAffiliate();
   const [user, setUser] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
 
@@ -336,6 +364,10 @@ export default function App() {
   const [isLoadingScrapedEvents, setIsLoadingScrapedEvents] = useState(false);
   const [scrapedEventsLastUpdated, setScrapedEventsLastUpdated] = useState(null);
 
+  // Vibe Engine State
+  const [vibeScores, setVibeScores] = useState({});
+  const [vibeAlert, setVibeAlert] = useState(null);
+
   // --- CONFIG ---
   const carnivalOptions = [
     { id: 'stkitts-sugar-mas', name: 'St. Kitts (Sugar Mas)', monthIndex: 0 },
@@ -469,6 +501,20 @@ export default function App() {
               }
             );
           }
+
+          // 🔐 AUTO-WALLET: Ensure user has an invisible Web3 wallet
+          // Runs silently in background — non-blocking
+          const ensureWalletFn = httpsCallable(getFunctions(app), 'ensureWallet');
+          ensureWalletFn({}).then((result) => {
+            const { walletAddress, isNew } = result.data;
+            if (isNew) {
+              console.log('[Web3] 🎉 Generated new carnival wallet:', walletAddress);
+            } else {
+              console.log('[Web3] Wallet exists:', walletAddress);
+            }
+          }).catch((err) => {
+            console.warn('[Web3] Auto-wallet skipped:', err.message);
+          });
         } catch (err) {
           console.error('[Analytics] Failed to update user doc:', err.code, err.message);
         }
@@ -660,25 +706,19 @@ export default function App() {
     return () => unsubscribe();
   }, [user, isDemoMode]);
 
-  // 4b. Load User Profile
+  // 4b. Load User Profile — SWR cached (loads instantly from cache, revalidates in background)
+  const { data: swrProfile } = useFirestoreDoc(
+    user && !isDemoMode ? `userProfiles/${user.uid}` : null
+  );
   useEffect(() => {
     if (!user || isDemoMode) {
       setUserProfile(null);
       return;
     }
-
-    const loadProfile = async () => {
-      try {
-        const profileSnap = await getDoc(doc(db, 'userProfiles', user.uid));
-        if (profileSnap.exists()) {
-          setUserProfile({ id: profileSnap.id, ...profileSnap.data() });
-        }
-      } catch (err) {
-        console.log('Could not load profile:', err);
-      }
-    };
-    loadProfile();
-  }, [user, isDemoMode]);
+    if (swrProfile) {
+      setUserProfile(swrProfile);
+    }
+  }, [user, isDemoMode, swrProfile]);
 
   useEffect(() => {
     if (!isDemoMode) {
@@ -772,12 +812,18 @@ export default function App() {
 
       console.log(`Starting checkout... Interval: ${billingInterval}, PriceID: ${priceId}`);
 
-      // ✅ Send success_url and cancel_url
-      const result = await createCheckoutSession({
+      // ✅ Send success_url, cancel_url, and affiliate ref if present
+      const checkoutPayload = {
         priceId: priceId, // Ensure key is explicitly 'priceId'
         success_url: window.location.origin,
-        cancel_url: window.location.origin
-      });
+        cancel_url: window.location.origin,
+      };
+      // Attach affiliate referral code for commission tracking
+      if (affiliateRef) {
+        checkoutPayload.affiliateRef = affiliateRef;
+        console.log(`Affiliate ref attached to checkout: ${affiliateRef}`);
+      }
+      const result = await createCheckoutSession(checkoutPayload);
 
       const { data } = result || {};
 
@@ -1007,6 +1053,74 @@ export default function App() {
 
     fetchScrapedEvents();
   }, [user, activeCarnivalId, isPremium]);
+
+  // Vibe Engine: Real-time listener for vibe scores
+  useEffect(() => {
+    if (!user || !activeCarnivalId || isDemoMode) {
+      setVibeScores({});
+      return;
+    }
+
+    const vibeRef = doc(db, 'vibeScores', activeCarnivalId);
+    const unsubVibe = onSnapshot(vibeRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const scoresMap = {};
+        (data.scores || []).forEach(s => {
+          scoresMap[s.eventId] = s;
+        });
+        setVibeScores(scoresMap);
+        console.log(`Vibe Engine: Loaded ${Object.keys(scoresMap).length} scores for ${activeCarnivalId}`);
+      } else {
+        setVibeScores({});
+      }
+    }, (err) => {
+      console.log('Vibe Engine: Listener error:', err.message);
+      setVibeScores({});
+    });
+
+    return () => unsubVibe();
+  }, [user, activeCarnivalId, isDemoMode]);
+
+  // Vibe Engine: Watch for planned events with tanking scores
+  useEffect(() => {
+    if (Object.keys(vibeScores).length === 0) return;
+    const schedule = getCarnivalField('schedule') || [];
+    if (schedule.length === 0) return;
+
+    for (const planned of schedule) {
+      // Find matching vibe score by title
+      const matchedScore = Object.values(vibeScores).find(s =>
+        s.title && planned.name &&
+        s.title.toLowerCase().includes(planned.name.toLowerCase())
+      );
+
+      if (matchedScore && matchedScore.score <= 3) {
+        // Find the best alternative
+        const allScores = Object.values(vibeScores);
+        const best = allScores
+          .filter(s => s.score >= 7 && s.title !== matchedScore.title)
+          .sort((a, b) => b.score - a.score)[0];
+
+        if (best) {
+          setVibeAlert({
+            droppedEvent: {
+              title: matchedScore.title,
+              score: matchedScore.score,
+              reason: matchedScore.reason,
+            },
+            suggestedEvent: {
+              title: best.title,
+              score: best.score,
+              reason: best.reason,
+              venue: best.venue,
+            },
+          });
+          break; // Only show one alert at a time
+        }
+      }
+    }
+  }, [vibeScores, activeCarnivalId]);
 
   // --- FEATURE HANDLERS ---
 
@@ -1293,7 +1407,12 @@ export default function App() {
 
   // --- VIEW: SPLASH SCREEN ---
   if (showLanding && !user) {
-    return <SplashPage onGetStarted={() => setShowLanding(false)} logo={logo} onLegalPage={setActiveLegalPage} onTryDemo={handleTryDemo} />;
+    return (
+      <>
+        <React.Suspense fallback={null}><SocaVoid /></React.Suspense>
+        <SplashPage onGetStarted={() => setShowLanding(false)} logo={logo} onLegalPage={setActiveLegalPage} onTryDemo={handleTryDemo} />
+      </>
+    );
   }
 
   // --- VIEW: ROAD MODE (PREMIUM) ---
@@ -1304,44 +1423,49 @@ export default function App() {
       .find(e => new Date(e.datetime) > new Date());
 
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold italic">ROAD MODE</h1>
-          <button onClick={() => setRoadMode(false)} className="text-sm bg-gray-800 px-3 py-1 rounded">Exit</button>
-        </div>
-        <div className="flex-1 flex flex-col gap-6">
-          <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 rounded-2xl shadow-lg">
-            <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-1">Up Next</h2>
-            {nextEvent ? (
-              <>
-                <div className="text-3xl font-black mb-1">{nextEvent.title}</div>
-                <div className="text-xl opacity-90">{new Date(nextEvent.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                <div className="mt-2 text-sm bg-white/20 inline-block px-2 py-1 rounded">{nextEvent.note || "No notes"}</div>
-              </>
-            ) : (
-              <div className="text-xl italic opacity-75">No more fetes scheduled! Sleep time?</div>
-            )}
+      <>
+        <React.Suspense fallback={null}><SocaVoid /></React.Suspense>
+        <div className="min-h-screen bg-transparent text-white p-6 flex flex-col relative z-10">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-2xl font-bold italic">ROAD MODE</h1>
+            <button onClick={() => setRoadMode(false)} className="text-sm bg-gray-800 px-3 py-1 rounded">Exit</button>
           </div>
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
-            <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-2">Costume Pickup</h2>
-            {currentCarnival.costume ? (
-              <div>
-                <div className="text-xl font-bold text-yellow-400">{currentCarnival.costume.band}</div>
-                <div className="text-gray-400">Section: {currentCarnival.costume.section}</div>
-                {costumeBalance > 0 && <div className="text-red-400 font-bold mt-1">Balance Due: ${costumeBalance}</div>}
-              </div>
-            ) : (
-              <div className="text-gray-500 italic">No costume details saved.</div>
-            )}
+          <div className="flex-1 flex flex-col gap-6">
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 rounded-2xl shadow-lg">
+              <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-1">Up Next</h2>
+              {nextEvent ? (
+                <>
+                  <div className="text-3xl font-black mb-1">{nextEvent.title}</div>
+                  <div className="text-xl opacity-90">{new Date(nextEvent.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  <div className="mt-2 text-sm bg-white/20 inline-block px-2 py-1 rounded">{nextEvent.note || "No notes"}</div>
+                </>
+              ) : (
+                <div className="text-xl italic opacity-75">No more fetes scheduled! Sleep time?</div>
+              )}
+            </div>
+            <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+              <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-2">Costume Pickup</h2>
+              {currentCarnival.costume ? (
+                <div>
+                  <div className="text-xl font-bold text-yellow-400">{currentCarnival.costume.band}</div>
+                  <div className="text-gray-400">Section: {currentCarnival.costume.section}</div>
+                  {costumeBalance > 0 && <div className="text-red-400 font-bold mt-1">Balance Due: ${costumeBalance}</div>}
+                </div>
+              ) : (
+                <div className="text-gray-500 italic">No costume details saved.</div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   // --- VIEW: MAIN APP ---
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className={`min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 ${isDemoMode ? 'pb-20' : ''}`}>
+      {/* SOCA VOID — Animated Background */}
+      <React.Suspense fallback={null}><SocaVoid /></React.Suspense>
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed top-4 right-4 z-50 animate-slideIn">
@@ -1349,8 +1473,10 @@ export default function App() {
             <div className="flex items-start gap-3">
               <span className="text-2xl">🎉</span>
               <div>
-                <p className="font-bold">{toastMessage.title}</p>
-                <p className="text-sm opacity-90">{toastMessage.body}</p>
+                <p className="font-bold">{typeof toastMessage === 'string' ? toastMessage : toastMessage.title}</p>
+                {typeof toastMessage !== 'string' && toastMessage.body && (
+                  <p className="text-sm opacity-90">{toastMessage.body}</p>
+                )}
               </div>
               <button onClick={() => setToastMessage(null)} className="ml-2 text-white/70 hover:text-white">×</button>
             </div>
@@ -1358,13 +1484,33 @@ export default function App() {
         </div>
       )}
 
+      {/* VIBE ALERT — Dynamic Rerouting */}
+      <React.Suspense fallback={null}>
+        <VibeAlert
+          alert={vibeAlert}
+          onSwap={(alert) => {
+            // Swap the planned event with the suggested one
+            const schedule = getCarnivalField('schedule') || [];
+            const updated = schedule.map(item =>
+              item.name?.toLowerCase().includes(alert.droppedEvent.title.toLowerCase())
+                ? { ...item, name: alert.suggestedEvent.title, note: `Swapped from ${alert.droppedEvent.title} (Vibe: ${alert.droppedEvent.score}/10)` }
+                : item
+            );
+            updateCarnivalData('schedule', updated);
+            setVibeAlert(null);
+            setToastMessage(`Swapped to ${alert.suggestedEvent.title} 🔥`);
+          }}
+          onDismiss={() => setVibeAlert(null)}
+        />
+      </React.Suspense>
+
       {/* PWA INSTALL PROMPT */}
       <InstallPrompt />
 
       {/* HEADER */}
       <header className="bg-white dark:bg-gray-800 shadow-sm py-4 px-4 flex justify-between items-center sticky top-0 z-20 transition-colors">
         <div className="flex items-center gap-2">
-          <img src={logo} alt="Logo" className="w-8 h-8" />
+          <img src={logo} alt="Logo" className="w-8 h-8" loading="eager" decoding="async" />
           <h1 className="text-lg font-bold text-gray-800 dark:text-white hidden sm:block">Caribbean Carnival Planner</h1>
         </div>
         {user && (
@@ -1373,14 +1519,22 @@ export default function App() {
             <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-300">
               {darkMode ? '☀️' : '🌙'}
             </button>
-            {/* Demo Mode Exit Button */}
+            {/* Preview/Demo Mode Header Actions */}
             {isDemoMode && (
-              <button
-                onClick={handleExitDemo}
-                className="px-3 py-1 text-xs font-bold rounded-full bg-red-100 text-red-700 hover:bg-red-200 border border-red-200 transition-colors"
-              >
-                EXIT DEMO
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { handleExitDemo(); setShowLanding(false); }}
+                  className="px-4 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-pink-500 to-orange-500 text-white hover:opacity-90 transition-opacity shadow-md"
+                >
+                  Sign Up Free
+                </button>
+                <button
+                  onClick={handleExitDemo}
+                  className="px-3 py-1 text-xs font-medium rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                >
+                  Exit Preview
+                </button>
+              </div>
             )}
 
             {currentCarnival && (
@@ -1509,6 +1663,7 @@ export default function App() {
                       onClick={() => selectCarnival(c.id, `${c.name} - ${monthNames[c.monthIndex]}`)}
                       className={`snap-center min-w-[200px] cursor-pointer rounded-2xl p-5 shadow-lg relative overflow-hidden transition-all duration-300 ${isActive ? 'ring-4 ring-offset-2 ring-blue-400 scale-105' : 'hover:scale-105 opacity-90'} ${gradient}`}
                     >
+                      <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.12] mix-blend-overlay" />
                       <div className="relative z-10 text-white">
                         <h4 className="font-bold text-lg leading-tight mb-1">{c.name}</h4>
                         <p className="text-xs font-medium uppercase tracking-wider opacity-90">{monthNames[c.monthIndex]}</p>
@@ -1537,6 +1692,7 @@ export default function App() {
                 activeCarnivalId={null}
                 carnivalData={carnivalData}
                 scrapedEvents={scrapedEvents}
+                vibeScores={vibeScores}
                 squadMembers={[]}
                 budgetTotal={0}
                 budgetSpent={0}
@@ -1550,6 +1706,7 @@ export default function App() {
                   activeCarnivalId={activeCarnivalId}
                   carnivalData={carnivalData}
                   scrapedEvents={scrapedEvents}
+                  vibeScores={vibeScores}
                   squadMembers={squadMembers}
                   budgetTotal={20000} // Placeholder Goal
                   budgetSpent={budgetTotal} // This variable holds the sum of costs
@@ -1585,13 +1742,13 @@ export default function App() {
                   <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
                     {[
                       'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport',
-                      'Packing', 'Map', 'Media', 'Profile', 'Promoter', 'Marketing', 'Info'
-                    ].filter(tab => (isPremium || !['Map', 'Media', 'Passport'].includes(tab)) && (isAdmin || tab !== 'Marketing')).map((tab) => (
+                      'Packing', 'Map', 'Media', 'Profile', 'Promoter', 'Marketplace', 'Marketing', 'Info'
+                    ].filter(tab => (isPremium || !['Map', 'Media', 'Passport'].includes(tab)) && (isAdmin || tab !== 'Marketing') && (!isDemoMode || !['Promoter', 'Marketing', 'Profile'].includes(tab))).map((tab) => (
                       <button
                         key={tab}
                         onClick={() => {
                           console.log('Switching to tab:', tab, 'isPremium:', isPremium);
-                          setActiveTab(tab);
+                          React.startTransition(() => setActiveTab(tab));
                         }}
                         className={`flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
                       >
@@ -1670,7 +1827,9 @@ export default function App() {
                     {/* TAB: BANDS (NEW) */}
                     {activeTab === 'Bands' && (
                       <div className="animate-fadeIn">
-                        <CostumeDirectory carnivalId={activeCarnivalId} />
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <CostumeDirectory carnivalId={activeCarnivalId} isPremium={isPremium} />
+                        </React.Suspense>
                       </div>
                     )}
 
@@ -1779,10 +1938,20 @@ export default function App() {
                                     className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:shadow-md transition"
                                   >
                                     {evt.image && (
-                                      <img src={evt.image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
+                                      <img src={evt.image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" loading="lazy" decoding="async" />
                                     )}
                                     <div className="flex-1 min-w-0">
-                                      <h5 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate">{evt.title}</h5>
+                                      <div className="flex items-center gap-2">
+                                        <h5 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate">{evt.title}</h5>
+                                        {vibeScores[evt.id] && (
+                                          <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${vibeScores[evt.id].score >= 8 ? 'bg-red-500/20 text-red-400' :
+                                            vibeScores[evt.id].score >= 5 ? 'bg-amber-500/20 text-amber-400' :
+                                              'bg-gray-500/20 text-gray-400'
+                                            }`}>
+                                            🔥 {vibeScores[evt.id].score}/10
+                                          </span>
+                                        )}
+                                      </div>
                                       {evt.date && (
                                         <p className="text-xs text-emerald-700 dark:text-emerald-400">
                                           {new Date(evt.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -1861,37 +2030,39 @@ export default function App() {
                         </div>
                         {/* VOICE SCHEDULER (FREE AI) */}
                         <div className="mb-6">
-                          <VoiceScheduler onScheduleDetected={async (voiceData) => {
-                            console.log("Voice Command:", voiceData);
-                            if (!user) return;
+                          <React.Suspense fallback={<LazyFallback />}>
+                            <VoiceScheduler onScheduleDetected={async (voiceData) => {
+                              console.log("Voice Command:", voiceData);
+                              if (!user) return;
 
-                            // Create event object directly from voice data
-                            const newEvent = {
-                              name: voiceData.name,
-                              date: voiceData.day + ' ' + voiceData.time, // e.g. "Friday 3pm"
-                              note: voiceData.note,
-                              completed: false
-                            };
+                              // Create event object directly from voice data
+                              const newEvent = {
+                                name: voiceData.name,
+                                date: voiceData.day + ' ' + voiceData.time, // e.g. "Friday 3pm"
+                                note: voiceData.note,
+                                completed: false
+                              };
 
-                            try {
-                              await createScheduleItem(user, activeCarnivalId, newEvent);
-                              // Refresh local state (simplest way is to reload or optimistically update)
-                              // ideally we call a refresh function, but for now let's hope the listener catches it
-                              // or we trigger a manual reload of shared data if it's shared?
+                              try {
+                                await createScheduleItem(user, activeCarnivalId, newEvent);
+                                // Refresh local state (simplest way is to reload or optimistically update)
+                                // ideally we call a refresh function, but for now let's hope the listener catches it
+                                // or we trigger a manual reload of shared data if it's shared?
 
-                              // Optimistic Local Update for instant feedback
-                              const updatedCarnivals = { ...carnivals };
-                              const plan = updatedCarnivals[activeCarnivalId];
-                              if (plan) {
-                                plan.schedule = [...(plan.schedule || []), { id: Date.now().toString(), ...newEvent }];
-                                setCarnivals(updatedCarnivals);
+                                // Optimistic Local Update for instant feedback
+                                const updatedCarnivals = { ...carnivals };
+                                const plan = updatedCarnivals[activeCarnivalId];
+                                if (plan) {
+                                  plan.schedule = [...(plan.schedule || []), { id: Date.now().toString(), ...newEvent }];
+                                  setCarnivals(updatedCarnivals);
+                                }
+                                alert(`Added: ${voiceData.name}`);
+                              } catch (e) {
+                                console.error("Voice Add Failed", e);
+                                alert("Could not add voice event.");
                               }
-                              alert(`Added: ${voiceData.name}`);
-                            } catch (e) {
-                              console.error("Voice Add Failed", e);
-                              alert("Could not add voice event.");
-                            }
-                          }} />
+                            }} />
+                          </React.Suspense>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1965,25 +2136,95 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* ROAD MODE: OFFLINE CHAT (New Feature) */}
-                        <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl p-4 mb-6 shadow-lg border border-gray-700">
+                        {/* SQUAD VOICE CHAT (Premium) */}
+                        <React.Suspense fallback={null}>
+                          <SquadVoice
+                            squadId={currentSquad?.id}
+                            userId={user?.uid}
+                            userName={user?.displayName}
+                            isPremium={isPremium}
+                            squadMembers={squadMembers}
+                          />
+                        </React.Suspense>
+
+                        {/* WEARABLE SAFETY MONITOR (Premium) */}
+                        <div className="mt-4">
+                          <React.Suspense fallback={null}>
+                            <WearableMonitor
+                              isPremium={isPremium}
+                              userId={user?.uid}
+                              userName={user?.displayName}
+                              activeCarnivalId={activeCarnivalId}
+                              onSafetyAlert={async (alertData) => {
+                                try {
+                                  const functions = getFunctions(app);
+                                  const sendSafetyAlert = httpsCallable(functions, 'sendSafetyAlert');
+                                  await sendSafetyAlert({
+                                    carnivalId: activeCarnivalId,
+                                    userName: user?.displayName,
+                                    heartRate: alertData.heartRate,
+                                    duration: alertData.duration,
+                                  });
+                                  console.log('Safety alert sent to squad');
+                                } catch (err) {
+                                  console.error('Failed to send safety alert:', err);
+                                }
+                              }}
+                            />
+                          </React.Suspense>
+                        </div>
+
+                        {/* ROAD MODE: OFFLINE CHAT via Bitchat */}
+                        <div className="relative overflow-hidden bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl p-4 mb-6 shadow-lg border border-gray-700">
+                          <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.08] mix-blend-screen" />
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h4 className="font-bold text-lg flex items-center gap-2">
                                 <span>📡</span> Road Mode: Offline Chat
                               </h4>
                               <p className="text-xs text-gray-400 mt-1">
-                                Mesh chat for when cell service dies. Open Bitchat and join your squad channel.
+                                Mesh chat for when cell service dies. Uses Bluetooth & Wi-Fi — no data needed.
                               </p>
                             </div>
-                            <span className="bg-blue-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
+                            <span className="bg-blue-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider flex-shrink-0">
                               No Data Needed
                             </span>
                           </div>
 
                           {!activeCarnivalId || !currentSquad ? (
-                            <div className="text-center py-4 bg-white/5 rounded-lg border border-white/10">
-                              <p className="text-sm text-gray-300">Create or join a squad to enable offline comms.</p>
+                            <div className="space-y-3">
+                              <div className="text-center py-4 bg-white/5 rounded-lg border border-white/10">
+                                <p className="text-sm text-gray-300">Create or join a squad to enable offline comms.</p>
+                              </div>
+                              {/* How it works — always visible */}
+                              <div className="bg-white/5 rounded-lg border border-white/10 p-3">
+                                <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">How it works</p>
+                                <ol className="text-xs text-gray-300 space-y-1.5 list-decimal list-inside">
+                                  <li>Download <strong>Bitchat</strong> on your phone (iOS or Android)</li>
+                                  <li>Create or join a squad in Carnival Planner</li>
+                                  <li>Copy your squad's unique channel name</li>
+                                  <li>Open Bitchat &amp; join the channel — works without cell service!</li>
+                                </ol>
+                              </div>
+                              {/* App Store Links — always visible */}
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                <a
+                                  href="https://apps.apple.com/us/app/bitchat-mesh/id6748219622"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                  <span>🍎</span> Get Bitchat for iOS
+                                </a>
+                                <a
+                                  href="https://play.google.com/store/apps/details?id=com.bitchat.droid"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                  <span>🤖</span> Get Bitchat for Android
+                                </a>
+                              </div>
                             </div>
                           ) : (
                             <div className="space-y-4">
@@ -1994,13 +2235,14 @@ export default function App() {
 
                                 return (
                                   <div className="bg-black/30 p-4 rounded-lg border border-white/10">
-                                    <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">Join this channel in Bitchat</p>
+                                    <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">Your squad's Bitchat channel</p>
                                     <div className="flex items-center gap-3">
                                       <p className="font-mono text-2xl font-bold text-blue-400 tracking-wider select-all flex-1">{channelName}</p>
                                       <button
                                         onClick={() => {
                                           navigator.clipboard.writeText(channelName);
                                           setToastMessage('Channel name copied!');
+                                          setTimeout(() => setToastMessage(null), 3000);
                                         }}
                                         className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors"
                                       >
@@ -2011,6 +2253,16 @@ export default function App() {
                                 );
                               })()}
 
+                              {/* Step-by-step instructions */}
+                              <div className="bg-white/5 rounded-lg border border-white/10 p-3">
+                                <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">Quick start</p>
+                                <ol className="text-xs text-gray-300 space-y-1.5 list-decimal list-inside">
+                                  <li>Copy the channel name above</li>
+                                  <li>Open <strong>Bitchat</strong> on your phone</li>
+                                  <li>Join the channel — chat works even without cell service!</li>
+                                </ol>
+                              </div>
+
                               {/* App Store Links */}
                               <div className="flex flex-wrap gap-2 justify-center">
                                 <a
@@ -2019,7 +2271,7 @@ export default function App() {
                                   rel="noopener noreferrer"
                                   className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
                                 >
-                                  <span>🍎</span> iOS App
+                                  <span>🍎</span> Get Bitchat for iOS
                                 </a>
                                 <a
                                   href="https://play.google.com/store/apps/details?id=com.bitchat.droid"
@@ -2027,7 +2279,7 @@ export default function App() {
                                   rel="noopener noreferrer"
                                   className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
                                 >
-                                  <span>🤖</span> Android App
+                                  <span>🤖</span> Get Bitchat for Android
                                 </a>
                               </div>
                             </div>
@@ -2252,12 +2504,14 @@ export default function App() {
                         {/* SQUAD CHAT */}
                         <div className="mt-8 mb-8">
 
-                          <SquadChat
-                            squadId={currentSquad?.id}
-                            user={user}
-                            isDemoMode={isDemoMode}
-                            isPremium={isPremium}
-                          />
+                          <React.Suspense fallback={<LazyFallback />}>
+                            <SquadChat
+                              squadId={currentSquad?.id}
+                              user={user}
+                              isDemoMode={isDemoMode}
+                              isPremium={isPremium}
+                            />
+                          </React.Suspense>
                         </div>
 
                         {/* Inline Ad for free users */}
@@ -2300,93 +2554,120 @@ export default function App() {
                     {/* TAB: MAP (Premium) */}
                     {activeTab === 'Map' && isPremium && (
                       <div className="animate-fadeIn">
-                        <FeteMap
-                          locations={currentCarnival.mapLocations || []}
-                          scrapedEvents={scrapedEvents}
-                          onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
-                          carnivalName={currentCarnival.name}
-                          carnivalId={activeCarnivalId}
-                        />
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <FeteMap
+                            locations={currentCarnival.mapLocations || []}
+                            scrapedEvents={scrapedEvents}
+                            onLocationsChange={(newLocations) => updateCarnivalData('mapLocations', newLocations)}
+                            carnivalName={currentCarnival.name}
+                            carnivalId={activeCarnivalId}
+                            isPremium={isPremium}
+                          />
+                        </React.Suspense>
                       </div>
                     )}
 
                     {/* TAB: PASSPORT (Premium Upgrade Integration) */}
                     {activeTab === 'Passport' && isPremium && (
                       <div className="animate-fadeIn">
-                        <SocaPassportTab
-                          user={user}
-                          activeCarnivalId={activeCarnivalId}
-                          activePlanId={currentSharedPlanId}
-                          isDemoMode={isDemoMode}
-                        />
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <SocaPassportTab
+                            user={user}
+                            activeCarnivalId={activeCarnivalId}
+                            activePlanId={currentSharedPlanId}
+                            isDemoMode={isDemoMode}
+                          />
+                        </React.Suspense>
                       </div>
                     )}
 
                     {/* TAB: MEDIA VAULT (Premium) */}
                     {activeTab === 'Media' && isPremium && (
                       <div className="animate-fadeIn">
-                        <MediaVault
-                          files={currentCarnival.mediaFiles || []}
-                          onFilesChange={(newFiles) => updateCarnivalData('mediaFiles', newFiles)}
-                          carnivalName={currentCarnival.name}
-                          carnivalId={activeCarnivalId}
-                          userId={user.uid}
-                        />
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <MediaVault
+                            files={currentCarnival.mediaFiles || []}
+                            onFilesChange={(newFiles) => updateCarnivalData('mediaFiles', newFiles)}
+                            carnivalName={currentCarnival.name}
+                            carnivalId={activeCarnivalId}
+                            userId={user.uid}
+                          />
+                        </React.Suspense>
                       </div>
                     )}
 
                     {/* TAB: PROFILE (Free) */}
                     {activeTab === 'Profile' && (
                       <div className="animate-fadeIn">
-                        {console.log('Rendering MasqueraderProfile, isOwnProfile: true')}
-                        <MasqueraderProfile
-                          currentUser={user}
-                          profileData={{
-                            ...(userProfile || {
-                              displayName: user?.displayName || 'Carnival Lover',
-                              bio: '',
-                              isPublic: false,
-                              carnivalHistory: Object.entries(carnivals || {}).filter(([_, data]) => data?.costume?.band).map(([carnivalId, data]) => ({
-                                carnivalId,
-                                year: new Date().getFullYear(),
-                                band: data.costume?.band,
-                                section: data.costume?.section
-                              }))
-                            }),
-                            activeCarnivalId, // For context
-                            isPromoter: userProfile?.isPromoter || false,
-                            onAccessPromoter: () => setActiveTab('Promoter')
-                          }}
-                          isOwnProfile={true}
-                          onEdit={() => setShowProfileEditor(true)}
-                        />
+                        <React.Suspense fallback={<LazyFallback />}>
+                          {console.log('Rendering MasqueraderProfile, isOwnProfile: true')}
+                          <MasqueraderProfile
+                            currentUser={user}
+                            profileData={{
+                              ...(userProfile || {
+                                displayName: user?.displayName || 'Carnival Lover',
+                                bio: '',
+                                isPublic: false,
+                                carnivalHistory: Object.entries(carnivals || {}).filter(([_, data]) => data?.costume?.band).map(([carnivalId, data]) => ({
+                                  carnivalId,
+                                  year: new Date().getFullYear(),
+                                  band: data.costume?.band,
+                                  section: data.costume?.section
+                                }))
+                              }),
+                              activeCarnivalId, // For context
+                              isPromoter: userProfile?.isPromoter || false,
+                              onAccessPromoter: () => setActiveTab('Promoter')
+                            }}
+                            isOwnProfile={true}
+                            onEdit={() => setShowProfileEditor(true)}
+                          />
+                        </React.Suspense>
                       </div>
                     )}
 
 
+                    {/* TAB: MARKETPLACE */}
+                    {activeTab === 'Marketplace' && (
+                      <div className="animate-fadeIn">
+                        <React.Suspense fallback={
+                          <div className="flex items-center justify-center py-16">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                          </div>
+                        }>
+                          <MarketplacePage user={user} />
+                        </React.Suspense>
+                      </div>
+                    )}
+
                     {/* TAB: MARKETING AGENT */}
                     {activeTab === 'Marketing' && isAdmin && (
                       <div className="animate-fadeIn">
-                        <MarketingDashboard />
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <MarketingDashboard />
+                        </React.Suspense>
                       </div>
                     )}
 
                     {/* TAB: PROMOTER DASHBOARD (Free/Premium) */}
                     {activeTab === 'Promoter' && (
                       <div className="animate-fadeIn">
-                        <PromoterDashboard
-                          user={user}
-                          isPremium={isPremium}
-                          onExit={() => setActiveTab('Profile')}
-                        />
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <PromoterDashboard
+                            user={user}
+                            isPremium={isPremium}
+                            onExit={() => setActiveTab('Profile')}
+                          />
+                        </React.Suspense>
                       </div>
                     )}
 
                     {/* TAB: INFO & EXPORT */}
                     {activeTab === 'Info' && (
                       <div className="animate-fadeIn text-center">
-                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
-                          <img src={logo} alt="Logo" className="w-20 h-20 mx-auto mb-4" />
+                        <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-8 mb-6 shadow-xl">
+                          <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.12] mix-blend-screen" loading="lazy" decoding="async" />
+                          <img src={logo} alt="Logo" className="relative z-10 w-20 h-20 mx-auto mb-4" />
                           <h2 className="text-2xl font-bold mb-2">{isPremium ? "Premium Supporter" : "Support the App"}</h2>
                           <p className="text-gray-400 mb-6">{isPremium ? "Thank you for supporting Caribbean Carnival Planner!" : "All features are free! Premium removes ads and shows your support."}</p>
 
@@ -2424,13 +2705,17 @@ export default function App() {
 
                         {/* Account Settings */}
                         <div className="mt-6">
-                          <AccountSettings user={user} />
+                          <React.Suspense fallback={<LazyFallback />}>
+                            <AccountSettings user={user} />
+                          </React.Suspense>
                         </div>
 
                         {/* ADMIN DASHBOARD - Dynamic Access */}
-                        {isAdmin && (
+                        {isAdmin && !isDemoMode && (
                           <div className="mt-6 text-left space-y-8">
-                            <AdminDashboard user={user} />
+                            <React.Suspense fallback={<LazyFallback />}>
+                              <AdminDashboard user={user} />
+                            </React.Suspense>
                           </div>
                         )}
                       </div>
@@ -2499,7 +2784,9 @@ export default function App() {
       {/* Vibes Player (Floating) */}
       {
         user && (
-          <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
+          <React.Suspense fallback={null}>
+            <VibesPlayer activeCarnivalId={activeCarnivalId} isPremium={isPremium} />
+          </React.Suspense>
         )
       }
 
@@ -2518,13 +2805,43 @@ export default function App() {
 
       {/* Profile Editor Modal */}
       {showProfileEditor && (
-        <ProfileEditor
-          user={user}
-          currentProfile={userProfile}
-          carnivals={carnivals}
-          onSave={(updatedProfile) => setUserProfile(updatedProfile)}
-          onClose={() => setShowProfileEditor(false)}
-        />
+        <React.Suspense fallback={<LazyFallback />}>
+          <ProfileEditor
+            user={user}
+            currentProfile={userProfile}
+            carnivals={carnivals}
+            onSave={(updatedProfile) => setUserProfile(updatedProfile)}
+            onClose={() => setShowProfileEditor(false)}
+          />
+        </React.Suspense>
+      )}
+      {/* PREVIEW MODE: Sticky Bottom Sign-Up Banner */}
+      {isDemoMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-900/95 via-pink-900/95 to-orange-900/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-white">
+              <span className="text-2xl">🎭</span>
+              <div>
+                <p className="font-bold text-sm sm:text-base">You're previewing Carnival Planner</p>
+                <p className="text-white/70 text-xs sm:text-sm">Create a free account to save your plans and sync with your squad</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => { handleExitDemo(); setShowLanding(false); }}
+                className="px-5 py-2 bg-white text-gray-900 font-bold text-sm rounded-full hover:bg-gray-100 transition-colors shadow-lg"
+              >
+                Sign Up Free
+              </button>
+              <button
+                onClick={handleExitDemo}
+                className="px-3 py-2 text-white/60 hover:text-white text-xs font-medium transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div >
   );

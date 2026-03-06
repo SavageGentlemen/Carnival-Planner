@@ -1,10 +1,14 @@
-// Cloud Functions entry point for Carnival Planner premium subscriptions.
+// Cloud Functions entry point for Caribbean Carnival Planner.
 
 const functions = require("firebase-functions");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const Stripe = require("stripe");
+const nodemailer = require("nodemailer");
+const { runScraper } = require("./scraper");
+const { generateVibeScores } = require("./vibeEngine");
 
 const app = admin.initializeApp();
 
@@ -16,9 +20,11 @@ const stripeAccountId = process.env.STRIPE_ACCOUNT_ID || null;
 
 let stripe = null;
 if (stripeSecretKey) {
-  stripe = new Stripe(stripeSecretKey, {
-    apiVersion: "2024-04-10",
-  });
+  const stripeOpts = { apiVersion: "2024-04-10" };
+  if (stripeAccountId) {
+    stripeOpts.stripeAccount = stripeAccountId;
+  }
+  stripe = new Stripe(stripeSecretKey, stripeOpts);
 } else {
   console.warn(
     "Stripe secret key is not set. Run:\n" +
@@ -47,7 +53,8 @@ exports.createCheckoutSession = onCall(
       uid: uidFromClient,
       email: emailFromClient,
       success_url,
-      cancel_url
+      cancel_url,
+      affiliateRef
     } = request.data || {};
 
     const uid = (request.auth && request.auth.uid) || uidFromClient;
@@ -85,12 +92,14 @@ exports.createCheckoutSession = onCall(
         line_items: [{ price: priceId, quantity: 1 }],
         metadata: {
           ...(uid ? { firebaseUid: uid } : {}),
+          ...(affiliateRef ? { affiliateRef: affiliateRef } : {}),
           priceId,
           appId: APP_ID,
         },
         subscription_data: {
           metadata: {
             ...(uid ? { firebaseUid: uid } : {}),
+            ...(affiliateRef ? { affiliateRef: affiliateRef } : {}),
             priceId,
             appId: APP_ID,
           },
@@ -177,6 +186,56 @@ exports.handleStripeWebhook = functions.https.onRequest(
             premiumCurrentPeriodEnd: currentPeriodEnd,
             subscriptionStatus: status,
           }, { merge: true });
+
+          // --- AFFILIATE CONVERSION TRACKING ---
+          const affiliateRef = meta.affiliateRef || null;
+          if (affiliateRef) {
+            try {
+              // Find the affiliate by code
+              const affiliatesSnap = await defaultDb.collection('affiliates')
+                .where('affiliateCode', '==', affiliateRef)
+                .where('status', '==', 'approved')
+                .limit(1)
+                .get();
+
+              if (!affiliatesSnap.empty) {
+                const affiliateDoc = affiliatesSnap.docs[0];
+                const affiliateData = affiliateDoc.data();
+                const commissionRate = affiliateData.commissionRate || 0.20;
+
+                // Calculate commission based on plan
+                // Monthly ($4.99): 20% = ~$1.00 | Annual ($39.99): flat $2.00
+                const isYearly = priceId && priceId.includes('yearly') || (priceId === 'price_1SanMhJR9xpdRiXinv2F9knM');
+                const commission = isYearly ? 2.00 : (4.99 * commissionRate);
+
+                // Record conversion
+                await defaultDb.collection('affiliateConversions').add({
+                  affiliateUid: affiliateData.uid || affiliateData.userId,
+                  affiliateCode: affiliateRef,
+                  subscriberUid: uid,
+                  subscriberEmail: session.customer_email || email || null,
+                  plan: isYearly ? 'yearly' : 'monthly',
+                  commission: commission,
+                  payoutStatus: 'pending',
+                  stripeSessionId: session.id,
+                  convertedAt: FieldValue.serverTimestamp(),
+                });
+
+                // Update affiliate totals
+                await affiliateDoc.ref.update({
+                  totalConversions: FieldValue.increment(1),
+                  totalEarnings: FieldValue.increment(commission),
+                });
+
+                console.log(`[Affiliate] Recorded conversion: ${affiliateRef} earned $${commission} from ${uid}`);
+              } else {
+                console.log(`[Affiliate] Ref code ${affiliateRef} not found or not approved.`);
+              }
+            } catch (affErr) {
+              // Don't fail the webhook if affiliate tracking fails
+              console.error('[Affiliate] Conversion tracking error:', affErr);
+            }
+          }
 
           break;
         }
@@ -567,6 +626,122 @@ exports.sendRoadReadyAlert = onCall(
     } catch (err) {
       console.error('Error sending Road Ready notifications:', err);
       throw new HttpsError('internal', 'Failed to send notifications.');
+    }
+  }
+);
+
+// ----- Callable: sendSafetyAlert (Wearable Safety Check) -----
+exports.sendSafetyAlert = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const {
+      carnivalId,
+      userName,
+      heartRate,
+      duration
+    } = request.data || {};
+
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+
+    if (!carnivalId) {
+      throw new HttpsError('invalid-argument', 'Carnival ID required.');
+    }
+
+    // Premium check (server-side enforcement)
+    const userAppRef = squadDb.doc(`users/${uid}/apps/${APP_ID}`);
+    const userAppDoc = await userAppRef.get();
+    const userEmail = request.auth.token?.email || '';
+    const isSuperuser = userEmail === 'djkrss1@gmail.com';
+    const isPremium = isSuperuser || (userAppDoc.exists && userAppDoc.data()?.premiumActive === true);
+
+    if (!isPremium) {
+      throw new HttpsError('permission-denied', 'Safety alerts require premium subscription.');
+    }
+
+    // Cooldown check: max 1 alert per 15 minutes per user
+    const cooldownRef = squadDb.doc(`safetyCooldowns/${uid}`);
+    const cooldownDoc = await cooldownRef.get();
+    if (cooldownDoc.exists) {
+      const lastAlert = cooldownDoc.data()?.lastAlertAt?.toMillis?.() || cooldownDoc.data()?.lastAlertAt || 0;
+      const fifteenMinMs = 15 * 60 * 1000;
+      if (Date.now() - lastAlert < fifteenMinMs) {
+        return { success: true, notified: 0, message: 'Alert cooldown active. Try again later.' };
+      }
+    }
+
+    // Find squad members
+    const squadsRef = squadDb.collection('squads');
+    const snapshot = await squadsRef.where('carnivalId', '==', carnivalId).get();
+
+    const squadMemberUids = new Set();
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.members?.includes(uid)) {
+        data.members.forEach(memberUid => {
+          if (memberUid !== uid) {
+            squadMemberUids.add(memberUid);
+          }
+        });
+      }
+    });
+
+    if (squadMemberUids.size === 0) {
+      return { success: true, notified: 0, message: 'No squad members to notify.' };
+    }
+
+    // Get FCM tokens
+    const fcmTokensRef = squadDb.collection('fcmTokens');
+    const tokens = [];
+
+    for (const memberUid of squadMemberUids) {
+      const tokenDoc = await fcmTokensRef.doc(memberUid).get();
+      if (tokenDoc.exists && tokenDoc.data()?.token) {
+        tokens.push(tokenDoc.data().token);
+      }
+    }
+
+    if (tokens.length === 0) {
+      return { success: true, notified: 0, message: 'No squad members with notifications enabled.' };
+    }
+
+    // Send HIGH priority safety alert
+    const displayName = userName || 'A squad member';
+    const hrText = heartRate ? ` (${heartRate} bpm for ${duration || '?'} min)` : '';
+    const message = {
+      notification: {
+        title: `⚠️ Check on ${displayName}!`,
+        body: `Elevated heart rate detected${hrText}. Make sure they're OK!`
+      },
+      data: {
+        type: 'safety_alert',
+        senderUid: uid,
+        heartRate: String(heartRate || ''),
+        duration: String(duration || '')
+      },
+      android: { priority: 'high' },
+      apns: { headers: { 'apns-priority': '10' } },
+      tokens
+    };
+
+    try {
+      const response = await admin.messaging().sendEachForMulticast(message);
+      console.log(`Safety alert sent: ${response.successCount} success, ${response.failureCount} failed`);
+
+      // Set cooldown
+      await cooldownRef.set({ lastAlertAt: Date.now() });
+
+      return {
+        success: true,
+        notified: response.successCount,
+        message: `Safety alert sent to ${response.successCount} squad member(s).`
+      };
+    } catch (err) {
+      console.error('Error sending safety alert:', err);
+      throw new HttpsError('internal', 'Failed to send safety alert.');
     }
   }
 );
@@ -2128,5 +2303,962 @@ exports.redeemPromoterReward = onCall(
         message: `Successfully redeemed ${rewardData.title}!`
       };
     });
+  }
+);
+
+// =====================================================================
+// ===== MARKETPLACE: Stripe Connect + Peer-to-Peer Payments ===========
+// =====================================================================
+
+const marketplaceWebhookSecret = process.env.STRIPE_MARKETPLACE_WEBHOOK_SECRET || null;
+
+if (!marketplaceWebhookSecret) {
+  console.warn(
+    "Marketplace webhook secret not set. Run:\n" +
+    "firebase functions:secrets:set STRIPE_MARKETPLACE_WEBHOOK_SECRET"
+  );
+}
+
+// ----- Callable: createConnectAccount -----
+// Creates a Stripe Connect Express account for a seller and returns the onboarding URL
+exports.createConnectAccount = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to become a seller.');
+    }
+
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe is not configured on the server.');
+    }
+
+    const uid = request.auth.uid;
+    const email = request.auth.token?.email || null;
+    const { returnUrl, refreshUrl } = request.data || {};
+
+    const DEFAULT_ORIGIN = "https://carnival-planner.web.app";
+    const baseReturnUrl = returnUrl || DEFAULT_ORIGIN;
+    const baseRefreshUrl = refreshUrl || DEFAULT_ORIGIN;
+
+    try {
+      // Check if seller already has a Connect account
+      const sellerRef = squadDb.doc(`marketplaceSellers/${uid}`);
+      const sellerDoc = await sellerRef.get();
+
+      let accountId;
+
+      if (sellerDoc.exists && sellerDoc.data().stripeAccountId) {
+        // Existing account — generate a new onboarding link (in case they didn't finish)
+        accountId = sellerDoc.data().stripeAccountId;
+      } else {
+        // Create a new Express account
+        const account = await stripe.accounts.create({
+          type: 'express',
+          email: email || undefined,
+          metadata: {
+            firebaseUid: uid,
+            platform: 'carnival-planner-marketplace'
+          },
+          capabilities: {
+            card_payments: { requested: true },
+            transfers: { requested: true },
+          },
+        });
+
+        accountId = account.id;
+
+        // Store the Connect account ID in Firestore
+        await sellerRef.set({
+          stripeAccountId: accountId,
+          email: email,
+          onboardingComplete: false,
+          createdAt: new Date(),
+        }, { merge: true });
+      }
+
+      // Create an Account Link for onboarding
+      const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${baseRefreshUrl}?stripe_refresh=true`,
+        return_url: `${baseReturnUrl}?stripe_onboarding=complete`,
+        type: 'account_onboarding',
+      });
+
+      return {
+        success: true,
+        onboardingUrl: accountLink.url,
+        accountId: accountId,
+      };
+    } catch (err) {
+      console.error("Error creating Connect account:", err);
+      throw new HttpsError('internal', `Failed to create seller account: ${err.message}`);
+    }
+  }
+);
+
+// ----- Callable: createConnectLoginLink -----
+// Returns a Stripe Express dashboard link so sellers can view payouts/settings
+exports.createConnectLoginLink = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe is not configured.');
+    }
+
+    const uid = request.auth.uid;
+
+    try {
+      const sellerDoc = await squadDb.doc(`marketplaceSellers/${uid}`).get();
+
+      if (!sellerDoc.exists || !sellerDoc.data().stripeAccountId) {
+        throw new HttpsError('not-found', 'No seller account found. Complete onboarding first.');
+      }
+
+      const accountId = sellerDoc.data().stripeAccountId;
+
+      const loginLink = await stripe.accounts.createLoginLink(accountId);
+
+      return {
+        success: true,
+        loginUrl: loginLink.url,
+      };
+    } catch (err) {
+      console.error("Error creating login link:", err);
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError('internal', `Failed to create dashboard link: ${err.message}`);
+    }
+  }
+);
+
+// ----- Callable: createMarketplaceCheckout -----
+// Creates a Stripe Checkout Session for a marketplace purchase
+// Routes funds: 90% to seller's Connect account, 10% platform fee
+exports.createMarketplaceCheckout = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to purchase.');
+    }
+
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe is not configured on the server.');
+    }
+
+    const uid = request.auth.uid;
+    const buyerEmail = request.auth.token?.email || null;
+    const {
+      listingId,
+      success_url,
+      cancel_url
+    } = request.data || {};
+
+    if (!listingId) {
+      throw new HttpsError('invalid-argument', 'Listing ID is required.');
+    }
+
+    const DEFAULT_ORIGIN = "https://carnival-planner.web.app";
+
+    try {
+      // 1. Fetch the listing from Firestore
+      const listingDoc = await squadDb.doc(`marketplaceListings/${listingId}`).get();
+
+      if (!listingDoc.exists) {
+        throw new HttpsError('not-found', 'Listing not found.');
+      }
+
+      const listing = listingDoc.data();
+
+      // Validate listing is still available
+      if (listing.status !== 'active') {
+        throw new HttpsError('failed-precondition', 'This item is no longer available.');
+      }
+
+      // Prevent buying your own listing
+      if (listing.sellerId === uid) {
+        throw new HttpsError('failed-precondition', 'You cannot purchase your own listing.');
+      }
+
+      // 2. Fetch seller's Stripe Connect account ID
+      const sellerDoc = await squadDb.doc(`marketplaceSellers/${listing.sellerId}`).get();
+
+      if (!sellerDoc.exists || !sellerDoc.data().stripeAccountId) {
+        throw new HttpsError('failed-precondition', 'Seller has not completed payment setup.');
+      }
+
+      const sellerStripeId = sellerDoc.data().stripeAccountId;
+
+      // 3. Calculate fees
+      const priceInCents = Math.round(listing.price * 100);
+      const platformFee = Math.round(priceInCents * 0.10); // 10% platform fee
+
+      // 4. Create the order document (pending)
+      const orderRef = squadDb.collection('marketplaceOrders').doc();
+      await orderRef.set({
+        listingId: listingId,
+        listingTitle: listing.title,
+        imageUrl: listing.imageUrl || '',
+        category: listing.category || 'ticket',
+        carnival: listing.carnival || '',
+        buyerId: uid,
+        buyerEmail: buyerEmail,
+        sellerId: listing.sellerId,
+        sellerName: listing.sellerName || 'Seller',
+        sellerStripeId: sellerStripeId,
+        amount: listing.price,
+        platformFee: platformFee / 100,
+        sellerPayout: (priceInCents - platformFee) / 100,
+        currency: listing.currency || 'usd',
+        status: 'pending',
+        createdAt: new Date(),
+      });
+
+      // 5. Create Stripe Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        customer_email: buyerEmail || undefined,
+        line_items: [{
+          price_data: {
+            currency: listing.currency || 'usd',
+            product_data: {
+              name: listing.title,
+              description: `${listing.category === 'ticket' ? '🎫 Event Ticket' : '👗 Costume'} — ${listing.carnival || 'Carnival'}`,
+              ...(listing.imageUrl ? { images: [listing.imageUrl] } : {}),
+            },
+            unit_amount: priceInCents,
+          },
+          quantity: 1,
+        }],
+        payment_intent_data: {
+          application_fee_amount: platformFee,
+          transfer_data: {
+            destination: sellerStripeId,
+          },
+        },
+        metadata: {
+          orderId: orderRef.id,
+          listingId: listingId,
+          buyerUid: uid,
+          sellerId: listing.sellerId,
+          type: 'marketplace_purchase',
+        },
+        success_url: `${success_url || DEFAULT_ORIGIN}?marketplace_purchase=success&order_id=${orderRef.id}`,
+        cancel_url: `${cancel_url || DEFAULT_ORIGIN}?marketplace_purchase=cancelled`,
+      });
+
+      // Update order with Stripe session ID
+      await orderRef.update({
+        stripeSessionId: session.id,
+      });
+
+      return {
+        success: true,
+        checkoutUrl: session.url,
+        orderId: orderRef.id,
+        sessionId: session.id,
+      };
+    } catch (err) {
+      console.error("Error creating marketplace checkout:", err);
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError('internal', `Failed to create checkout: ${err.message}`);
+    }
+  }
+);
+
+// ----- Email helper for marketplace orders -----
+async function sendOrderEmails(orderData, sellerEmail) {
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+
+  if (!gmailUser || !gmailPass) {
+    console.log("Gmail credentials not configured — skipping order emails.");
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: gmailUser, pass: gmailPass },
+  });
+
+  const itemEmoji = orderData.category === 'ticket' ? '🎫' : '👗';
+  const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: (orderData.currency || 'usd').toUpperCase() }).format(orderData.amount);
+
+  const emailStyle = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;background:#111827;color:#fff;border-radius:16px;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#7c3aed,#db2777);padding:24px 24px 16px;">
+        <h1 style="margin:0;font-size:20px;font-weight:800;">🎭 Caribbean Carnival Planner</h1>
+        <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.8);">Marketplace</p>
+      </div>
+      <div style="padding:24px;">
+        %%CONTENT%%
+        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #374151;text-align:center;">
+          <p style="font-size:11px;color:#6b7280;margin:0;">Caribbean Carnival Planner &bull; carnival-planner.com</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // --- Buyer confirmation email ---
+  if (orderData.buyerEmail) {
+    const buyerContent = `
+      <h2 style="margin:0 0 8px;font-size:18px;">Order Confirmed! ✅</h2>
+      <p style="color:#9ca3af;font-size:14px;margin:0 0 16px;">Your purchase was successful.</p>
+      <div style="background:#1f2937;border-radius:12px;padding:16px;margin-bottom:16px;">
+        <p style="margin:0 0 4px;font-size:16px;font-weight:700;">${itemEmoji} ${orderData.listingTitle}</p>
+        ${orderData.carnival ? `<p style="margin:0 0 4px;font-size:12px;color:#a78bfa;">${orderData.carnival}</p>` : ''}
+        <p style="margin:8px 0 0;font-size:20px;font-weight:900;color:#34d399;">${formattedPrice}</p>
+      </div>
+      <p style="color:#9ca3af;font-size:13px;margin:0;">The seller has been notified. They will contact you to arrange delivery/pickup.</p>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"Caribbean Carnival Planner" <${gmailUser}>`,
+        to: orderData.buyerEmail,
+        subject: `${itemEmoji} Order Confirmed — ${orderData.listingTitle}`,
+        html: emailStyle.replace('%%CONTENT%%', buyerContent),
+      });
+      console.log(`Marketplace email sent to buyer: ${orderData.buyerEmail}`);
+    } catch (err) {
+      console.error('Failed to send buyer email:', err.message);
+    }
+  }
+
+  // --- Seller notification email ---
+  if (sellerEmail) {
+    const sellerPayout = new Intl.NumberFormat('en-US', { style: 'currency', currency: (orderData.currency || 'usd').toUpperCase() }).format(orderData.sellerPayout || orderData.amount);
+
+    const sellerContent = `
+      <h2 style="margin:0 0 8px;font-size:18px;">You Made a Sale! 🎉</h2>
+      <p style="color:#9ca3af;font-size:14px;margin:0 0 16px;">Your listing has been purchased.</p>
+      <div style="background:#1f2937;border-radius:12px;padding:16px;margin-bottom:16px;">
+        <p style="margin:0 0 4px;font-size:16px;font-weight:700;">${itemEmoji} ${orderData.listingTitle}</p>
+        ${orderData.carnival ? `<p style="margin:0 0 4px;font-size:12px;color:#a78bfa;">${orderData.carnival}</p>` : ''}
+        <p style="margin:8px 0 0;font-size:14px;color:#9ca3af;">Sale price: ${formattedPrice}</p>
+        <p style="margin:4px 0 0;font-size:20px;font-weight:900;color:#34d399;">Your payout: ${sellerPayout}</p>
+      </div>
+      <p style="color:#9ca3af;font-size:13px;margin:0;">Buyer email: <strong style="color:#a78bfa;">${orderData.buyerEmail || 'Not provided'}</strong></p>
+      <p style="color:#6b7280;font-size:12px;margin:8px 0 0;">Please coordinate with the buyer for delivery/pickup. Payouts are handled via your Stripe Connect account.</p>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"Caribbean Carnival Planner" <${gmailUser}>`,
+        to: sellerEmail,
+        subject: `🎉 You Made a Sale — ${orderData.listingTitle}`,
+        html: emailStyle.replace('%%CONTENT%%', sellerContent),
+      });
+      console.log(`Marketplace email sent to seller: ${sellerEmail}`);
+    } catch (err) {
+      console.error('Failed to send seller email:', err.message);
+    }
+  }
+}
+
+// ----- Webhook: handleMarketplaceWebhook -----
+// Listens for Stripe Connect events and updates Firestore accordingly
+exports.handleMarketplaceWebhook = functions.https.onRequest(
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    if (!stripe || !marketplaceWebhookSecret) {
+      console.error("Stripe/Marketplace webhook not configured.");
+      res.status(500).send("Stripe marketplace webhook not configured.");
+      return;
+    }
+
+    const sig = req.headers["stripe-signature"];
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.rawBody, sig, marketplaceWebhookSecret);
+    } catch (err) {
+      console.error("Marketplace webhook signature verification failed:", err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
+    }
+
+    try {
+      switch (event.type) {
+        // --- Payment completed: mark order + listing as sold ---
+        case "checkout.session.completed": {
+          const session = event.data.object;
+          const meta = session.metadata || {};
+
+          // Only process marketplace purchases
+          if (meta.type !== 'marketplace_purchase') {
+            console.log("Marketplace webhook: ignoring non-marketplace session.");
+            break;
+          }
+
+          const orderId = meta.orderId;
+          const listingId = meta.listingId;
+
+          if (!orderId) {
+            console.warn("Marketplace webhook: no orderId in metadata.");
+            break;
+          }
+
+          console.log(`Marketplace: Completing order ${orderId} for listing ${listingId}`);
+
+          // Update the Order to completed
+          const orderRef = squadDb.doc(`marketplaceOrders/${orderId}`);
+          await orderRef.update({
+            status: 'completed',
+            completedAt: new Date(),
+            stripePaymentIntentId: session.payment_intent || null,
+          });
+
+          // Mark the Listing as sold
+          if (listingId) {
+            const listingRef = squadDb.doc(`marketplaceListings/${listingId}`);
+            await listingRef.update({
+              status: 'sold',
+              soldAt: new Date(),
+              soldTo: meta.buyerUid || null,
+            });
+          }
+
+          console.log(`Marketplace: Order ${orderId} completed, listing ${listingId} marked as sold.`);
+
+          // --- Send email notifications to buyer and seller ---
+          try {
+            const orderDoc = await orderRef.get();
+            const orderData = orderDoc.data();
+            if (orderData) {
+              // Look up seller email from Firebase Auth
+              let sellerEmail = null;
+              try {
+                const sellerUser = await admin.auth().getUser(orderData.sellerId);
+                sellerEmail = sellerUser.email;
+              } catch (e) { /* seller email lookup failed, non-critical */ }
+
+              await sendOrderEmails(orderData, sellerEmail);
+            }
+          } catch (emailErr) {
+            // Email failure should not block the webhook response
+            console.error('Failed to send order emails (non-critical):', emailErr.message);
+          }
+
+          break;
+        }
+
+        // --- Connect account updated: check onboarding status ---
+        case "account.updated": {
+          const account = event.data.object;
+          const firebaseUid = account.metadata?.firebaseUid;
+
+          if (!firebaseUid) {
+            console.log("Marketplace webhook: account.updated with no firebaseUid, skipping.");
+            break;
+          }
+
+          const isFullyOnboarded = account.charges_enabled && account.payouts_enabled;
+
+          const sellerRef = squadDb.doc(`marketplaceSellers/${firebaseUid}`);
+          await sellerRef.update({
+            onboardingComplete: isFullyOnboarded,
+            chargesEnabled: account.charges_enabled || false,
+            payoutsEnabled: account.payouts_enabled || false,
+            updatedAt: new Date(),
+          });
+
+          console.log(`Marketplace: Seller ${firebaseUid} onboarding status: ${isFullyOnboarded ? 'complete' : 'pending'}`);
+          break;
+        }
+
+        default:
+          console.log(`Marketplace webhook: unhandled event type ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error("Marketplace webhook handler error:", err);
+      res.status(500).send("Marketplace webhook handler failed.");
+    }
+  }
+);
+
+// ===================================================================
+// VIBE ENGINE — Scheduled Scraping + AI Scoring
+// ===================================================================
+
+// Scheduled: Run scraper + vibe scoring every 15 minutes
+// Only active during carnival season — disable by removing the schedule
+exports.scheduledScrapeEvents = onSchedule(
+  {
+    schedule: "every 15 minutes",
+    timeZone: "America/Port_of_Spain",
+    region: "us-central1",
+    timeoutSeconds: 300,
+    memory: "512MiB",
+    secrets: ["GEMINI_API_KEY"],
+  },
+  async (event) => {
+    console.log("Vibe Engine: Scheduled scrape + score run starting...");
+
+    try {
+      // 1. Run the scraper
+      const scrapeResult = await runScraper(squadDb);
+      console.log(`Vibe Engine: Scraper finished. ${scrapeResult.totalScraped} events across ${scrapeResult.categorizedCount} carnivals.`);
+
+      // 2. Generate vibe scores
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const vibeResult = await generateVibeScores(squadDb, geminiKey);
+      console.log(`Vibe Engine: Scoring finished. ${vibeResult.scored} events scored.`);
+
+      return { scrapeResult, vibeResult };
+    } catch (err) {
+      console.error("Vibe Engine: Scheduled run failed:", err);
+    }
+  }
+);
+
+// Admin-only: Manually trigger scraper + vibe engine
+exports.runVibeEngine = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+    invoker: "public",
+    secrets: ["GEMINI_API_KEY"],
+  },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    // Admin-only check
+    const adminEmail = 'djkrss1@gmail.com';
+    const userEmail = request.auth.token?.email || '';
+    if (userEmail !== adminEmail) {
+      throw new HttpsError('permission-denied', 'Only admin can trigger the Vibe Engine.');
+    }
+
+    console.log(`Vibe Engine: Manual trigger by ${userEmail}`);
+
+    try {
+      const scrapeResult = await runScraper(squadDb);
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const vibeResult = await generateVibeScores(squadDb, geminiKey);
+
+      return {
+        success: true,
+        scrapeResult,
+        vibeResult,
+        message: `Scraped ${scrapeResult.totalScraped} events, scored ${vibeResult.scored} events.`
+      };
+    } catch (err) {
+      console.error("Vibe Engine manual run error:", err);
+      throw new HttpsError('internal', `Vibe Engine failed: ${err.message}`);
+    }
+  }
+);
+
+// Callable: Fetch vibe scores for a carnival (fallback if real-time listener fails)
+exports.getVibeScores = onCall(
+  { region: "us-central1", cors: true, invoker: "public" },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const { carnivalId } = request.data || {};
+    if (!carnivalId || typeof carnivalId !== 'string') {
+      throw new HttpsError('invalid-argument', 'A valid carnivalId is required.');
+    }
+
+    try {
+      const doc = await squadDb.collection('vibeScores').doc(carnivalId).get();
+      if (!doc.exists) {
+        return { success: true, scores: [], generatedAt: null };
+      }
+
+      const data = doc.data();
+      return {
+        success: true,
+        scores: data.scores || [],
+        generatedAt: data.generatedAt || null,
+        avgScore: data.avgScore || 0,
+      };
+    } catch (err) {
+      console.error('Error fetching vibe scores:', err);
+      throw new HttpsError('internal', 'Failed to fetch vibe scores.');
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// WEB3 PASSPORT — ON-CHAIN MINTING
+// ═══════════════════════════════════════════════════════════════
+
+const { ethers } = require('ethers');
+
+// Contract ABI — only the functions we call server-side
+const PASSPORT_CONTRACT_ABI = [
+  'function mintStamp(address to, uint256 tokenId, bytes data) external',
+  'function mintAchievement(address to, uint256 tokenId) external',
+  'function hasMinted(uint256 tokenId, address user) view returns (bool)'
+];
+
+// Achievement ID → Token ID mapping (1000+)
+const ACHIEVEMENT_TOKEN_IDS = {
+  first_stamp: 1000,
+  loyal_fan: 1001,
+  carnival_veteran: 1002,
+  island_hopper: 1003,
+  globe_trotter: 1004,
+  sunrise_warrior: 1005,
+  tier_up: 1006
+};
+
+/**
+ * Get ethers wallet + contract for minting.
+ * Reads config from environment variables.
+ */
+function getMintingContract() {
+  const privateKey = process.env.WEB3_PRIVATE_KEY;
+  const contractAddress = process.env.WEB3_CONTRACT_ADDRESS;
+  const rpcUrl = process.env.WEB3_RPC_URL || 'https://mainnet.base.org';
+
+  if (!privateKey || !contractAddress) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Web3 minting is not configured. Contract address or private key missing.'
+    );
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const wallet = new ethers.Wallet(privateKey, provider);
+  const contract = new ethers.Contract(contractAddress, PASSPORT_CONTRACT_ABI, wallet);
+
+  return { provider, wallet, contract };
+}
+
+// ----- Mint Stamp as NFT -----
+exports.mintStamp = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+    const { stampId } = request.data || {};
+
+    if (!stampId) {
+      throw new HttpsError('invalid-argument', 'Stamp ID is required.');
+    }
+
+    // 1. Get user profile — check wallet
+    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+    const profileDoc = await profileRef.get();
+
+    if (!profileDoc.exists) {
+      throw new HttpsError('not-found', 'Passport profile not found.');
+    }
+
+    const profile = profileDoc.data();
+    const walletAddress = profile.walletAddress;
+
+    if (!walletAddress) {
+      throw new HttpsError(
+        'failed-precondition',
+        'No wallet connected. Please connect a wallet in your profile first.'
+      );
+    }
+
+    // 2. Get stamp — verify it belongs to this user
+    const stampRef = squadDb.doc(`passportStamps/${stampId}`);
+    const stampDoc = await stampRef.get();
+
+    if (!stampDoc.exists) {
+      throw new HttpsError('not-found', 'Stamp not found.');
+    }
+
+    const stamp = stampDoc.data();
+    if (stamp.userId !== uid) {
+      throw new HttpsError('permission-denied', 'This stamp does not belong to you.');
+    }
+
+    // 3. Check if already minted
+    if (stamp.mintedTxHash) {
+      return {
+        success: true,
+        alreadyMinted: true,
+        txHash: stamp.mintedTxHash,
+        tokenId: stamp.mintedTokenId,
+        explorerUrl: `https://basescan.org/tx/${stamp.mintedTxHash}`
+      };
+    }
+
+    // 4. Generate a unique token ID from the event
+    // Use the event's hash to generate a deterministic token ID in the 1-999 range
+    const eventHash = ethers.id(stamp.eventId);
+    const tokenId = (Number(BigInt(eventHash) % 999n) + 1);
+
+    // 5. Mint on-chain
+    try {
+      const { contract } = getMintingContract();
+
+      // Encode stamp metadata as bytes
+      const mintData = ethers.toUtf8Bytes(JSON.stringify({
+        eventTitle: stamp.eventTitle,
+        rarity: stamp.rarity,
+        edition: stamp.editionNumber,
+        checkedInAt: stamp.stampedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+      }));
+
+      const tx = await contract.mintStamp(walletAddress, tokenId, mintData);
+      console.log(`Minting stamp tokenId=${tokenId} to ${walletAddress}, tx=${tx.hash}`);
+
+      // Wait for confirmation
+      const receipt = await tx.wait(1);
+
+      // 6. Save mint info back to Firestore
+      await stampRef.update({
+        mintedTxHash: tx.hash,
+        mintedTokenId: tokenId,
+        mintedAt: new Date(),
+        mintedBlockNumber: receipt.blockNumber,
+        walletAddress: walletAddress
+      });
+
+      // Update profile mint count
+      await profileRef.update({
+        mintedStampCount: FieldValue.increment(1),
+        lastMintAt: new Date()
+      });
+
+      return {
+        success: true,
+        alreadyMinted: false,
+        txHash: tx.hash,
+        tokenId,
+        blockNumber: receipt.blockNumber,
+        explorerUrl: `https://basescan.org/tx/${tx.hash}`
+      };
+    } catch (error) {
+      console.error('Mint stamp error:', error);
+
+      if (error.reason?.includes('Already minted')) {
+        // Already minted on-chain but not recorded in Firestore
+        throw new HttpsError('already-exists', 'This stamp has already been minted on-chain.');
+      }
+
+      throw new HttpsError('internal', `Minting failed: ${error.message}`);
+    }
+  }
+);
+
+// ----- Mint Achievement as NFT -----
+exports.mintAchievement = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+    const { achievementId } = request.data || {};
+
+    if (!achievementId) {
+      throw new HttpsError('invalid-argument', 'Achievement ID is required.');
+    }
+
+    // Validate achievement exists
+    if (!PASSPORT_ACHIEVEMENTS[achievementId]) {
+      throw new HttpsError('not-found', 'Unknown achievement.');
+    }
+
+    const tokenId = ACHIEVEMENT_TOKEN_IDS[achievementId];
+    if (!tokenId) {
+      throw new HttpsError('not-found', 'This achievement cannot be minted yet.');
+    }
+
+    // 1. Get user profile
+    const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+    const profileDoc = await profileRef.get();
+
+    if (!profileDoc.exists) {
+      throw new HttpsError('not-found', 'Passport profile not found.');
+    }
+
+    const profile = profileDoc.data();
+    const walletAddress = profile.walletAddress;
+
+    if (!walletAddress) {
+      throw new HttpsError(
+        'failed-precondition',
+        'No wallet connected. Please connect a wallet in your profile first.'
+      );
+    }
+
+    // 2. Verify achievement is unlocked
+    const unlockedAchievements = profile.unlockedAchievements || [];
+    if (!unlockedAchievements.includes(achievementId)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'This achievement has not been unlocked yet.'
+      );
+    }
+
+    // 3. Check if already minted
+    const mintedAchievements = profile.mintedAchievements || [];
+    if (mintedAchievements.includes(achievementId)) {
+      return {
+        success: true,
+        alreadyMinted: true,
+        achievementId,
+        tokenId
+      };
+    }
+
+    // 4. Mint on-chain
+    try {
+      const { contract } = getMintingContract();
+
+      const tx = await contract.mintAchievement(walletAddress, tokenId);
+      console.log(`Minting achievement ${achievementId} (tokenId=${tokenId}) to ${walletAddress}, tx=${tx.hash}`);
+
+      const receipt = await tx.wait(1);
+
+      // 5. Record in Firestore
+      await profileRef.update({
+        mintedAchievements: FieldValue.arrayUnion(achievementId),
+        mintedAchievementCount: FieldValue.increment(1),
+        lastMintAt: new Date()
+      });
+
+      return {
+        success: true,
+        alreadyMinted: false,
+        achievementId,
+        tokenId,
+        txHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        explorerUrl: `https://basescan.org/tx/${tx.hash}`
+      };
+    } catch (error) {
+      console.error('Mint achievement error:', error);
+
+      if (error.reason?.includes('Already minted')) {
+        // Already minted on-chain — record in Firestore
+        await profileRef.update({
+          mintedAchievements: FieldValue.arrayUnion(achievementId)
+        });
+        throw new HttpsError('already-exists', 'This achievement has already been minted on-chain.');
+      }
+
+      throw new HttpsError('internal', `Minting failed: ${error.message}`);
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-WALLET — INVISIBLE EMBEDDED WALLET GENERATION
+// ═══════════════════════════════════════════════════════════════
+
+const crypto = require('crypto');
+
+/**
+ * Encrypt a private key with AES-256-GCM for secure Firestore storage.
+ */
+function encryptPrivateKey(privateKey) {
+  // Use a deterministic encryption key derived from WEB3_PRIVATE_KEY
+  // In production, use a dedicated KMS or Firebase Secrets
+  const secret = process.env.WEB3_PRIVATE_KEY || 'fallback-encryption-key';
+  const key = crypto.createHash('sha256').update(secret).digest();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(privateKey, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${tag}:${encrypted}`;
+}
+
+/**
+ * Decrypt a private key from Firestore storage.
+ */
+function decryptPrivateKey(encryptedData) {
+  const secret = process.env.WEB3_PRIVATE_KEY || 'fallback-encryption-key';
+  const key = crypto.createHash('sha256').update(secret).digest();
+  const [ivHex, tagHex, encrypted] = encryptedData.split(':');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+/**
+ * ensureWallet — Auto-generate an invisible Web3 wallet for a user.
+ * Called on first login. If user already has a wallet, returns it.
+ * The private key is encrypted and stored securely — users never see it.
+ */
+exports.ensureWallet = onCall(
+  { region: 'us-central1', cors: true },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be logged in.');
+    }
+
+    const uid = request.auth.uid;
+    const email = request.auth.token.email || '';
+
+    // Check if user already has a wallet
+    const profileRef = admin.firestore().doc(`passportProfiles/${uid}`);
+    const profileSnap = await profileRef.get();
+
+    if (profileSnap.exists && profileSnap.data().walletAddress) {
+      return {
+        walletAddress: profileSnap.data().walletAddress,
+        walletType: profileSnap.data().walletType || 'embedded',
+        isNew: false
+      };
+    }
+
+    // Generate a new wallet
+    const wallet = ethers.Wallet.createRandom();
+    const encryptedKey = encryptPrivateKey(wallet.privateKey);
+
+    // Save to Firestore — wallet address is public, key is encrypted
+    const walletData = {
+      walletAddress: wallet.address,
+      walletType: 'embedded',
+      walletCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      walletEmail: email,
+    };
+
+    // Store encrypted key in a separate secure subcollection
+    await admin.firestore().doc(`walletKeys/${uid}`).set({
+      encryptedKey: encryptedKey,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Update the user's passport profile
+    await profileRef.set(walletData, { merge: true });
+
+    // Also update the squad-db path if it exists
+    try {
+      await admin.firestore().doc(`squad-db/passportProfiles/${uid}`).set(walletData, { merge: true });
+    } catch (e) {
+      // Ignore if this path doesn't exist
+    }
+
+    console.log(`[Wallet] Generated embedded wallet for ${uid}: ${wallet.address}`);
+
+    return {
+      walletAddress: wallet.address,
+      walletType: 'embedded',
+      isNew: true
+    };
   }
 );

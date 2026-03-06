@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Megaphone, MessageSquare, Users, Settings,
-    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle
+    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target
 } from 'lucide-react';
 import {
     collection, query, where, getDocs, doc, updateDoc,
@@ -13,6 +13,7 @@ import { db } from '../firebase';
 import AdminAnalytics from './AdminAnalytics';
 import AdManager from './AdManager';
 import { SupportAdmin } from './ContactSupport';
+import SponsorshipManager from './SponsorshipManager';
 
 export default function AdminDashboard({ user }) {
     const [activeTab, setActiveTab] = useState('Overview');
@@ -36,6 +37,7 @@ export default function AdminDashboard({ user }) {
     const tabs = [
         { id: 'Overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'Ads', label: 'Ad Manager', icon: Megaphone },
+        { id: 'Sponsorships', label: 'Sponsorships', icon: Target },
         { id: 'Support', label: 'Support', icon: MessageSquare },
         { id: 'Settings', label: 'Admins', icon: Settings },
     ];
@@ -72,6 +74,7 @@ export default function AdminDashboard({ user }) {
             <div className="p-6">
                 {activeTab === 'Overview' && <AdminAnalytics />}
                 {activeTab === 'Ads' && <AdManager />}
+                {activeTab === 'Sponsorships' && <SponsorshipManager />}
                 {activeTab === 'Support' && <SupportAdmin />}
                 {activeTab === 'Settings' && <AdminManagement user={user} isSuperAdmin={isSuperAdmin} />}
             </div>

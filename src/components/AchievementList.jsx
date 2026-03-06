@@ -1,5 +1,7 @@
-import React from 'react';
-import { Award, Lock, Check, ChevronLeft, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Award, Lock, Check, ChevronLeft, Sparkles, Wallet, ExternalLink, Loader2 } from 'lucide-react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from '../firebase';
 
 // Achievement configuration with full details
 const ACHIEVEMENTS_CONFIG = {
@@ -58,13 +60,18 @@ const CATEGORY_COLORS = {
     SOCIAL: 'from-pink-500 to-rose-500'
 };
 
-export default function AchievementList({ profile, onBack }) {
+export default function AchievementList({ profile, onBack, walletAddress }) {
     const unlockedAchievements = profile?.unlockedAchievements || [];
     const achievementPoints = profile?.achievementPoints || 0;
     const totalEvents = profile?.totalEvents || 0;
     const countriesCount = (profile?.countriesVisited || []).length;
     const currentTier = profile?.currentTier || 'BRONZE';
     const eventTypeStats = profile?.eventTypeStats || {};
+    const mintedAchievements = profile?.mintedAchievements || [];
+
+    const [mintingId, setMintingId] = useState(null);
+    const [mintResults, setMintResults] = useState({});
+    const [mintErrors, setMintErrors] = useState({});
 
     // Calculate progress for each achievement
     const getProgress = (achievement) => {
@@ -111,6 +118,21 @@ export default function AchievementList({ profile, onBack }) {
 
     const unlockedCount = achievements.filter(a => a.isUnlocked).length;
 
+    const handleMintAchievement = async (achievementId) => {
+        setMintingId(achievementId);
+        setMintErrors(prev => ({ ...prev, [achievementId]: null }));
+        try {
+            const functions = getFunctions(app);
+            const mint = httpsCallable(functions, 'mintAchievement');
+            const result = await mint({ achievementId });
+            setMintResults(prev => ({ ...prev, [achievementId]: result.data }));
+        } catch (err) {
+            setMintErrors(prev => ({ ...prev, [achievementId]: err.message || 'Minting failed' }));
+        } finally {
+            setMintingId(null);
+        }
+    };
+
     return (
         <div className="animate-fadeIn">
             {/* Header */}
@@ -149,8 +171,8 @@ export default function AchievementList({ profile, onBack }) {
                     <div
                         key={achievement.id}
                         className={`relative bg-white dark:bg-gray-800 rounded-2xl border overflow-hidden transition-all ${achievement.isUnlocked
-                                ? 'border-purple-200 dark:border-purple-800 shadow-sm'
-                                : 'border-gray-200 dark:border-gray-700 opacity-75'
+                            ? 'border-purple-200 dark:border-purple-800 shadow-sm'
+                            : 'border-gray-200 dark:border-gray-700 opacity-75'
                             }`}
                     >
                         {/* Category Gradient Bar */}
@@ -160,8 +182,8 @@ export default function AchievementList({ profile, onBack }) {
                             <div className="flex items-start gap-4">
                                 {/* Icon */}
                                 <div className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-2xl ${achievement.isUnlocked
-                                        ? 'bg-purple-100 dark:bg-purple-900/30'
-                                        : 'bg-gray-100 dark:bg-gray-700 grayscale'
+                                    ? 'bg-purple-100 dark:bg-purple-900/30'
+                                    : 'bg-gray-100 dark:bg-gray-700 grayscale'
                                     }`}>
                                     {achievement.icon}
                                 </div>
@@ -171,8 +193,8 @@ export default function AchievementList({ profile, onBack }) {
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
                                             <h3 className={`font-bold ${achievement.isUnlocked
-                                                    ? 'text-gray-900 dark:text-white'
-                                                    : 'text-gray-600 dark:text-gray-400'
+                                                ? 'text-gray-900 dark:text-white'
+                                                : 'text-gray-600 dark:text-gray-400'
                                                 }`}>
                                                 {achievement.name}
                                             </h3>
@@ -214,13 +236,55 @@ export default function AchievementList({ profile, onBack }) {
                                     {/* Points */}
                                     <div className="mt-2">
                                         <span className={`inline-flex items-center gap-1 text-xs font-medium ${achievement.isUnlocked
-                                                ? 'text-purple-600 dark:text-purple-400'
-                                                : 'text-gray-400'
+                                            ? 'text-purple-600 dark:text-purple-400'
+                                            : 'text-gray-400'
                                             }`}>
                                             <Sparkles className="w-3 h-3" />
                                             {achievement.isUnlocked ? `+${achievement.points} points earned` : `${achievement.points} points`}
                                         </span>
                                     </div>
+
+                                    {/* Mint Button */}
+                                    {achievement.isUnlocked && walletAddress && (
+                                        <div className="mt-2">
+                                            {mintedAchievements.includes(achievement.id) || mintResults[achievement.id] ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-medium">
+                                                        <Wallet className="w-3 h-3" />
+                                                        Minted
+                                                    </span>
+                                                    {mintResults[achievement.id]?.txHash && (
+                                                        <a
+                                                            href={mintResults[achievement.id].explorerUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs text-indigo-500 hover:text-indigo-600 flex items-center gap-0.5"
+                                                        >
+                                                            <ExternalLink className="w-3 h-3" />
+                                                            View
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {mintErrors[achievement.id] && (
+                                                        <p className="text-xs text-red-500 mb-1">{mintErrors[achievement.id]}</p>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleMintAchievement(achievement.id)}
+                                                        disabled={mintingId === achievement.id}
+                                                        className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xs font-bold rounded-lg hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 transition-all"
+                                                    >
+                                                        {mintingId === achievement.id ? (
+                                                            <><Loader2 className="w-3 h-3 animate-spin" />Minting...</>
+                                                        ) : (
+                                                            <><Wallet className="w-3 h-3" />Mint NFT</>
+                                                        )}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

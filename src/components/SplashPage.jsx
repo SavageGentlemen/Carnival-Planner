@@ -1,44 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Users, Wallet, Map, CreditCard, ArrowRight, Zap, Globe, Shield, Music } from 'lucide-react';
+import React from 'react';
+import { Sparkles, Users, Wallet, Map, CreditCard, ArrowRight, Zap, Globe, Shield, Music, Eye } from 'lucide-react';
 
 export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
-  const [scrollY, setScrollY] = useState(0);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    const handleMouseMove = (e) => setMousePos({ x: e.clientX, y: e.clientY });
-
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden selection:bg-pink-500 selection:text-white font-sans">
+    <div className="min-h-screen bg-transparent text-white overflow-x-hidden selection:bg-pink-500 selection:text-white font-sans">
 
-      {/* --- DYNAMIC BACKGROUND --- */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div
-          className="absolute w-[800px] h-[800px] bg-indigo-600/20 rounded-full blur-[120px] mix-blend-screen transition-transform duration-100 ease-out"
-          style={{
-            top: -200,
-            left: -200,
-            transform: `translate(${mousePos.x * 0.02}px, ${mousePos.y * 0.02}px)`
-          }}
-        />
-        <div
-          className="absolute w-[600px] h-[600px] bg-pink-600/20 rounded-full blur-[100px] mix-blend-screen transition-transform duration-100 ease-out"
-          style={{
-            bottom: -100,
-            right: -100,
-            transform: `translate(${mousePos.x * -0.03}px, ${mousePos.y * -0.03}px)`
-          }}
-        />
-      </div>
+      {/* SocaVoid canvas renders behind this via App.jsx */}
 
       {/* --- NAV HEADER --- */}
       <nav className="fixed top-0 w-full z-50 px-6 py-4 backdrop-blur-md border-b border-white/5 bg-black/50">
@@ -73,7 +41,7 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
         <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-gray-500 leading-tight">
           The Operating System<br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
-            For Carnival.
+            For Caribbean Carnivals.
           </span>
         </h1>
 
@@ -93,31 +61,69 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
           </button>
           <button
             onClick={onTryDemo}
-            className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-full font-bold text-lg backdrop-blur-sm transition-all transform hover:scale-105"
+            className="group px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 border border-white/10 text-white rounded-full font-bold text-lg backdrop-blur-sm transition-all transform hover:scale-105 shadow-[0_0_30px_-8px_rgba(168,85,247,0.4)]"
           >
-            Try Live Demo
+            <Eye className="inline-block mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+            Preview App — No Sign Up
           </button>
         </div>
 
-        {/* Hero Visual / Dashboard Preview (CSS Art) */}
-        <div className="mt-20 relative w-full max-w-5xl aspect-[16/9] bg-gray-900/50 rounded-xl border border-white/10 backdrop-blur-sm overflow-hidden shadow-2xl group">
-          {/* Glossy Reflection */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" />
+        {/* Hero Visual / Dashboard Preview */}
+        <div className="mt-20 relative w-full max-w-5xl aspect-[16/9] rounded-2xl border border-white/10 overflow-hidden shadow-2xl group">
+          {/* Carnival feathers background */}
+          <img
+            src="/carnival-feathers.png"
+            alt="Caribbean Carnival Feathers"
+            className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-700 scale-110 group-hover:scale-100"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 to-pink-900/20" />
 
-          {/* Fake UI Elements */}
-          <div className="absolute top-4 left-4 right-4 h-4 flex gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500/50" />
-            <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-            <div className="w-3 h-3 rounded-full bg-green-500/50" />
+          {/* Window Chrome */}
+          <div className="absolute top-4 left-4 right-4 h-4 flex gap-2 z-20">
+            <div className="w-3 h-3 rounded-full bg-red-500/70" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
+            <div className="w-3 h-3 rounded-full bg-green-500/70" />
           </div>
 
-          {/* Content Placeholder */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <div className="inline-block p-4 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-xl mb-4 group-hover:scale-110 transition-transform duration-500">
-                <Zap className="w-12 h-12 text-white" />
+          {/* Mock Dashboard Content */}
+          <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8 z-20">
+            {/* Dashboard Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-white font-black text-xl sm:text-2xl">Trinidad Carnival 2026</h3>
+                <p className="text-gray-400 text-xs sm:text-sm">Your squad is ready • 4 members synced</p>
               </div>
-              <div className="text-2xl font-bold text-white/50">Mission Control</div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
+                <span className="text-3xl font-black text-white">47</span>
+                <span className="text-xs text-gray-300 ml-1">days to go</span>
+              </div>
+            </div>
+
+            {/* Data Cards Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Budget</p>
+                <p className="text-white font-bold text-lg">$2,850</p>
+                <div className="w-full bg-white/10 h-1 rounded-full mt-1.5 overflow-hidden">
+                  <div className="bg-green-400 w-3/4 h-full rounded-full" />
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Events</p>
+                <p className="text-white font-bold text-lg">6 Fetes</p>
+                <p className="text-green-400 text-[10px] mt-1">2 booked ✓</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10 hidden sm:block">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Costume</p>
+                <p className="text-white font-bold text-lg">Tribe</p>
+                <p className="text-pink-400 text-[10px] mt-1">Deposit paid ✓</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10 hidden sm:block">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Passport</p>
+                <p className="text-white font-bold text-lg">🥇 Gold</p>
+                <p className="text-yellow-400 text-[10px] mt-1">12 stamps</p>
+              </div>
             </div>
           </div>
         </div>
@@ -149,12 +155,14 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[300px]">
           {/* Card 1: Squad (Large) */}
-          <div className="md:col-span-2 relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-white/20 transition-all p-8 flex flex-col justify-between">
+          <div className="md:col-span-2 relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-yellow-500/30 transition-all p-8 flex flex-col justify-between">
+            {/* Feather accent */}
+            <img src="/carnival-feathers.png" alt="" className="absolute top-0 right-0 w-72 h-72 object-cover opacity-10 group-hover:opacity-20 transition-opacity duration-700 transform rotate-45 translate-x-16 -translate-y-16" />
             <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:opacity-40 transition-opacity">
-              <Users className="w-48 h-48 text-indigo-500 transform rotate-12 translate-x-12 -translate-y-12" />
+              <Users className="w-48 h-48 text-yellow-500 transform rotate-12 translate-x-12 -translate-y-12" />
             </div>
             <div>
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-4 text-indigo-400">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500/30 to-orange-500/20 flex items-center justify-center mb-4 text-yellow-400 border border-yellow-500/20">
                 <Users />
               </div>
               <h3 className="text-2xl font-bold mb-2">Squad Sync</h3>
@@ -162,20 +170,20 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
             </div>
             {/* Avatars visual */}
             <div className="flex -space-x-4 mt-8">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="w-12 h-12 rounded-full bg-gray-800 border-4 border-gray-900 flex items-center justify-center text-xs font-bold text-gray-500 transform transition-transform group-hover:translate-x-2" style={{ transitionDelay: `${i * 50}ms` }}>
-                  User
+              {['🇹🇹', '🇯🇲', '🇧🇧', '🇱🇨'].map((flag, i) => (
+                <div key={i} className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-800 to-gray-700 border-4 border-gray-900 flex items-center justify-center text-lg transform transition-transform group-hover:translate-x-2" style={{ transitionDelay: `${i * 50}ms` }}>
+                  {flag}
                 </div>
               ))}
-              <div className="w-12 h-12 rounded-full bg-indigo-600 border-4 border-gray-900 flex items-center justify-center text-xs font-bold text-white z-10">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-500 to-orange-600 border-4 border-gray-900 flex items-center justify-center text-xs font-bold text-white z-10 shadow-lg shadow-yellow-500/20">
                 +3
               </div>
             </div>
           </div>
 
           {/* Card 2: Budget (Tall) */}
-          <div className="md:row-span-2 relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-white/20 transition-all p-8 flex flex-col">
-            <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center mb-4 text-green-400">
+          <div className="md:row-span-2 relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-green-500/30 transition-all p-8 flex flex-col">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500/30 to-emerald-500/20 flex items-center justify-center mb-4 text-green-400 border border-green-500/20">
               <Wallet />
             </div>
             <h3 className="text-2xl font-bold mb-2">Smart Budget</h3>
@@ -200,41 +208,60 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
                   <div className="bg-green-500 w-full h-full rounded-full" />
                 </div>
               </div>
+              <div className="bg-gray-800 rounded-lg p-4 group-hover:bg-gray-750 transition-colors">
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Soca Brainwash</span>
+                  <span className="font-mono text-yellow-400">-$120</span>
+                </div>
+                <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-yellow-500 w-1/2 h-full rounded-full" />
+                </div>
+              </div>
+              <div className="text-center pt-2">
+                <span className="text-2xl font-black text-white">$2,850</span>
+                <span className="text-xs text-gray-500 ml-2">/ $4,000 goal</span>
+              </div>
             </div>
           </div>
 
           {/* Card 3: Map */}
-          <div className="relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-white/20 transition-all p-8">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10" />
-            {/* Fake Map BG */}
-            <div className="absolute inset-0 opacity-30 grayscale group-hover:grayscale-0 transition-all duration-700" style={{
-              backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)',
-              backgroundSize: '24px 24px'
-            }}></div>
+          <div className="relative group overflow-hidden rounded-3xl bg-gray-900 border border-white/10 hover:border-purple-500/30 transition-all p-8">
+            {/* Feather BG */}
+            <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-15 group-hover:opacity-30 transition-opacity duration-700 grayscale group-hover:grayscale-0" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/90 z-10" />
 
             <div className="relative z-20 h-full flex flex-col justify-end">
-              <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center mb-4 text-purple-400">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center mb-4 text-purple-400 border border-purple-500/20">
                 <Map />
               </div>
               <h3 className="text-2xl font-bold mb-2">Live Map</h3>
-              <p className="text-gray-400">Discover events near your AirBnb.</p>
+              <p className="text-gray-400">Discover fetes, events, and band routes near your AirBnb.</p>
             </div>
           </div>
 
           {/* Card 4: Passport */}
-          <div className="col-span-1 md:col-span-2 relative group overflow-hidden rounded-3xl bg-gradient-to-br from-teal-900 to-gray-900 border border-white/10 hover:border-teal-500/30 transition-all p-8 flex items-center justify-between">
-            <div className="max-w-xs">
-              <div className="w-12 h-12 rounded-xl bg-teal-500/20 flex items-center justify-center mb-4 text-teal-400">
+          <div className="col-span-1 md:col-span-2 relative group overflow-hidden rounded-3xl bg-gradient-to-br from-yellow-900/30 via-gray-900 to-teal-900/20 border border-white/10 hover:border-yellow-500/30 transition-all p-8 flex items-center justify-between">
+            {/* Gold feather accent */}
+            <img src="/carnival-feathers.png" alt="" className="absolute right-0 top-0 bottom-0 w-1/2 object-cover opacity-10 group-hover:opacity-20 transition-opacity duration-700" />
+            <div className="max-w-xs relative z-10">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500/30 to-teal-500/20 flex items-center justify-center mb-4 text-yellow-400 border border-yellow-500/20">
                 <CreditCard />
               </div>
               <h3 className="text-2xl font-bold mb-2">Soca Passport</h3>
-              <p className="text-gray-400">Your digital carnival identity. Syncs seamlessly with the Soca Passport app.</p>
+              <p className="text-gray-400">Your digital carnival identity. Collect stamps, earn medals, and climb the leaderboard.</p>
             </div>
             {/* ID Card Visual */}
-            <div className="hidden sm:block relative w-64 h-40 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl transform rotate-3 group-hover:rotate-0 transition-transform duration-500">
-              <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-teal-500" />
-              <div className="absolute top-4 right-4 text-[10px] font-mono opacity-50">9438-2910</div>
-              <div className="absolute bottom-4 left-4 text-xs font-bold">FEBUARY 2026</div>
+            <div className="hidden sm:block relative w-64 h-40 bg-gradient-to-br from-yellow-500/20 to-teal-500/10 backdrop-blur-md rounded-xl border border-yellow-500/30 shadow-2xl transform rotate-3 group-hover:rotate-0 transition-transform duration-500 z-10">
+              <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 shadow-lg" />
+              <div className="absolute top-4 right-4 text-[10px] font-mono text-yellow-400/50">9438-2910</div>
+              <div className="absolute bottom-12 left-4">
+                <p className="text-xs font-bold text-white/80">READY TO FETE</p>
+                <p className="text-[10px] text-gray-500">Level: Gold Masquerader</p>
+              </div>
+              <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center">
+                <span className="text-[10px] font-bold text-yellow-400">🥇 12 STAMPS</span>
+                <span className="text-[10px] text-gray-500">FEB 2026</span>
+              </div>
             </div>
           </div>
         </div>

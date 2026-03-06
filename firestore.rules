@@ -12,6 +12,31 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    // --- SPONSORSHIP ENGINE ---
+    
+    // Sponsored Ads (campaigns) - readable by all for ad serving, writable by admin
+    match /sponsoredAds/{adId} {
+      allow read: if true;
+      // Any authenticated user can increment impression/click counters
+      allow update: if request.auth != null && 
+                      request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['impressions', 'clicks']);
+      allow create, delete: if isAdmin();
+      // Admin can update all fields
+      allow update: if isAdmin();
+    }
+    
+    // Advertisers - admin only
+    match /advertisers/{advertiserId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Ad Analytics (daily buckets) - authenticated can create/update for tracking, admin reads
+    match /adAnalytics/{analyticsId} {
+      allow read: if isAdmin();
+      allow create, update: if request.auth != null;
+    }
+    
     // Support requests - writable by all authenticated users, readable by admin
     match /support-requests/{requestId} {
       allow create: if request.auth != null;
@@ -103,9 +128,10 @@ service cloud.firestore {
     match /affiliates/{affiliateId} {
       // Owner can read their own affiliate data, admin can read all
       allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
       allow read: if isAdmin();
       // Any authenticated user can apply (create)
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
       // Only admin can approve/update
       allow update, delete: if isAdmin();
     }
@@ -115,6 +141,14 @@ service cloud.firestore {
       allow create: if true;  // Allow anonymous click tracking
       allow read: if request.auth != null && 
                     request.auth.uid == get(/databases/$(database)/documents/affiliates/$(affiliateId)).data.userId;
+    }
+    
+    // Affiliate Conversions - affiliate owner can read, admin can manage
+    match /affiliateConversions/{conversionId} {
+      allow read: if request.auth != null && 
+                    request.auth.uid == resource.data.affiliateUid;
+      allow read, write: if isAdmin();
+      // Conversions are created by Cloud Functions (webhook)
     }
     
     // --- SOCA PASSPORT 2.0 ---
@@ -164,6 +198,39 @@ service cloud.firestore {
     // --- ADMIN MANAGEMENT ---
     match /admins/{adminId} {
       // Only super admin (djkrss1) can read/write admin list
+      allow read, write: if isAdmin();
+    }
+    
+    // --- MARKETPLACE ---
+    
+    // Marketplace Listings - public read for active, seller can CRUD their own
+    match /marketplaceListings/{listingId} {
+      // Anyone can read active listings
+      allow read: if request.auth != null;
+      // Authenticated users can create listings
+      allow create: if request.auth != null && 
+                      request.resource.data.sellerId == request.auth.uid;
+      // Only the seller can update/delete their own listings
+      allow update, delete: if request.auth != null && 
+                              resource.data.sellerId == request.auth.uid;
+      // Admin override
+      allow read, write: if isAdmin();
+    }
+    
+    // Marketplace Sellers (Stripe Connect accounts) - owner only + admin
+    match /marketplaceSellers/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAdmin();
+      // Writes handled by Cloud Functions (createConnectAccount, webhook)
+    }
+    
+    // Marketplace Orders - buyer/seller can read their own, writes via Cloud Functions
+    match /marketplaceOrders/{orderId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.buyerId ||
+        request.auth.uid == resource.data.sellerId
+      );
+      // Orders are created and updated via Cloud Functions only
       allow read, write: if isAdmin();
     }
   }

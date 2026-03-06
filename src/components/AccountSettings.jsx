@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, AlertTriangle, Loader2, X, User, Camera, Save, Edit2 } from 'lucide-react';
+import { Trash2, AlertTriangle, Loader2, X, User, Camera, Save, Edit2, Award } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import app, { auth, db, storage } from '../firebase';
+import AffiliateDashboard from './AffiliateDashboard';
 
 export default function AccountSettings({ user, onClose }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -25,7 +26,7 @@ export default function AccountSettings({ user, onClose }) {
 
   useEffect(() => {
     if (!user) return;
-    
+
     const loadProfile = async () => {
       try {
         const profileRef = doc(db, 'users', user.uid, 'profile', 'info');
@@ -48,7 +49,7 @@ export default function AccountSettings({ user, onClose }) {
         console.log('Could not load profile:', err);
       }
     };
-    
+
     loadProfile();
   }, [user]);
 
@@ -56,7 +57,7 @@ export default function AccountSettings({ user, onClose }) {
     if (!user) return;
     setIsSavingProfile(true);
     setError('');
-    
+
     try {
       const profileRef = doc(db, 'users', user.uid, 'profile', 'info');
       await setDoc(profileRef, {
@@ -65,7 +66,7 @@ export default function AccountSettings({ user, onClose }) {
         avatarUrl: profile.avatarUrl,
         updatedAt: Timestamp.now()
       }, { merge: true });
-      
+
       setIsEditingProfile(false);
       setProfileSuccess('Profile saved!');
       setTimeout(() => setProfileSuccess(''), 3000);
@@ -100,18 +101,18 @@ export default function AccountSettings({ user, onClose }) {
       const ext = file.name.split('.').pop();
       const storagePath = `avatars/${user.uid}/${timestamp}.${ext}`;
       const storageRef = ref(storage, storagePath);
-      
+
       await uploadBytes(storageRef, file);
       const downloadUrl = await getDownloadURL(storageRef);
-      
+
       setProfile(prev => ({ ...prev, avatarUrl: downloadUrl }));
-      
+
       const profileRef = doc(db, 'users', user.uid, 'profile', 'info');
       await setDoc(profileRef, {
         avatarUrl: downloadUrl,
         updatedAt: Timestamp.now()
       }, { merge: true });
-      
+
       setProfileSuccess('Avatar updated!');
       setTimeout(() => setProfileSuccess(''), 3000);
     } catch (err) {
@@ -136,7 +137,7 @@ export default function AccountSettings({ user, onClose }) {
       const functions = getFunctions(app);
       const deleteUserAccount = httpsCallable(functions, 'deleteUserAccount');
       await deleteUserAccount();
-      
+
       await signOut(auth);
       window.location.reload();
     } catch (err) {
@@ -269,6 +270,15 @@ export default function AccountSettings({ user, onClose }) {
           </div>
         </div>
 
+        {/* Affiliate Program Section */}
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+          <h4 className="text-gray-800 dark:text-white font-bold mb-4 flex items-center gap-2">
+            <Award className="w-5 h-5 text-purple-500" />
+            Affiliate Program
+          </h4>
+          <AffiliateDashboard user={user} />
+        </div>
+
         <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
           <h4 className="text-red-600 dark:text-red-400 font-bold mb-2 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" />
@@ -297,7 +307,7 @@ export default function AccountSettings({ user, onClose }) {
                 <li>Squad memberships</li>
                 <li>Your account and login</li>
               </ul>
-              
+
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Type <span className="font-mono bg-gray-200 dark:bg-gray-700 px-1 rounded">DELETE</span> to confirm:
               </p>

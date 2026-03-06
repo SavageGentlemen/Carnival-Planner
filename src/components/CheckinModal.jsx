@@ -1,13 +1,78 @@
 import React, { useState, useEffect } from 'react';
-import { X, Zap, Loader2, Check, AlertCircle, Ticket, Sparkles, Gift } from 'lucide-react';
+import { X, Zap, Loader2, Check, AlertCircle, Ticket, Sparkles, Gift, Wallet, ExternalLink } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
+
+/**
+ * AutoMintBadge — Automatically mints stamp to user's invisible wallet.
+ * Fires on mount, shows subtle status. No user interaction needed.
+ */
+function AutoMintBadge({ stampId }) {
+    const [status, setStatus] = useState('minting'); // minting | success | error
+    const [txData, setTxData] = useState(null);
+
+    useEffect(() => {
+        if (!stampId) return;
+
+        const autoMint = async () => {
+            try {
+                const functions = getFunctions(app);
+                const mint = httpsCallable(functions, 'mintStamp');
+                const result = await mint({ stampId });
+                setTxData(result.data);
+                setStatus('success');
+            } catch (err) {
+                console.warn('[AutoMint] Skipped:', err.message);
+                // Don't show error to user — stamp is saved to Firestore regardless
+                if (err.message?.includes('already')) {
+                    setStatus('success');
+                    setTxData({ alreadyMinted: true });
+                } else {
+                    setStatus('error');
+                }
+            }
+        };
+
+        autoMint();
+    }, [stampId]);
+
+    if (status === 'error') return null; // Silently fail — Firestore stamp exists
+
+    return (
+        <div className={`mb-3 py-2 px-3 rounded-xl text-xs font-medium flex items-center gap-2 transition-all ${status === 'minting'
+                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300'
+                : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-300'
+            }`}>
+            {status === 'minting' ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" />Minting on chain...</>
+            ) : (
+                <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {txData?.alreadyMinted ? '✓ Already on-chain' : '✨ Minted on-chain!'}
+                    {txData?.explorerUrl && (
+                        <a
+                            href={txData.explorerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-auto text-indigo-500 hover:text-indigo-700"
+                        >
+                            <ExternalLink className="w-3 h-3" />
+                        </a>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
 
 export default function CheckinModal({ isOpen, onClose, onSuccess }) {
     const [accessCode, setAccessCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [minting, setMinting] = useState(false);
+    const [mintResult, setMintResult] = useState(null);
+    const [mintError, setMintError] = useState(null);
 
     // Reset state when modal opens
     useEffect(() => {
@@ -15,6 +80,8 @@ export default function CheckinModal({ isOpen, onClose, onSuccess }) {
             setAccessCode('');
             setError(null);
             setSuccess(null);
+            setMintResult(null);
+            setMintError(null);
         }
     }, [isOpen]);
 
@@ -99,9 +166,9 @@ export default function CheckinModal({ isOpen, onClose, onSuccess }) {
                         {/* Stamp Preview */}
                         <div className="inline-block mb-6">
                             <div className={`px-6 py-4 rounded-2xl border-2 ${success.stamp?.rarity === 'LEGENDARY' ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' :
-                                    success.stamp?.rarity === 'EPIC' ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/20' :
-                                        success.stamp?.rarity === 'RARE' ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' :
-                                            'border-gray-300 bg-gray-50 dark:bg-gray-700/50'
+                                success.stamp?.rarity === 'EPIC' ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/20' :
+                                    success.stamp?.rarity === 'RARE' ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' :
+                                        'border-gray-300 bg-gray-50 dark:bg-gray-700/50'
                                 }`}>
                                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                                     {success.stamp?.eventTitle}
@@ -148,6 +215,31 @@ export default function CheckinModal({ isOpen, onClose, onSuccess }) {
                         {success.tierChanged && (
                             <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-2xl p-4 text-white mb-4">
                                 <p className="font-bold text-lg">🎊 You ranked up to {success.newTier}!</p>
+                            </div>
+                        )}
+
+                        {/* Auto-Mint Status */}
+                        {success.stamp?.id && (
+                            <AutoMintBadge stampId={success.stamp.id} />
+                        )}
+
+                        {/* Mint Success */}
+                        {mintResult && (
+                            <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl">
+                                <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300 mb-1">
+                                    {mintResult.alreadyMinted ? '✓ Already minted' : '✨ Minted on-chain!'}
+                                </p>
+                                {mintResult.txHash && (
+                                    <a
+                                        href={mintResult.explorerUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-600"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                        View on BaseScan
+                                    </a>
+                                )}
                             </div>
                         )}
 

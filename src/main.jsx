@@ -1,11 +1,18 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import AffiliateProvider from './components/AffiliateProvider.jsx'
+// Self-hosted Inter font — eliminates CLS from font loading
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <AffiliateProvider>
+      <App />
+    </AffiliateProvider>
   </React.StrictMode>,
 );
 

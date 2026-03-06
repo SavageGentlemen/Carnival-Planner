@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
     User, Camera, X, Check, Loader2, Instagram, Twitter,
-    Music, Globe, Shield, AlertCircle, Sparkles
+    Music, Globe, Shield, AlertCircle, Sparkles, Wallet, Link2, Unlink, Copy, ExternalLink, ChevronDown
 } from 'lucide-react';
-import { doc, getDoc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
+import {
+    connectExternalWallet,
+    isWalletAvailable,
+    truncateAddress,
+    getExplorerUrl,
+    saveWalletAddress
+} from '../services/web3Service';
 
 export default function ProfileEditor({
     user,
@@ -37,6 +44,12 @@ export default function ProfileEditor({
     const [coverPhoto, setCoverPhoto] = useState(null);
     const [profilePhotoPreview, setProfilePhotoPreview] = useState('');
     const [coverPhotoPreview, setCoverPhotoPreview] = useState('');
+
+    // Web3 wallet state
+    const [walletAddress, setWalletAddress] = useState(currentProfile?.walletAddress || '');
+    const [walletConnecting, setWalletConnecting] = useState(false);
+    const [walletError, setWalletError] = useState('');
+    const [walletCopied, setWalletCopied] = useState(false);
 
     // Load existing profile on mount
     useEffect(() => {
@@ -207,6 +220,8 @@ export default function ProfileEditor({
                 isPublic: formData.isPublic,
                 socialLinks: formData.socialLinks,
                 carnivalHistory,
+                walletAddress: walletAddress || null,
+                ...(walletAddress ? { walletType: 'external', walletLinkedAt: Timestamp.now() } : {}),
                 stats: {
                     carnivalsAttended: carnivalHistory.length,
                     countriesVisited: [...new Set(carnivalHistory.map(c => c.carnivalId))].length,
@@ -321,8 +336,8 @@ export default function ProfileEditor({
                                 value={formData.username}
                                 onChange={handleUsernameChange}
                                 className={`w-full pl-8 pr-10 py-3 rounded-xl border ${usernameError
-                                        ? 'border-red-300 dark:border-red-500'
-                                        : 'border-gray-200 dark:border-gray-600'
+                                    ? 'border-red-300 dark:border-red-500'
+                                    : 'border-gray-200 dark:border-gray-600'
                                     } bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
                                 placeholder="your_username"
                                 maxLength={20}
@@ -397,6 +412,113 @@ export default function ProfileEditor({
                                 placeholder="TikTok username"
                             />
                         </div>
+                    </div>
+
+                    {/* Web3 Wallet */}
+                    <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Wallet className="w-5 h-5 text-indigo-500" />
+                                <span className="font-medium text-gray-900 dark:text-white text-sm">Carnival Wallet</span>
+                            </div>
+                            {walletAddress && (
+                                <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-[10px] font-bold">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                    Active
+                                </span>
+                            )}
+                        </div>
+
+                        {walletAddress ? (
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-3 py-2.5">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                                        <Link2 className="w-4 h-4 text-white" />
+                                    </div>
+                                    <span className="font-mono text-sm text-gray-700 dark:text-gray-300 flex-1">
+                                        {truncateAddress(walletAddress)}
+                                    </span>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(walletAddress);
+                                            setWalletCopied(true);
+                                            setTimeout(() => setWalletCopied(false), 2000);
+                                        }}
+                                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        title="Copy address"
+                                    >
+                                        {walletCopied ? (
+                                            <Check className="w-4 h-4 text-green-500" />
+                                        ) : (
+                                            <Copy className="w-4 h-4 text-gray-400" />
+                                        )}
+                                    </button>
+                                    <a
+                                        href={getExplorerUrl(walletAddress, 'address')}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        title="View on BaseScan"
+                                    >
+                                        <ExternalLink className="w-4 h-4 text-gray-400" />
+                                    </a>
+                                </div>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                    Your stamps and achievements are minted to this wallet on the Base network. No gas fees required.
+                                </p>
+
+                                {/* Advanced: Override with MetaMask */}
+                                {isWalletAvailable() && (
+                                    <details className="group">
+                                        <summary className="flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer transition-colors">
+                                            <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                                            Advanced: Use external wallet
+                                        </summary>
+                                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                                            <p className="text-[10px] text-gray-400">Override with your own MetaMask wallet address.</p>
+                                            <button
+                                                onClick={async () => {
+                                                    setWalletConnecting(true);
+                                                    setWalletError('');
+                                                    try {
+                                                        const address = await connectExternalWallet();
+                                                        setWalletAddress(address);
+                                                        if (user?.uid) {
+                                                            await saveWalletAddress(user.uid, address, 'external');
+                                                        }
+                                                    } catch (err) {
+                                                        setWalletError(err.message);
+                                                    } finally {
+                                                        setWalletConnecting(false);
+                                                    }
+                                                }}
+                                                disabled={walletConnecting}
+                                                className="w-full py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                                            >
+                                                {walletConnecting ? (
+                                                    <><Loader2 className="w-3.5 h-3.5 animate-spin" />Connecting...</>
+                                                ) : (
+                                                    <><Wallet className="w-3.5 h-3.5" />Connect MetaMask</>
+                                                )}
+                                            </button>
+                                            {walletError && (
+                                                <p className="text-[10px] text-red-500">{walletError}</p>
+                                            )}
+                                        </div>
+                                    </details>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 justify-center py-4">
+                                    <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">Setting up your wallet...</span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
+                                    Your carnival wallet is generated automatically. No downloads or crypto needed.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Public Toggle */}

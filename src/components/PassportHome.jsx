@@ -233,6 +233,8 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
             >
                 {/* Fallback gradient overlay for better text readability */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-60`} />
+                {/* Carnival Feathers overlay */}
+                <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.12] mix-blend-overlay" />
 
                 {/* Decorative elements */}
                 <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
@@ -285,14 +287,16 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+                    <img src="/carnival-feathers.png" alt="" className="absolute -right-6 -top-6 w-16 h-16 object-cover opacity-[0.04] dark:opacity-[0.08] rotate-45" />
                     <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
                         <Ticket className="w-5 h-5 text-teal-500" />
                     </div>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">{profile?.totalEvents || 0}</p>
                     <p className="text-xs text-gray-500">Events</p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+                    <img src="/carnival-feathers.png" alt="" className="absolute -right-6 -top-6 w-16 h-16 object-cover opacity-[0.04] dark:opacity-[0.08] -rotate-12" />
                     <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                         <MapPin className="w-5 h-5 text-blue-500" />
                     </div>
@@ -301,7 +305,8 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
                     </p>
                     <p className="text-xs text-gray-500">Countries</p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm border border-gray-100 dark:border-gray-700">
+                    <img src="/carnival-feathers.png" alt="" className="absolute -left-6 -bottom-6 w-16 h-16 object-cover opacity-[0.04] dark:opacity-[0.08] rotate-90" />
                     <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
                         <Trophy className="w-5 h-5 text-yellow-500" />
                     </div>
@@ -324,7 +329,8 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
             </button>
 
             {/* Rewards CTA */}
-            <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-5 text-white shadow-lg">
+            <div className="relative overflow-hidden bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-5 text-white shadow-lg">
+                <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.1] mix-blend-overlay" />
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -346,7 +352,8 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
 
             {/* Squad Stats Card */}
             {squadStats && (
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-5 shadow-lg text-white">
+                <div className="relative overflow-hidden bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-5 shadow-lg text-white">
+                    <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.1] mix-blend-overlay" />
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -497,7 +504,8 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
             </div>
 
             {/* Leaderboard Teaser */}
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+                <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.1] mix-blend-overlay" />
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">

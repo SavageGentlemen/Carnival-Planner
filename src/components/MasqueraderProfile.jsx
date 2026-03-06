@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
     User, MapPin, Users, Calendar, Instagram, Twitter,
     Globe, Edit2, Share2, Shield, ShieldCheck,
-    Music, PartyPopper, Plane, Ticket
+    Music, PartyPopper, Plane, Ticket, Wallet, ExternalLink
 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { truncateAddress, getExplorerUrl } from '../services/web3Service';
 
 // Country flag emoji mapping
 const COUNTRY_FLAGS = {
@@ -53,7 +54,10 @@ export default function MasqueraderProfile({
         isPublic,
         carnivalHistory = [],
         stats = {},
-        socialLinks = {}
+        socialLinks = {},
+        walletAddress,
+        mintedStampCount = 0,
+        mintedAchievementCount = 0
     } = profileData;
 
     const countriesVisited = [...new Set(carnivalHistory.map(c => c.carnivalId))];
@@ -127,8 +131,28 @@ export default function MasqueraderProfile({
                             )}
                         </div>
 
-                        {/* Social Links */}
-                        <div className="flex gap-3">
+                        {/* Wallet Badge */}
+                        <div className="flex gap-3 items-center">
+                            {walletAddress ? (
+                                <a
+                                    href={getExplorerUrl(walletAddress, 'address')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-full text-indigo-600 dark:text-indigo-400 text-xs font-medium hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
+                                >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                    {truncateAddress(walletAddress)}
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                            ) : isOwnProfile && (
+                                <button
+                                    onClick={onEdit}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full text-white text-xs font-bold hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg shadow-indigo-500/25 animate-pulse"
+                                >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                    Connect Wallet
+                                </button>
+                            )}
                             {socialLinks.instagram && (
                                 <a
                                     href={`https://instagram.com/${socialLinks.instagram}`}
@@ -168,7 +192,7 @@ export default function MasqueraderProfile({
                 </div>
 
                 {/* Stats Row */}
-                <div className="mt-6 grid grid-cols-3 gap-4">
+                <div className="mt-6 grid grid-cols-4 gap-3">
                     <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl">
                         <PartyPopper className="w-6 h-6 mx-auto mb-2 text-purple-500" />
                         <p className="text-2xl font-bold text-gray-900 dark:text-white">{carnivalHistory.length}</p>
@@ -186,6 +210,13 @@ export default function MasqueraderProfile({
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Bands</p>
                     </div>
+                    {walletAddress && (
+                        <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl">
+                            <Wallet className="w-6 h-6 mx-auto mb-2 text-indigo-500" />
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{mintedStampCount + mintedAchievementCount}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">On-Chain</p>
+                        </div>
+                    )}
                 </div>
             </div>
 

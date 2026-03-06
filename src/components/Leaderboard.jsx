@@ -139,7 +139,7 @@ export default function Leaderboard({ user, onBack }) {
                             </div>
                             <div className="w-12 h-12 mx-auto mb-2 mt-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
                                 {leaderboard[1].profilePictureUrl ? (
-                                    <img src={leaderboard[1].profilePictureUrl} alt="" className="w-full h-full object-cover" />
+                                    <img src={leaderboard[1].profilePictureUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                 ) : (
                                     <User className="w-6 h-6 text-gray-400" />
                                 )}
@@ -162,7 +162,7 @@ export default function Leaderboard({ user, onBack }) {
                             </div>
                             <div className="w-14 h-14 mx-auto mb-2 mt-4 rounded-full bg-white/80 dark:bg-gray-800 flex items-center justify-center overflow-hidden ring-4 ring-yellow-400/50">
                                 {leaderboard[0].profilePictureUrl ? (
-                                    <img src={leaderboard[0].profilePictureUrl} alt="" className="w-full h-full object-cover" />
+                                    <img src={leaderboard[0].profilePictureUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                 ) : (
                                     <User className="w-7 h-7 text-gray-400" />
                                 )}
@@ -188,7 +188,7 @@ export default function Leaderboard({ user, onBack }) {
                             </div>
                             <div className="w-12 h-12 mx-auto mb-2 mt-4 rounded-full bg-amber-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
                                 {leaderboard[2].profilePictureUrl ? (
-                                    <img src={leaderboard[2].profilePictureUrl} alt="" className="w-full h-full object-cover" />
+                                    <img src={leaderboard[2].profilePictureUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                 ) : (
                                     <User className="w-6 h-6 text-gray-400" />
                                 )}
@@ -224,14 +224,14 @@ export default function Leaderboard({ user, onBack }) {
                             <div
                                 key={entry.userId}
                                 className={`flex items-center gap-4 p-4 transition-colors ${isCurrentUser
-                                        ? 'bg-purple-50 dark:bg-purple-900/20'
-                                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                    ? 'bg-purple-50 dark:bg-purple-900/20'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                                     }`}
                             >
                                 {/* Rank */}
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${rankConfig
-                                        ? `${rankConfig.bg} ${rankConfig.color}`
-                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                    ? `${rankConfig.bg} ${rankConfig.color}`
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                                     }`}>
                                     {rankConfig ? (
                                         <rankConfig.icon className="w-5 h-5" />
@@ -243,7 +243,7 @@ export default function Leaderboard({ user, onBack }) {
                                 {/* Avatar */}
                                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
                                     {entry.profilePictureUrl ? (
-                                        <img src={entry.profilePictureUrl} alt="" className="w-full h-full object-cover" />
+                                        <img src={entry.profilePictureUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                     ) : (
                                         <User className="w-5 h-5 text-gray-400" />
                                     )}
@@ -253,8 +253,8 @@ export default function Leaderboard({ user, onBack }) {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                         <p className={`font-medium truncate ${isCurrentUser
-                                                ? 'text-purple-600 dark:text-purple-400'
-                                                : 'text-gray-800 dark:text-white'
+                                            ? 'text-purple-600 dark:text-purple-400'
+                                            : 'text-gray-800 dark:text-white'
                                             }`}>
                                             {entry.displayName}
                                             {isCurrentUser && <span className="ml-1 text-xs">(You)</span>}

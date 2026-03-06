@@ -6,7 +6,11 @@ export default {
   ],
   darkMode: 'class', // 👈 Enables manual dark mode toggling
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+      },
+    },
   },
   safelist: [
     {

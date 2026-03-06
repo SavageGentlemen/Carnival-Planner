@@ -15,15 +15,16 @@ export default function WelcomeModal({ onClose }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="relative bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 p-6 rounded-t-2xl text-white text-center">
+                <div className="relative bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 p-6 rounded-t-2xl text-white text-center overflow-hidden">
+                    <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-overlay" />
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+                        className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors z-10"
                     >
                         <X className="w-6 h-6" />
                     </button>
-                    <h2 className="text-2xl font-black mb-1">Welcome to Caribbean Carnival Planner! 🎭</h2>
-                    <p className="text-white/90 text-sm">Your all-in-one Caribbean carnival companion</p>
+                    <h2 className="relative z-10 text-2xl font-black mb-1">Welcome to Caribbean Carnival Planner! 🎭</h2>
+                    <p className="relative z-10 text-white/90 text-sm">Your all-in-one Caribbean carnival companion</p>
                 </div>
 
                 {/* Features */}
@@ -34,7 +35,8 @@ export default function WelcomeModal({ onClose }) {
 
                     <div className="grid gap-3">
                         {features.map((feature, i) => (
-                            <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                            <div key={i} className="relative overflow-hidden flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl group hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors">
+                                <img src="/carnival-feathers.png" alt="" className="absolute -right-6 -top-6 w-16 h-16 object-cover opacity-[0.03] dark:opacity-[0.06] rotate-45 group-hover:opacity-[0.06] dark:group-hover:opacity-[0.1] transition-opacity" />
                                 <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg text-white flex-shrink-0">
                                     <feature.icon className="w-5 h-5" />
                                 </div>

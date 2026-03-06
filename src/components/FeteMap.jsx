@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Home, Shirt, PartyPopper, Users, Plus, Trash2, Navigation } from 'lucide-react';
+import { MapPin, Home, Shirt, PartyPopper, Users, Plus, Trash2, Navigation, Compass, Eye } from 'lucide-react';
+
+const ARWaypoint = React.lazy(() => import('./ARWaypoint'));
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -84,12 +86,14 @@ const CARNIVAL_CENTERS = {
   'japan': { center: [35.6762, 139.6503], zoom: 10, country: 'Tokyo, Japan' },
 };
 
-export default function FeteMap({ locations = [], scrapedEvents = [], onLocationsChange, carnivalName, carnivalId }) {
+export default function FeteMap({ locations = [], scrapedEvents = [], onLocationsChange, carnivalName, carnivalId, isPremium = false }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPin, setNewPin] = useState({ name: '', type: 'fete', lat: '', lng: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [arTarget, setArTarget] = useState(null);
+  const [arRoadMode, setArRoadMode] = useState(false);
 
   const accommodation = locations.find(loc => loc.type === 'accommodation');
 
@@ -168,13 +172,24 @@ export default function FeteMap({ locations = [], scrapedEvents = [], onLocation
             📍 {carnivalConfig.country}
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition"
-        >
-          <Plus className="w-4 h-4" />
-          Add Pin
-        </button>
+        <div className="flex items-center gap-2">
+          {isPremium && (locations.length > 0 || scrapedEvents.some(e => e.lat && e.lng)) && (
+            <button
+              onClick={() => setArRoadMode(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm rounded-lg hover:from-indigo-500 hover:to-purple-500 transition shadow-lg shadow-indigo-500/25"
+            >
+              <Eye className="w-4 h-4" />
+              AR Road Mode
+            </button>
+          )}
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition"
+          >
+            <Plus className="w-4 h-4" />
+            Add Pin
+          </button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -293,6 +308,14 @@ export default function FeteMap({ locations = [], scrapedEvents = [], onLocation
                     {getDistanceFromAccommodation(loc)} from accommodation
                   </div>
                 )}
+                {isPremium && (
+                  <button
+                    onClick={() => setArTarget({ lat: loc.lat, lng: loc.lng, name: loc.name })}
+                    className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded uppercase hover:bg-indigo-200 transition"
+                  >
+                    <Compass className="w-3 h-3" /> AR Navigate
+                  </button>
+                )}
               </Popup>
             </Marker>
           ))}
@@ -315,6 +338,14 @@ export default function FeteMap({ locations = [], scrapedEvents = [], onLocation
                 >
                   Find Tickets
                 </a>
+                {isPremium && event.lat && event.lng && (
+                  <button
+                    onClick={() => setArTarget({ lat: event.lat, lng: event.lng, name: event.title, venue: event.venue })}
+                    className="mt-1 w-full flex items-center justify-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded uppercase hover:bg-indigo-200 transition"
+                  >
+                    <Compass className="w-3 h-3" /> AR Navigate
+                  </button>
+                )}
               </Popup>
             </Marker>
           ))}
@@ -368,6 +399,38 @@ export default function FeteMap({ locations = [], scrapedEvents = [], onLocation
           <p>Start by adding your accommodation location</p>
           <p className="text-sm">Then add fetes, costume pickup, and meetup spots</p>
         </div>
+      )}
+
+      {/* AR Waypoint overlay — single target from pin popup */}
+      {arTarget && (
+        <React.Suspense fallback={null}>
+          <ARWaypoint
+            target={arTarget}
+            onClose={() => setArTarget(null)}
+            isPremium={isPremium}
+          />
+        </React.Suspense>
+      )}
+
+      {/* AR Road Mode — all waypoints at once */}
+      {arRoadMode && (
+        <React.Suspense fallback={null}>
+          <ARWaypoint
+            targets={[
+              ...locations.map(loc => ({ ...loc, type: loc.type })),
+              ...scrapedEvents.filter(e => e.lat && e.lng).map(e => ({
+                id: e.id,
+                lat: e.lat,
+                lng: e.lng,
+                name: e.title,
+                venue: e.venue,
+                type: 'scraped'
+              }))
+            ]}
+            onClose={() => setArRoadMode(false)}
+            isPremium={isPremium}
+          />
+        </React.Suspense>
       )}
     </div>
   );

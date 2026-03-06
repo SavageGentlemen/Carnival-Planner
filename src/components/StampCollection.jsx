@@ -132,8 +132,8 @@ export default function StampCollection({ user, onBack }) {
                 <button
                     onClick={() => setFilter('ALL')}
                     className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${filter === 'ALL'
-                            ? 'bg-teal-500 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        ? 'bg-teal-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                 >
                     All ({stamps.length})
@@ -143,8 +143,8 @@ export default function StampCollection({ user, onBack }) {
                         key={rarity}
                         onClick={() => setFilter(rarity)}
                         className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${filter === rarity
-                                ? `${RARITY_CONFIG[rarity].bgColor} ${RARITY_CONFIG[rarity].textColor} border ${RARITY_CONFIG[rarity].borderColor}`
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            ? `${RARITY_CONFIG[rarity].bgColor} ${RARITY_CONFIG[rarity].textColor} border ${RARITY_CONFIG[rarity].borderColor}`
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                             }`}
                     >
                         {RARITY_CONFIG[rarity].name} ({rarityCounts[rarity] || 0})
@@ -242,6 +242,20 @@ export default function StampCollection({ user, onBack }) {
                                         +{stamp.creditsEarned} credits
                                     </span>
                                 </div>
+
+                                {/* On-Chain Badge */}
+                                {stamp.mintedTxHash && (
+                                    <div className="mt-1.5 text-center">
+                                        <a
+                                            href={`https://basescan.org/tx/${stamp.mintedTxHash}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-bold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
+                                        >
+                                            ⛓ On-Chain
+                                        </a>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
