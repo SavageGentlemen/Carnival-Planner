@@ -212,7 +212,7 @@ export default function AffiliateDashboard({ user }) {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                         Code: <span className="font-mono font-bold text-purple-600">{affiliateData.affiliateCode}</span>
                         {' · '}
-                        {(affiliateData.commissionRate * 100).toFixed(0)}% commission
+                        {((affiliateData.commissionRate || 0.20) * 100).toFixed(0)}% commission
                     </p>
                 </div>
             </div>
@@ -245,7 +245,7 @@ export default function AffiliateDashboard({ user }) {
                     { label: 'Conversions', value: conversions.length, icon: Users, color: 'text-blue-500' },
                     { label: 'Total Earned', value: `$${totalEarnings.toFixed(2)}`, icon: DollarSign, color: 'text-green-500' },
                     { label: 'Pending', value: `$${pendingEarnings.toFixed(2)}`, icon: TrendingUp, color: 'text-orange-500' },
-                    { label: 'Commission', value: `${(affiliateData.commissionRate * 100).toFixed(0)}%`, icon: Award, color: 'text-purple-500' },
+                    { label: 'Commission', value: `${((affiliateData.commissionRate || 0.20) * 100).toFixed(0)}%`, icon: Award, color: 'text-purple-500' },
                 ].map(stat => (
                     <div key={stat.label}
                         className="bg-white dark:bg-gray-700/50 rounded-xl p-3 border border-gray-200 dark:border-gray-600">
@@ -282,8 +282,8 @@ export default function AffiliateDashboard({ user }) {
                                         +${(conv.commission || 0).toFixed(2)}
                                     </p>
                                     <p className={`text-xs font-medium ${conv.payoutStatus === 'paid'
-                                            ? 'text-green-500'
-                                            : 'text-orange-500'
+                                        ? 'text-green-500'
+                                        : 'text-orange-500'
                                         }`}>
                                         {conv.payoutStatus === 'paid' ? 'Paid' : 'Pending'}
                                     </p>
