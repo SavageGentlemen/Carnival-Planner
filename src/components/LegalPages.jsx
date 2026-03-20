@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowLeft, Shield, FileText, Cookie, CreditCard } from 'lucide-react';
 
 const COMPANY_NAME = 'Caribbean Carnival Planner';
-const COMPANY_EMAIL = 'cpteamgt@gmail.com';
+const COMPANY_EMAIL = 'cpteam@carnival-planner.com';
 const LAST_UPDATED = 'December 12, 2025';
 
 export function PrivacyPolicy({ onBack, logo }) {
