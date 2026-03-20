@@ -174,8 +174,8 @@ export function ContactPage({ onBack, logo, user }) {
 
         <p className="text-gray-500 text-sm text-center mt-8">
           You can also email us directly at{' '}
-          <a href="mailto:support@carnival-planner.com" className="text-pink-400 hover:underline">
-            support@carnival-planner.com
+          <a href="mailto:cpteamgt@gmail.com" className="text-pink-400 hover:underline">
+            cpteamgt@gmail.com
           </a>
         </p>
       </div>
