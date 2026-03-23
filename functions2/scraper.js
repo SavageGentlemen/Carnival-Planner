@@ -81,6 +81,7 @@ function parseDate(dateStr) {
 }
 
 function categorizeEvent(event) {
+    if (event._forceCarnivalId) return event._forceCarnivalId;
     const text = `${event.title || ''} ${event.venue || ''}`.toLowerCase();
     for (const [carnivalId, terms] of Object.entries(CARNIVAL_SEARCH_TERMS)) {
         for (const term of terms) {
@@ -486,6 +487,77 @@ async function scrapeTriniJungleJuice() {
     return events;
 }
 
+// --- Scraper: linktr.ee (e.g., ohzeenjm for Jamaica Carnival) ---
+
+async function scrapeLinktree() {
+    const events = [];
+    const baseUrl = 'https://linktr.ee/ohzeenjm';
+
+    console.log('Scraping linktr.ee/ohzeenjm...');
+    const html = await fetchPage(baseUrl);
+    if (!html) return events;
+
+    const $ = cheerio.load(html);
+
+    try {
+        const nextDataScript = $('#__NEXT_DATA__').html();
+        if (nextDataScript) {
+            const nextData = JSON.parse(nextDataScript);
+            const links = nextData?.props?.pageProps?.links || [];
+            
+            for (const link of links) {
+                if (link.url && link.title) {
+                    events.push({
+                        title: link.title,
+                        url: link.url,
+                        date_raw: null,
+                        venue: null,
+                        image: link.thumbnail || null,
+                        source: 'linktr.ee/ohzeenjm',
+                        _forceCarnivalId: 'jamaica',
+                        scraped_at: new Date().toISOString()
+                    });
+                }
+            }
+        } else {
+            // Fallback HTML parsing
+            $('a').each(function() {
+                const el = $(this);
+                const href = el.attr('href');
+                if (href && href.startsWith('http')) {
+                    if (href.includes('instagram.com') || href.includes('twitter.com') || href.includes('facebook.com') || href.includes('tiktok.com')) return;
+                    
+                    let title = el.text().trim();
+                    if (title) {
+                        events.push({
+                            title,
+                            url: href,
+                            date_raw: null,
+                            venue: null,
+                            source: 'linktr.ee/ohzeenjm',
+                            _forceCarnivalId: 'jamaica',
+                            scraped_at: new Date().toISOString()
+                        });
+                    }
+                }
+            });
+        }
+    } catch (err) {
+        console.log(`Error parsing Linktree NEXT_DATA: ${err.message}`);
+    }
+
+    // Deduplicate by URL
+    const seen = new Set();
+    const uniqueEvents = events.filter(e => {
+        if (seen.has(e.url)) return false;
+        seen.add(e.url);
+        return true;
+    });
+
+    console.log(`Found ${uniqueEvents.length} events from linktr.ee/ohzeenjm`);
+    return uniqueEvents;
+}
+
 // --- Save to Firestore ---
 
 async function saveToFirebase(events, db) {
@@ -545,6 +617,9 @@ async function runScraper(db) {
 
     const tjjEvents = await scrapeTriniJungleJuice();
     allEvents.push(...tjjEvents);
+
+    const linktreeEvents = await scrapeLinktree();
+    allEvents.push(...linktreeEvents);
 
     console.log(`\nTotal events scraped: ${allEvents.length}`);
 

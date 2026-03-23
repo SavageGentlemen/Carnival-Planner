@@ -509,9 +509,18 @@ def scrape_trini_jungle_juice() -> List[Dict]:
         
         # TJJ API returns events grouped by date
         groups = data.get('events', [])
+        if not isinstance(groups, list):
+            groups = []
         for group in groups:
+            if not isinstance(group, dict):
+                continue
             # group example: {'timestamp': 'Thursday, January 1, 2026', 'events': [...]}
-            for item in group.get('events', []):
+            events_list = group.get('events', [])
+            if not isinstance(events_list, list):
+                continue
+            for item in events_list:
+                if not isinstance(item, dict):
+                    continue
                 try:
                     title = item.get('title')
                     if not title:
@@ -559,6 +568,9 @@ def scrape_trini_jungle_juice() -> List[Dict]:
 
 def categorize_event(event: Dict) -> Optional[str]:
     """Determine which carnival an event belongs to based on title/venue."""
+    if event.get('_force_carnival_id'):
+        return event['_force_carnival_id']
+        
     text_to_search = f"{event.get('title', '')} {event.get('venue', '')}".lower()
     
     for carnival_id, search_terms in CARNIVAL_SEARCH_TERMS.items():
@@ -569,10 +581,81 @@ def categorize_event(event: Dict) -> Optional[str]:
     return None
 
 
+def scrape_linktree() -> List[Dict]:
+    """Scrape events from linktr.ee/ohzeenjm."""
+    events = []
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+    })
+    
+    base_url = "https://linktr.ee/ohzeenjm"
+    print(f"Scraping linktr.ee/ohzeenjm...")
+    
+    html = fetch_page(base_url, session)
+    if not html:
+        return events
+        
+    soup = BeautifulSoup(html, 'lxml')
+    
+    try:
+        next_data_script = soup.find('script', id='__NEXT_DATA__')
+        if next_data_script and next_data_script.string:
+            next_data = json.loads(next_data_script.string)
+            links = next_data.get('props', {}).get('pageProps', {}).get('links', [])
+            
+            for link in links:
+                if link.get('url') and link.get('title'):
+                    events.append({
+                        'title': link['title'],
+                        'url': link['url'],
+                        'date_raw': None,
+                        'venue': None,
+                        'image': link.get('thumbnail'),
+                        'source': 'linktr.ee/ohzeenjm',
+                        '_force_carnival_id': 'jamaica',
+                        'scraped_at': datetime.now(timezone.utc).isoformat()
+                    })
+        else:
+            # Fallback
+            for a in soup.find_all('a', href=True):
+                href = a.get('href', '')
+                if href.startswith('http'):
+                    if 'instagram.com' in href or 'twitter.com' in href or 'facebook.com' in href or 'tiktok.com' in href:
+                        continue
+                    
+                    title = a.get_text(strip=True)
+                    if title:
+                        events.append({
+                            'title': title,
+                            'url': href,
+                            'date_raw': None,
+                            'venue': None,
+                            'source': 'linktr.ee/ohzeenjm',
+                            '_force_carnival_id': 'jamaica',
+                            'scraped_at': datetime.now(timezone.utc).isoformat()
+                        })
+    except Exception as e:
+        print(f"Error parsing Linktree: {e}")
+        
+    # Deduplicate by URL
+    seen = set()
+    unique_events = []
+    for e in events:
+        if e['url'] not in seen:
+            seen.add(e['url'])
+            unique_events.append(e)
+            
+    print(f"Found {len(unique_events)} events from linktr.ee/ohzeenjm")
+    return unique_events
+
+
 def generate_event_id(event: Dict) -> str:
     """Generate a unique ID for an event based on its content."""
     unique_str = f"{event.get('title', '')}-{event.get('date', '')}-{event.get('source', '')}"
-    return hashlib.md5(unique_str.encode()).hexdigest()[:16]
+    digest: str = hashlib.md5(unique_str.encode()).hexdigest()
+    return digest[:16]
 
 
 def save_to_firebase(events: List[Dict], db):
@@ -584,7 +667,8 @@ def save_to_firebase(events: List[Dict], db):
         if carnival_id:
             # Attempt geocoding if lat/lng is missing (TJJ usually has them)
             if not event.get('lat') or not event.get('lng'):
-                coords = get_coordinates(event.get('venue'), carnival_id)
+                venue_str = str(event.get('venue') or '')
+                coords = get_coordinates(venue_str, carnival_id)
                 event['lat'] = coords['lat']
                 event['lng'] = coords['lng']
                 
@@ -638,6 +722,9 @@ def main():
     
     tjj_events = scrape_trini_jungle_juice()
     all_events.extend(tjj_events)
+    
+    linktree_events = scrape_linktree()
+    all_events.extend(linktree_events)
     
     print(f"\nTotal events scraped: {len(all_events)}")
     
