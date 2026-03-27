@@ -3289,3 +3289,52 @@ exports.ensureWallet = onCall(
     };
   }
 );
+
+// ═══════════════════════════════════════════════════════════════
+// PROMOTER DASHBOARD — ZERO-TRUST IDOR PROTECTION PROTOCOL
+// ═══════════════════════════════════════════════════════════════
+
+exports.getPromoterDashboard = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    // Phase 1: Identify the Active Avatar
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Code 401: Secure Session Token Missing.');
+    }
+    const activeUserId = request.auth.uid;
+
+    // Phase 2: Identify the Target Asset
+    const targetDashboardId = request.data.dashboard_id;
+    if (!targetDashboardId) {
+      throw new HttpsError('invalid-argument', 'Missing target asset ID.');
+    }
+
+    // Phase 3: Query the Grid
+    // Assumes promoterDashboards is a collection at the database root. Adjust if needed.
+    const dashboardRef = admin.firestore().collection('promoterDashboards').doc(targetDashboardId);
+    const dashboardDoc = await dashboardRef.get();
+
+    if (!dashboardDoc.exists) {
+      throw new HttpsError('not-found', 'Asset not found on the grid.');
+    }
+
+    const requestedDashboard = dashboardDoc.data();
+
+    // Phase 4: The Physical Lock (The IDOR Patch)
+    if (requestedDashboard.owner_id !== activeUserId) {
+      // THE KILL SWITCH
+      console.warn(`[THREAT DETECTED] User ${activeUserId} attempted IDOR on Dashboard ${targetDashboardId}`);
+      
+      throw new HttpsError(
+        'permission-denied', 
+        'Code 403: Access Denied. You lack the cryptographic clearance for this asset.'
+      );
+    }
+
+    // Phase 5: Access Granted
+    return {
+      success: true,
+      dashboard: requestedDashboard
+    };
+  }
+);
