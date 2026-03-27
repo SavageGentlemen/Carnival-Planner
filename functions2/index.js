@@ -390,6 +390,31 @@ exports.joinSquadByCode = onCall(
     }];
     await planDoc.ref.update({ members: updatedMembers });
 
+    // === NEW SQUAD GOALS LOGIC ===
+    if (updatedMembers.length === 5) {
+      try {
+        const batch = admin.firestore().batch();
+        const ninetyDaysFromNow = new Date();
+        ninetyDaysFromNow.setDate(ninetyDaysFromNow.getDate() + 90);
+
+        updatedMembers.forEach((member) => {
+          const userAppRef = squadDb.doc(`users/${member.uid}/apps/${APP_ID}`);
+          batch.set(userAppRef, {
+            premiumActive: true,
+            premiumUpdatedAt: FieldValue.serverTimestamp(),
+            premiumCurrentPeriodEnd: ninetyDaysFromNow,
+            premiumSource: 'squad_goals_promo'
+          }, { merge: true });
+        });
+
+        await batch.commit();
+        console.log(`Squad Goals Reached for Plan ${planDoc.id}! 3 months premium granted to all 5 members.`);
+      } catch (err) {
+        console.error("Error creating Squad Goals premium reward:", err);
+      }
+    }
+    // === END SQUAD GOALS LOGIC ===
+
     return {
       success: true,
       message: 'Joined squad!',

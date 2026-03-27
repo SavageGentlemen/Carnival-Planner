@@ -1694,6 +1694,7 @@ export default function App() {
                 scrapedEvents={scrapedEvents}
                 vibeScores={vibeScores}
                 squadMembers={[]}
+                squadShareCode={''}
                 budgetTotal={0}
                 budgetSpent={0}
                 isPremium={isPremium}
@@ -1708,6 +1709,7 @@ export default function App() {
                   scrapedEvents={scrapedEvents}
                   vibeScores={vibeScores}
                   squadMembers={squadMembers}
+                  squadShareCode={squadShareCode}
                   budgetTotal={20000} // Placeholder Goal
                   budgetSpent={budgetTotal} // This variable holds the sum of costs
                   isPremium={isPremium}

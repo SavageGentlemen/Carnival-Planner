@@ -1,6 +1,72 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { Calendar, Wallet, Users, MapPin, Zap, ExternalLink, Ticket, ArrowRight, Music, TrendingUp } from 'lucide-react';
+import { Calendar, Wallet, Users, MapPin, Zap, ExternalLink, Ticket, ArrowRight, Music, TrendingUp, PartyPopper, Share2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
+const SquadPromoProgressBar = ({ currentMemberCount, shareCode }) => {
+    if (currentMemberCount >= 5) {
+        return (
+            <motion.div 
+                initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 p-4 rounded-2xl shadow-lg border border-yellow-300 mb-6 text-center text-white"
+            >
+                <div className="flex items-center justify-center gap-2 mb-1">
+                    <PartyPopper className="w-6 h-6 animate-bounce" />
+                    <h3 className="font-black text-xl tracking-wide uppercase">Squad Goals Unlocked!</h3>
+                    <PartyPopper className="w-6 h-6 animate-bounce" />
+                </div>
+                <p className="font-bold text-sm">Premium Activated for 3 Months for the whole squad! 🏆</p>
+            </motion.div>
+        );
+    }
+
+    const handleShare = async () => {
+        if (navigator.share && shareCode) {
+            try {
+                await navigator.share({
+                    title: 'Join my Squad on Carnival Planner!',
+                    text: `Use my invite code ${shareCode} to join my squad. If we hit 5 members, we all get 3 months of Premium FREE!`,
+                    url: 'https://carnival-planner.web.app'
+                });
+            } catch (error) {
+                console.log('Error sharing:', error);
+            }
+        } else if (shareCode) {
+            navigator.clipboard.writeText(shareCode);
+            alert("Invite code copied to clipboard!");
+        }
+    };
+
+    const progressPercentage = (currentMemberCount / 5) * 100;
+    const membersNeeded = 5 - currentMemberCount;
+
+    return (
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex-1 w-full">
+                <p className="text-sm font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-1.5">
+                    🔥 <span className="text-pink-500">{currentMemberCount}/5 Squad Members.</span> 
+                    Add {membersNeeded} more {membersNeeded === 1 ? 'friend' : 'friends'} to unlock 3 Months of Premium!
+                </p>
+                <div className="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPercentage}%` }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                        className="h-full bg-gradient-to-r from-pink-500 to-purple-500 rounded-full"
+                    />
+                </div>
+            </div>
+            
+            <button 
+                onClick={handleShare}
+                className="flex-shrink-0 w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+            >
+                <Share2 className="w-4 h-4" />
+                Share Invite Code
+            </button>
+        </div>
+    );
+};
 export default function HomeHub({
     user,
     activeCarnivalId,
@@ -8,6 +74,7 @@ export default function HomeHub({
     scrapedEvents = [],
     vibeScores = {},
     squadMembers = [],
+    squadShareCode = '',
     budgetTotal = 0,
     budgetSpent = 0,
     isPremium,
@@ -107,6 +174,9 @@ export default function HomeHub({
 
     return (
         <div className="space-y-6 mb-8 animate-fadeIn">
+            {/* SQUAD PROMO PROGRESS BAR */}
+            {activeCarnivalId && <SquadPromoProgressBar currentMemberCount={squadMembers.length + 1} shareCode={squadShareCode} />}
+
             {/* 1. HERO SECTION */}
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 shadow-2xl text-white">
                 {/* Carnival Feathers Background */}
