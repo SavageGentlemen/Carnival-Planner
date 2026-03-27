@@ -1,14 +1,11 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Calendar, Wallet, Users, MapPin, Zap, ExternalLink, Ticket, ArrowRight, Music, TrendingUp, PartyPopper, Share2 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 const SquadPromoProgressBar = ({ currentMemberCount, shareCode }) => {
     if (currentMemberCount >= 5) {
         return (
-            <motion.div 
-                initial={{ opacity: 0, y: -20, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 p-4 rounded-2xl shadow-lg border border-yellow-300 mb-6 text-center text-white"
+            <div 
+                className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 p-4 rounded-2xl shadow-lg border border-yellow-300 mb-6 text-center text-white animate-fadeIn"
             >
                 <div className="flex items-center justify-center gap-2 mb-1">
                     <PartyPopper className="w-6 h-6 animate-bounce" />
@@ -16,7 +13,7 @@ const SquadPromoProgressBar = ({ currentMemberCount, shareCode }) => {
                     <PartyPopper className="w-6 h-6 animate-bounce" />
                 </div>
                 <p className="font-bold text-sm">Premium Activated for 3 Months for the whole squad! 🏆</p>
-            </motion.div>
+            </div>
         );
     }
 
@@ -48,10 +45,8 @@ const SquadPromoProgressBar = ({ currentMemberCount, shareCode }) => {
                     Add {membersNeeded} more {membersNeeded === 1 ? 'friend' : 'friends'} to unlock 3 Months of Premium!
                 </p>
                 <div className="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progressPercentage}%` }}
-                        transition={{ duration: 1, ease: 'easeOut' }}
+                    <div 
+                        style={{ width: `${progressPercentage}%`, transition: 'width 1s ease-out' }}
                         className="h-full bg-gradient-to-r from-pink-500 to-purple-500 rounded-full"
                     />
                 </div>
