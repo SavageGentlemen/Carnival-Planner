@@ -630,6 +630,61 @@ async function scrapeFeteishGy() {
     return events;
 }
 
+// --- Scraper: euphoriamas.com ---
+
+async function scrapeEuphoriaMas() {
+    const events = [];
+    const baseUrl = 'https://euphoriamas.com';
+
+    console.log('Scraping euphoriamas.com...');
+    const html = await fetchPage(baseUrl);
+    if (!html) return events;
+
+    const $ = cheerio.load(html);
+    const titleEl = $('title').first();
+    const title = titleEl.length ? titleEl.text().trim() : 'Euphoria Mas';
+
+    events.push({
+        title,
+        url: baseUrl,
+        date_raw: null,
+        venue: 'Georgetown, Guyana',
+        source: 'euphoriamas.com',
+        _forceCarnivalId: 'guyana',
+        scraped_at: new Date().toISOString()
+    });
+
+    console.log(`Found ${events.length} events from euphoriamas.com`);
+    return events;
+}
+
+// --- Scraper: savgent.com ---
+
+async function scrapeSavgent() {
+    const events = [];
+    const baseUrl = 'https://www.savgent.com';
+
+    console.log('Scraping savgent.com...');
+    const html = await fetchPage(baseUrl);
+    if (!html) return events;
+
+    const $ = cheerio.load(html);
+    const titleEl = $('title').first();
+    const title = titleEl.length ? titleEl.text().trim() : 'Savage Gentlemen Events';
+
+    events.push({
+        title,
+        url: `${baseUrl}/events`,
+        date_raw: null,
+        venue: null,
+        source: 'savgent.com',
+        scraped_at: new Date().toISOString()
+    });
+
+    console.log(`Found ${events.length} events from savgent.com`);
+    return events;
+}
+
 // --- Scraper: eventpass24.com ---
 
 async function scrapeEventPass24() {
@@ -763,6 +818,12 @@ async function runScraper(db) {
 
     const feteishEvents = await scrapeFeteishGy();
     allEvents.push(...feteishEvents);
+
+    const euphoriaEvents = await scrapeEuphoriaMas();
+    allEvents.push(...euphoriaEvents);
+
+    const savgentEvents = await scrapeSavgent();
+    allEvents.push(...savgentEvents);
 
     const ep24Events = await scrapeEventPass24();
     allEvents.push(...ep24Events);

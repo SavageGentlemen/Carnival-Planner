@@ -724,6 +724,67 @@ def scrape_feteishgy() -> List[Dict]:
     return events
 
 
+def scrape_euphoriamas() -> List[Dict]:
+    """Scrape events from euphoriamas.com."""
+    events = []
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    
+    base_url = "https://euphoriamas.com"
+    print(f"Scraping euphoriamas.com...")
+    
+    html = fetch_page(base_url, session)
+    if not html:
+        return events
+        
+    soup = BeautifulSoup(html, 'lxml')
+    title_el = soup.find('title')
+    title = title_el.get_text(strip=True) if title_el else 'Euphoria Mas'
+    
+    events.append({
+        'title': title,
+        'url': base_url,
+        'date_raw': None,
+        'venue': 'Georgetown, Guyana',
+        'source': 'euphoriamas.com',
+        '_force_carnival_id': 'guyana',
+        'scraped_at': datetime.now(timezone.utc).isoformat()
+    })
+    
+    print(f"Found {len(events)} events from euphoriamas.com")
+    return events
+
+
+def scrape_savgent() -> List[Dict]:
+    """Scrape events from savgent.com."""
+    events = []
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    
+    base_url = "https://www.savgent.com"
+    print(f"Scraping savgent.com...")
+    
+    html = fetch_page(base_url, session)
+    if not html:
+        return events
+        
+    soup = BeautifulSoup(html, 'lxml')
+    title_el = soup.find('title')
+    title = title_el.get_text(strip=True) if title_el else 'Savage Gentlemen Events'
+    
+    events.append({
+        'title': title,
+        'url': f"{base_url}/events",
+        'date_raw': None,
+        'venue': None,  # Will be categorized if it matches terms
+        'source': 'savgent.com',
+        'scraped_at': datetime.now(timezone.utc).isoformat()
+    })
+    
+    print(f"Found {len(events)} events from savgent.com")
+    return events
+
+
 def scrape_eventpass24() -> List[Dict]:
     """Scrape bands/events from eventpass24.com."""
     events = []
@@ -861,6 +922,12 @@ def main():
     
     feteish_events = scrape_feteishgy()
     all_events.extend(feteish_events)
+    
+    euphoria_events = scrape_euphoriamas()
+    all_events.extend(euphoria_events)
+    
+    savgent_events = scrape_savgent()
+    all_events.extend(savgent_events)
     
     ep24_events = scrape_eventpass24()
     all_events.extend(ep24_events)
