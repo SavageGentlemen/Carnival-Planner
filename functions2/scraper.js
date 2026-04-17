@@ -558,6 +558,143 @@ async function scrapeLinktree() {
     return uniqueEvents;
 }
 
+// --- Scraper: hjexperience.com ---
+
+async function scrapeHJExperience() {
+    const events = [];
+    const baseUrl = 'https://hjexperience.com';
+
+    console.log('Scraping hjexperience.com...');
+    const html = await fetchPage(baseUrl);
+    if (!html) return events;
+
+    const $ = cheerio.load(html);
+    const seen = new Set();
+
+    $('a').each(function () {
+        const el = $(this);
+        const href = el.attr('href') || '';
+        const title = el.text().trim();
+
+        if (title.length > 3 && href.includes('hjexperience.com')) {
+            const ignores = ['/events', '/about', '/contact', '/rewind', '/nyc-events'];
+            const isIgnored = ignores.some(ig => href.endsWith(ig) || href.endsWith(ig + '/'));
+            if (isIgnored || href === 'https://hjexperience.com/' || href === 'https://hjexperience.com') {
+                return;
+            }
+
+            if (!seen.has(href)) {
+                seen.add(href);
+                events.push({
+                    title,
+                    url: href,
+                    date_raw: null,
+                    venue: 'Guyana',
+                    source: 'hjexperience.com',
+                    _forceCarnivalId: 'guyana',
+                    scraped_at: new Date().toISOString()
+                });
+            }
+        }
+    });
+
+    console.log(`Found ${events.length} events from hjexperience.com`);
+    return events;
+}
+
+// --- Scraper: feteishgy.com ---
+
+async function scrapeFeteishGy() {
+    const events = [];
+    const baseUrl = 'https://feteishgy.com';
+
+    console.log('Scraping feteishgy.com...');
+    const html = await fetchPage(baseUrl);
+    if (!html) return events;
+
+    const $ = cheerio.load(html);
+    const titleEl = $('title').first();
+    const title = titleEl.length ? titleEl.text().trim() : 'Fete-ish MAS';
+
+    events.push({
+        title,
+        url: baseUrl,
+        date_raw: null,
+        venue: 'Georgetown, Guyana',
+        source: 'feteishgy.com',
+        _forceCarnivalId: 'guyana',
+        scraped_at: new Date().toISOString()
+    });
+
+    console.log(`Found ${events.length} events from feteishgy.com`);
+    return events;
+}
+
+// --- Scraper: eventpass24.com ---
+
+async function scrapeEventPass24() {
+    const events = [];
+    const baseUrl = 'https://eventpass24.com';
+
+    console.log('Scraping eventpass24.com...');
+    const html = await fetchPage(baseUrl);
+    if (html) {
+        const $ = cheerio.load(html);
+        $('a').each(function () {
+            const el = $(this);
+            const href = el.attr('href') || '';
+            const title = el.text().trim();
+
+            if (title && href.includes('/events/')) {
+                const url = resolveUrl(baseUrl, href);
+                events.push({
+                    title,
+                    url,
+                    date_raw: null,
+                    venue: 'Guyana',
+                    source: 'eventpass24.com',
+                    _forceCarnivalId: 'guyana',
+                    scraped_at: new Date().toISOString()
+                });
+            }
+        });
+    }
+
+    console.log(`Found ${events.length} events from eventpass24.com`);
+    return events;
+}
+
+// --- Generic Heuristic Scraper ---
+
+async function scrapeGenericPlatform(baseUrl, platformName, eventPath = '/events/') {
+    const events = [];
+    console.log(`Scraping ${platformName} ...`);
+    const html = await fetchPage(baseUrl);
+    if (!html) return events;
+
+    const $ = cheerio.load(html);
+    $('a').each(function () {
+        const el = $(this);
+        const href = el.attr('href') || '';
+        const title = el.text().trim();
+
+        if (title && href.includes(eventPath)) {
+            const url = resolveUrl(baseUrl, href);
+            events.push({
+                title,
+                url,
+                date_raw: null,
+                venue: null,
+                source: platformName,
+                scraped_at: new Date().toISOString()
+            });
+        }
+    });
+
+    console.log(`Found ${events.length} events from ${platformName}`);
+    return events;
+}
+
 // --- Save to Firestore ---
 
 async function saveToFirebase(events, db) {
@@ -620,6 +757,33 @@ async function runScraper(db) {
 
     const linktreeEvents = await scrapeLinktree();
     allEvents.push(...linktreeEvents);
+
+    const hjEvents = await scrapeHJExperience();
+    allEvents.push(...hjEvents);
+
+    const feteishEvents = await scrapeFeteishGy();
+    allEvents.push(...feteishEvents);
+
+    const ep24Events = await scrapeEventPass24();
+    allEvents.push(...ep24Events);
+
+    // New Heuristic Platforms
+    const heuristicPlatforms = [
+        ["https://www.ticketgateway.com", "ticketgateway.com", "/events/"],
+        ["https://ticketlinkz.com", "ticketlinkz.com", "/events/"],
+        ["https://www.go2fete.com", "go2fete.com", "/events/"],
+        ["https://ticketingevents.com", "ticketingevents.com", "/events/"],
+        ["https://caribetickets.com", "caribetickets.com", "/events/"],
+        ["https://kwiktix.net", "kwiktix.net", "/events/"],
+        ["https://caribbeanticketshop.com", "caribbeanticketshop.com", "/events/"],
+        ["https://myfetetickets.com", "myfetetickets.com", "/events/"],
+        ["https://www.eventbrite.com", "eventbrite.com", "/e/"]
+    ];
+
+    for (const [baseUrl, name, path] of heuristicPlatforms) {
+        const pEvents = await scrapeGenericPlatform(baseUrl, name, path);
+        allEvents.push(...pEvents);
+    }
 
     console.log(`\nTotal events scraped: ${allEvents.length}`);
 

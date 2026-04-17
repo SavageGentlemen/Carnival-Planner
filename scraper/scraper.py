@@ -651,6 +651,136 @@ def scrape_linktree() -> List[Dict]:
     return unique_events
 
 
+def scrape_hjexperience() -> List[Dict]:
+    """Scrape events from hjexperience.com."""
+    events = []
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    
+    base_url = "https://hjexperience.com"
+    print(f"Scraping hjexperience.com...")
+    
+    html = fetch_page(base_url, session)
+    if not html:
+        return events
+        
+    soup = BeautifulSoup(html, 'lxml')
+    
+    seen = set()
+    for a in soup.find_all('a', href=True):
+        href = a.get('href', '')
+        title = a.get_text(strip=True)
+        if len(title) > 3 and 'hjexperience.com' in href:
+            ignores = ['/events', '/about', '/contact', '/rewind', '/nyc-events']
+            if any(href.endswith(ig) or href.endswith(ig+'/') for ig in ignores):
+                continue
+            if href == 'https://hjexperience.com/' or href == 'https://hjexperience.com':
+                continue
+                
+            if href not in seen:
+                seen.add(href)
+                events.append({
+                    'title': title,
+                    'url': href,
+                    'date_raw': None,
+                    'venue': 'Guyana',
+                    'source': 'hjexperience.com',
+                    '_force_carnival_id': 'guyana',
+                    'scraped_at': datetime.now(timezone.utc).isoformat()
+                })
+                
+    print(f"Found {len(events)} events from hjexperience.com")
+    return events
+
+
+def scrape_feteishgy() -> List[Dict]:
+    """Scrape events from feteishgy.com."""
+    events = []
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    
+    base_url = "https://feteishgy.com"
+    print(f"Scraping feteishgy.com...")
+    
+    html = fetch_page(base_url, session)
+    if not html:
+        return events
+        
+    soup = BeautifulSoup(html, 'lxml')
+    title_el = soup.find('title')
+    title = title_el.get_text(strip=True) if title_el else 'Fete-ish MAS'
+    
+    events.append({
+        'title': title,
+        'url': base_url,
+        'date_raw': None,
+        'venue': 'Georgetown, Guyana',
+        'source': 'feteishgy.com',
+        '_force_carnival_id': 'guyana',
+        'scraped_at': datetime.now(timezone.utc).isoformat()
+    })
+    
+    print(f"Found {len(events)} events from feteishgy.com")
+    return events
+
+
+def scrape_eventpass24() -> List[Dict]:
+    """Scrape bands/events from eventpass24.com."""
+    events = []
+    # EventPass24 is SPA loaded via API, we fallback to static links if found
+    base_url = "https://eventpass24.com"
+    print(f"Scraping eventpass24.com ...")
+    
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    html = fetch_page(base_url, session)
+    if html:
+        soup = BeautifulSoup(html, 'lxml')
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '')
+            title = a.get_text(strip=True)
+            if title and '/events/' in href:
+                url = urljoin(base_url, href)
+                events.append({
+                    'title': title,
+                    'url': url,
+                    'date_raw': None,
+                    'venue': 'Guyana',
+                    'source': 'eventpass24.com',
+                    '_force_carnival_id': 'guyana',
+                    'scraped_at': datetime.now(timezone.utc).isoformat()
+                })
+    
+    print(f"Found {len(events)} events from eventpass24.com")
+    return events
+
+
+def scrape_generic_platform(base_url: str, platform_name: str, event_path: str = '/events/') -> List[Dict]:
+    """Generic heuristic scraper for various ticketing platforms."""
+    events = []
+    print(f"Scraping {platform_name} ...")
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+    html = fetch_page(base_url, session)
+    if html:
+        soup = BeautifulSoup(html, 'lxml')
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '')
+            title = a.get_text(strip=True)
+            if title and event_path in href:
+                url = urljoin(base_url, href)
+                events.append({
+                    'title': title,
+                    'url': url,
+                    'date_raw': None,
+                    'venue': None,
+                    'source': platform_name,
+                    'scraped_at': datetime.now(timezone.utc).isoformat()
+                })
+    print(f"Found {len(events)} events from {platform_name}")
+    return events
+
+
 def generate_event_id(event: Dict) -> str:
     """Generate a unique ID for an event based on its content."""
     unique_str = f"{event.get('title', '')}-{event.get('date', '')}-{event.get('source', '')}"
@@ -725,6 +855,31 @@ def main():
     
     linktree_events = scrape_linktree()
     all_events.extend(linktree_events)
+    
+    hj_events = scrape_hjexperience()
+    all_events.extend(hj_events)
+    
+    feteish_events = scrape_feteishgy()
+    all_events.extend(feteish_events)
+    
+    ep24_events = scrape_eventpass24()
+    all_events.extend(ep24_events)
+    
+    # New Heuristic Platforms
+    heuristic_platforms = [
+        ("https://www.ticketgateway.com", "ticketgateway.com", "/events/"),
+        ("https://ticketlinkz.com", "ticketlinkz.com", "/events/"),
+        ("https://www.go2fete.com", "go2fete.com", "/events/"),
+        ("https://ticketingevents.com", "ticketingevents.com", "/events/"),
+        ("https://caribetickets.com", "caribetickets.com", "/events/"),
+        ("https://kwiktix.net", "kwiktix.net", "/events/"),
+        ("https://caribbeanticketshop.com", "caribbeanticketshop.com", "/events/"),
+        ("https://myfetetickets.com", "myfetetickets.com", "/events/"),
+        ("https://www.eventbrite.com", "eventbrite.com", "/e/")
+    ]
+    
+    for base_url, name, path in heuristic_platforms:
+        all_events.extend(scrape_generic_platform(base_url, name, path))
     
     print(f"\nTotal events scraped: {len(all_events)}")
     
