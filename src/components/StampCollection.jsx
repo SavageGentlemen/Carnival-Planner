@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Star, Filter, Heart, MapPin, Calendar, ChevronLeft, Loader2 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import app from '../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import app, { db } from '../firebase';
 
 // Country flag mapping
 const COUNTRY_FLAGS = {
@@ -83,17 +84,36 @@ export default function StampCollection({ user, onBack }) {
         loadStamps();
     }, [user, filter]);
 
-    const toggleFavorite = (stampId) => {
+    const toggleFavorite = async (stampId) => {
+        const isNowFavorite = !favorites.has(stampId);
+
+        // Optimistically update UI
         setFavorites(prev => {
             const newFavs = new Set(prev);
-            if (newFavs.has(stampId)) {
-                newFavs.delete(stampId);
-            } else {
+            if (isNowFavorite) {
                 newFavs.add(stampId);
+            } else {
+                newFavs.delete(stampId);
             }
             return newFavs;
         });
-        // TODO: Persist to Firestore
+
+        try {
+            const stampRef = doc(db, 'passportStamps', stampId);
+            await updateDoc(stampRef, { isFavorite: isNowFavorite });
+        } catch (err) {
+            console.error('Failed to save favorite state:', err);
+            // Revert on failure
+            setFavorites(prev => {
+                const newFavs = new Set(prev);
+                if (isNowFavorite) {
+                    newFavs.delete(stampId);
+                } else {
+                    newFavs.add(stampId);
+                }
+                return newFavs;
+            });
+        }
     };
 
     const formatDate = (dateValue) => {

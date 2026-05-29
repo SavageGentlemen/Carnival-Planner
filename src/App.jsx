@@ -19,6 +19,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import app, { auth, db, requestNotificationPermission, onForegroundMessage } from './firebase';
 import logo from './assets/carnival-logo.png';
 import { carnivalData } from './carnivals';
+import { query, where, getDocs, limit } from 'firebase/firestore';
 
 // ── CRITICAL PATH (static imports — needed for initial render) ──
 import PromoAd from './components/PromoAd';
@@ -55,6 +56,7 @@ const SocaPassportTab = React.lazy(() => import('./components/SocaPassportTab'))
 const MasqueraderProfile = React.lazy(() => import('./components/MasqueraderProfile'));
 const ProfileEditor = React.lazy(() => import('./components/ProfileEditor'));
 const PromoterDashboard = React.lazy(() => import('./components/PromoterDashboard'));
+const BandLeaderDashboard = React.lazy(() => import('./components/BandLeaderDashboard'));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
 const MarketingDashboard = React.lazy(() => import('./components/MarketingDashboard'));
 const MarketplacePage = React.lazy(() => import('./components/marketplace/MarketplacePage'));
@@ -70,9 +72,12 @@ const SquadLiveStream = React.lazy(() => import('./components/SquadLiveStream'))
 const VibeAlert = React.lazy(() => import('./components/VibeAlert'));
 const SquadVoice = React.lazy(() => import('./components/SquadVoice'));
 const WearableMonitor = React.lazy(() => import('./components/WearableMonitor'));
+const EventTicketPage = React.lazy(() => import('./components/EventTicketPage'));
 
 // ── SWR FIRESTORE CACHING ──
 import { useFirestoreDoc } from './hooks/useFirestoreSWR';
+import { useVibeEngine } from './hooks/useVibeEngine';
+import { useSquadSubscription } from './hooks/useSquadSubscription';
 
 // --- CONFIGURATION ---
 const appId = 'carnival-planner-v1';
@@ -106,10 +111,13 @@ export default function App() {
   const { affiliateRef } = useAffiliate();
   const [user, setUser] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
+  const [viewEventId, setViewEventId] = useState(null); // Ticket purchase page
 
   // Data
   const [carnivals, setCarnivals] = useState({});
-  const [activeCarnivalId, setActiveCarnivalId] = useState(null);
+  const [activeCarnivalId, setActiveCarnivalId] = useState(() => {
+    return localStorage.getItem('actCvnId') || null;
+  });
   const [activeTab, setActiveTab] = useState('Budget');
 
   // UI State
@@ -132,17 +140,30 @@ export default function App() {
   const [costumeDetails, setCostumeDetails] = useState({ band: '', section: '', total: '', paid: '' });
 
   // Squad Sharing State
-  const [squadShareCode, setSquadShareCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [squadMembers, setSquadMembers] = useState([]); // Array of member objects
-  const [currentSquad, setCurrentSquad] = useState(null); // Full squad object
-  const [targetSquadId, setTargetSquadId] = useState(null); // ID from user profile to subscribe to
+  const {
+    currentSquad,
+    squadMembers,
+    sharedCarnivalData,
+    squadShareCode,
+    targetSquadId,
+    setCurrentSquad,
+    setSquadMembers,
+    setSharedCarnivalData,
+    setSquadShareCode,
+    setTargetSquadId
+  } = useSquadSubscription({ user, isDemoMode, db });
+  
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [isJoiningSquad, setIsJoiningSquad] = useState(false);
   const [squadShareError, setSquadShareError] = useState('');
   const [squadShareSuccess, setSquadShareSuccess] = useState('');
   const [userSquads, setUserSquads] = useState([]); // All squads user belongs to
   const [loadingSquads, setLoadingSquads] = useState(false);
+
+  // Band Leader state
+  const [showBandLeaderDashboard, setShowBandLeaderDashboard] = useState(false);
+  const [officialPurchases, setOfficialPurchases] = useState([]);
 
   // Import Demo Data
   // NOTE: In a real build, we might want to lazy load this, but for now standard import is fine.
@@ -181,6 +202,28 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('demo') === 'true') {
       handleTryDemo();
+    }
+
+    // Auto-open Marketplace if returning from Stripe Connect onboarding
+    if (params.get('stripe_onboarding') === 'complete') {
+      sessionStorage.setItem('returnFromStripe', 'true');
+      // slight delay to ensure tab state sets correctly after load
+      setTimeout(() => setActiveTab('Marketplace'), 100);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Open event ticket page if ?event= param
+    const eventParam = params.get('event');
+    if (eventParam) {
+      setViewEventId(eventParam);
+      setShowLanding(false);
+    }
+
+    // Handle ticket purchase success
+    if (params.get('ticket_purchase') === 'success') {
+      setTimeout(() => setToastMessage('🎫 Ticket purchased! Check your email for confirmation.'), 500);
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -364,9 +407,7 @@ export default function App() {
   const [isLoadingScrapedEvents, setIsLoadingScrapedEvents] = useState(false);
   const [scrapedEventsLastUpdated, setScrapedEventsLastUpdated] = useState(null);
 
-  // Vibe Engine State
-  const [vibeScores, setVibeScores] = useState({});
-  const [vibeAlert, setVibeAlert] = useState(null);
+  // Vibe Engine State moved to hook
 
   // --- CONFIG ---
   const carnivalOptions = [
@@ -523,90 +564,7 @@ export default function App() {
     return () => unsubscribe();
   }, [isDemoMode]);
 
-  // --- EFFECT: USER PROFILE LISTENER (for currentSquadId) ---
-  useEffect(() => {
-    if (!user || isDemoMode) {
-      setTargetSquadId(null); // Clear target squad if no user or in demo
-      return;
-    }
 
-    // Listen to user profile for currentSquadId changes
-    const unsubUser = onSnapshot(doc(db, 'users', user.uid), (uDoc) => {
-      const uData = uDoc.data();
-      const newSquadId = uData?.currentSquadId || null;
-
-      // Update the target ID which triggers the next effect
-      if (newSquadId !== targetSquadId) {
-        console.log("App: User changed squad to:", newSquadId);
-        setTargetSquadId(newSquadId);
-      }
-    });
-    return () => unsubUser();
-  }, [user, isDemoMode, targetSquadId]); // Add targetSquadId to dependencies to avoid stale closure issues
-
-  // --- EFFECT: LOAD ALL USER SQUADS ---
-  useEffect(() => {
-    if (user && !isDemoMode) {
-      loadUserSquads();
-    }
-  }, [user, isDemoMode, targetSquadId]); // Reload when squad changes
-
-  // --- EFFECT: SQUAD SUBSCRIPTION (Cleanly separated) ---
-  useEffect(() => {
-    // 1. Cleanup check
-    if (!user || isDemoMode) return;
-
-    // 2. If no target squad, clear state and return
-    if (!targetSquadId) {
-      console.log("App: No target squad, clearing state.");
-      setCurrentSquad(null);
-      setSquadMembers([]);
-      setSharedCarnivalData(null);
-      return;
-    }
-
-    // 3. Subscribe to the TARGET squad
-    console.log("App: Subscribing to squad:", targetSquadId);
-    const unsubSquad = onSnapshot(doc(db, 'squads', targetSquadId), (sSnap) => {
-      if (sSnap.exists()) {
-        const sData = sSnap.data();
-        console.log("App: Squad loaded:", sSnap.id);
-        setCurrentSquad({ id: sSnap.id, ...sData });
-        setSharedCarnivalData(sData);
-
-        const membersList = Object.values(sData.memberDetails || {});
-        setSquadMembers(membersList);
-        setSquadShareCode(sData.inviteCode);
-      } else {
-        console.warn("App: Target squad does not exist/deleted:", targetSquadId);
-        setCurrentSquad(null);
-        setSharedCarnivalData(null);
-        setSquadMembers([]);
-        setSquadShareCode('');
-      }
-    });
-
-    return () => {
-      console.log("App: Unsubscribing from squad:", targetSquadId);
-      unsubSquad();
-      // Allow state to linger until new one loads? Or clear immediately?
-      // Clearing immediately prevents ghost state.
-      // setCurrentSquad(null);
-      // setSquadMembers([]);
-      setSquadShareCode('');
-    };
-  }, [targetSquadId, user, isDemoMode]);
-
-  // --- SELF-HEAL: Ensure consistent state ---
-  useEffect(() => {
-    // If currentSquad is null, Members MUST be empty.
-    // If we detect ghost members, kill them.
-    if (!currentSquad && squadMembers.length > 0) {
-      console.warn("App: DETECTED GHOST MEMBERS! Self-healing state.");
-      setSquadMembers([]);
-      setSquadShareCode('');
-    }
-  }, [currentSquad, squadMembers]);
 
 
   // 3. Premium Check (Firestore + Admin Override)
@@ -685,7 +643,6 @@ export default function App() {
     if (!user) {
       if (!isDemoMode) {
         setCarnivals({});
-        setActiveCarnivalId(null);
       }
       return;
     }
@@ -699,12 +656,27 @@ export default function App() {
         map[docSnap.id] = docSnap.data();
       });
       setCarnivals(map);
-      if (!activeCarnivalId && snapshot.docs.length > 0) {
-        setActiveCarnivalId(snapshot.docs[0].id);
-      }
     });
     return () => unsubscribe();
   }, [user, isDemoMode]);
+
+  // 4a. Auto-Heal: Ensure activeCarnivalId is always valid if user has carnivals
+  useEffect(() => {
+    if (!user || isDemoMode) return;
+    const carnivalIds = Object.keys(carnivals);
+    if (carnivalIds.length > 0) {
+      if (
+        activeCarnivalId === null ||
+        activeCarnivalId === 'null' ||
+        !carnivals[activeCarnivalId]
+      ) {
+        const firstValidId = carnivalIds[0];
+        console.log('[Auto-Heal] Selecting valid carnival ID:', firstValidId);
+        setActiveCarnivalId(firstValidId);
+        localStorage.setItem('actCvnId', firstValidId);
+      }
+    }
+  }, [carnivals, activeCarnivalId, user, isDemoMode]);
 
   // 4b. Load User Profile — SWR cached (loads instantly from cache, revalidates in background)
   const { data: swrProfile } = useFirestoreDoc(
@@ -713,11 +685,26 @@ export default function App() {
   useEffect(() => {
     if (!user || isDemoMode) {
       setUserProfile(null);
+      setOfficialPurchases([]);
       return;
     }
     if (swrProfile) {
       setUserProfile(swrProfile);
     }
+
+    // Fetch user's official purchases for the QR code display
+    const fetchPurchases = async () => {
+      try {
+        // Basic fetch of their orders. In a real app we'd filter strictly by `category: 'costume'` and verify the seller was a band.
+        const q = query(collection(db, 'marketplaceOrders'), where('buyerId', '==', user.uid), where('category', '==', 'costume'));
+        const snap = await getDocs(q);
+        const purchases = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setOfficialPurchases(purchases);
+      } catch (e) {
+        console.error("Error fetching purchases for profile", e);
+      }
+    };
+    fetchPurchases();
   }, [user, isDemoMode, swrProfile]);
 
   useEffect(() => {
@@ -758,6 +745,23 @@ export default function App() {
     });
   }, [user, isDemoMode]);
 
+  // Handle successful marketplace redirects
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('marketplace_purchase') === 'success') {
+      const orderId = params.get('order_id');
+      if (orderId && activeCarnivalId && user) {
+        // Give them a toast
+        setToastMessage({ title: 'Purchase Successful! 🥳', body: 'Your receipt is in your profile.' });
+        setTimeout(() => setToastMessage(null), 5000);
+
+        // Optional: In a full app, we'd fetch the order and inject it into the Costume tab automatically here
+        // For now, we clear the URL so it doesn't fire again
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [user, activeCarnivalId]);
+
   // --- ACTIONS ---
 
   const handleSignIn = async () => {
@@ -779,6 +783,7 @@ export default function App() {
     setRoadMode(false);
     setActiveTab('Budget');
     setDarkMode(true);
+    localStorage.removeItem('actCvnId');
   };
 
   // --- STRIPE SUBSCRIPTION ---
@@ -844,6 +849,7 @@ export default function App() {
   const selectCarnival = async (id, name) => {
     if (!user) return;
     setActiveCarnivalId(id);
+    localStorage.setItem('actCvnId', id);
 
     if (isDemoMode) {
       // If they select a carnival not in our demo data, just initialize empty
@@ -1054,73 +1060,16 @@ export default function App() {
     fetchScrapedEvents();
   }, [user, activeCarnivalId, isPremium]);
 
-  // Vibe Engine: Real-time listener for vibe scores
-  useEffect(() => {
-    if (!user || !activeCarnivalId || isDemoMode) {
-      setVibeScores({});
-      return;
-    }
-
-    const vibeRef = doc(db, 'vibeScores', activeCarnivalId);
-    const unsubVibe = onSnapshot(vibeRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        const scoresMap = {};
-        (data.scores || []).forEach(s => {
-          scoresMap[s.eventId] = s;
-        });
-        setVibeScores(scoresMap);
-        console.log(`Vibe Engine: Loaded ${Object.keys(scoresMap).length} scores for ${activeCarnivalId}`);
-      } else {
-        setVibeScores({});
-      }
-    }, (err) => {
-      console.log('Vibe Engine: Listener error:', err.message);
-      setVibeScores({});
-    });
-
-    return () => unsubVibe();
-  }, [user, activeCarnivalId, isDemoMode]);
-
-  // Vibe Engine: Watch for planned events with tanking scores
-  useEffect(() => {
-    if (Object.keys(vibeScores).length === 0) return;
-    const schedule = getCarnivalField('schedule') || [];
-    if (schedule.length === 0) return;
-
-    for (const planned of schedule) {
-      // Find matching vibe score by title
-      const matchedScore = Object.values(vibeScores).find(s =>
-        s.title && planned.name &&
-        s.title.toLowerCase().includes(planned.name.toLowerCase())
-      );
-
-      if (matchedScore && matchedScore.score <= 3) {
-        // Find the best alternative
-        const allScores = Object.values(vibeScores);
-        const best = allScores
-          .filter(s => s.score >= 7 && s.title !== matchedScore.title)
-          .sort((a, b) => b.score - a.score)[0];
-
-        if (best) {
-          setVibeAlert({
-            droppedEvent: {
-              title: matchedScore.title,
-              score: matchedScore.score,
-              reason: matchedScore.reason,
-            },
-            suggestedEvent: {
-              title: best.title,
-              score: best.score,
-              reason: best.reason,
-              venue: best.venue,
-            },
-          });
-          break; // Only show one alert at a time
-        }
-      }
-    }
-  }, [vibeScores, activeCarnivalId]);
+  // Vibe Engine logic moved to custom hook
+  const { vibeAlert, handleVibeSwap, dismissVibeAlert } = useVibeEngine({
+    user,
+    activeCarnivalId,
+    isDemoMode,
+    db,
+    getCurrentCarnivalData,
+    updateCarnivalData,
+    setToastMessage
+  });
 
   // --- FEATURE HANDLERS ---
 
@@ -1405,6 +1354,23 @@ export default function App() {
     }
   }
 
+  // --- VIEW: EVENT TICKET PAGE ---
+  if (viewEventId) {
+    return (
+      <React.Suspense fallback={<LazyFallback />}>
+        <EventTicketPage
+          eventId={viewEventId}
+          user={user}
+          onBack={() => {
+            setViewEventId(null);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            if (!user) setShowLanding(true);
+          }}
+        />
+      </React.Suspense>
+    );
+  }
+
   // --- VIEW: SPLASH SCREEN ---
   if (showLanding && !user) {
     return (
@@ -1488,19 +1454,8 @@ export default function App() {
       <React.Suspense fallback={null}>
         <VibeAlert
           alert={vibeAlert}
-          onSwap={(alert) => {
-            // Swap the planned event with the suggested one
-            const schedule = getCarnivalField('schedule') || [];
-            const updated = schedule.map(item =>
-              item.name?.toLowerCase().includes(alert.droppedEvent.title.toLowerCase())
-                ? { ...item, name: alert.suggestedEvent.title, note: `Swapped from ${alert.droppedEvent.title} (Vibe: ${alert.droppedEvent.score}/10)` }
-                : item
-            );
-            updateCarnivalData('schedule', updated);
-            setVibeAlert(null);
-            setToastMessage(`Swapped to ${alert.suggestedEvent.title} 🔥`);
-          }}
-          onDismiss={() => setVibeAlert(null)}
+          onSwap={handleVibeSwap}
+          onDismiss={dismissVibeAlert}
         />
       </React.Suspense>
 
@@ -1606,6 +1561,13 @@ export default function App() {
               </>
             )}
           </div>
+        ) : showBandLeaderDashboard ? (
+          <React.Suspense fallback={<LazyFallback />}>
+            <BandLeaderDashboard
+              user={user}
+              onClose={() => setShowBandLeaderDashboard(false)}
+            />
+          </React.Suspense>
         ) : (
           <div>
             {/* CARNIVAL SELECTOR */}
@@ -2575,6 +2537,7 @@ export default function App() {
                         <React.Suspense fallback={<LazyFallback />}>
                           <SocaPassportTab
                             user={user}
+                            isPremium={isPremium}
                             activeCarnivalId={activeCarnivalId}
                             activePlanId={currentSharedPlanId}
                             isDemoMode={isDemoMode}
@@ -2618,8 +2581,11 @@ export default function App() {
                                 }))
                               }),
                               activeCarnivalId, // For context
-                              isPromoter: userProfile?.isPromoter || false,
-                              onAccessPromoter: () => setActiveTab('Promoter')
+                              isPromoter: userProfile?.isPromoter || isAdmin || false,
+                              onAccessPromoter: () => setActiveTab('Promoter'),
+                              isBandLeader: userProfile?.isBandLeader || isAdmin || false,
+                              onAccessBandLeader: () => setShowBandLeaderDashboard(true),
+                              officialPurchases: officialPurchases
                             }}
                             isOwnProfile={true}
                             onEdit={() => setShowProfileEditor(true)}
@@ -2637,7 +2603,7 @@ export default function App() {
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
                           </div>
                         }>
-                          <MarketplacePage user={user} />
+                          <MarketplacePage user={user} isPremium={isPremium} />
                         </React.Suspense>
                       </div>
                     )}

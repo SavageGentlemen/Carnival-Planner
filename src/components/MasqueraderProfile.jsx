@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
     User, MapPin, Users, Calendar, Instagram, Twitter,
     Globe, Edit2, Share2, Shield, ShieldCheck,
-    Music, PartyPopper, Plane, Ticket, Wallet, ExternalLink
+    Music, PartyPopper, Plane, Ticket, Wallet, ExternalLink, Box, BookOpen
 } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { truncateAddress, getExplorerUrl } from '../services/web3Service';
+import { QRCodeSVG } from 'qrcode.react';
+import GuidesCarousel from './GuidesCarousel';
 
 // Country flag emoji mapping
 const COUNTRY_FLAGS = {
@@ -34,6 +36,10 @@ export default function MasqueraderProfile({
     currentUser
 }) {
     const [loading, setLoading] = useState(false);
+    const [requestingBandOS, setRequestingBandOS] = useState(false);
+    const [bandOSRequested, setBandOSRequested] = useState(false);
+    const [playbookOpen, setPlaybookOpen] = useState(false);
+    const [initialSlide, setInitialSlide] = useState(0);
 
     if (!profileData) {
         return (
@@ -57,10 +63,32 @@ export default function MasqueraderProfile({
         socialLinks = {},
         walletAddress,
         mintedStampCount = 0,
-        mintedAchievementCount = 0
+        mintedAchievementCount = 0,
+        isBandLeader = false,
+        onAccessBandLeader
     } = profileData;
 
     const countriesVisited = [...new Set(carnivalHistory.map(c => c.carnivalId))];
+
+    const handleRequestBandOS = async () => {
+        if (!currentUser) return;
+        setRequestingBandOS(true);
+        try {
+            await setDoc(doc(db, 'bandOSRequests', currentUser.uid), {
+                email: currentUser.email,
+                displayName: displayName || currentUser.displayName,
+                appliedAt: Timestamp.now(),
+                status: 'pending'
+            });
+            setBandOSRequested(true);
+            alert("BandOS access requested! An admin will review your account.");
+        } catch (err) {
+            console.error("Failed to request BandOS:", err);
+            alert("Failed to submit request: " + err.message);
+        } finally {
+            setRequestingBandOS(false);
+        }
+    };
 
     return (
         <div className="max-w-4xl mx-auto animate-fadeIn">
@@ -81,6 +109,24 @@ export default function MasqueraderProfile({
                             <Ticket className="w-3.5 h-3.5" />
                             {profileData.isPromoter ? 'Promoter Dashboard' : 'Become a Promoter'}
                         </button>
+                        {profileData.isBandLeader ? (
+                            <button
+                                onClick={profileData.onAccessBandLeader}
+                                className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-bold hover:bg-white/30 transition-colors flex items-center gap-1.5"
+                            >
+                                <Box className="w-3.5 h-3.5" />
+                                BandOS Dashboard
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleRequestBandOS}
+                                disabled={requestingBandOS || bandOSRequested}
+                                className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-bold hover:bg-white/30 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                                <Box className="w-3.5 h-3.5" />
+                                {bandOSRequested ? 'BandOS Requested' : 'Request BandOS Access'}
+                            </button>
+                        )}
                         <button
                             onClick={onEdit}
                             className="p-2 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/30 transition-colors"
@@ -220,6 +266,32 @@ export default function MasqueraderProfile({
                 </div>
             </div>
 
+            {/* Official Costume QR Codes (Road Mode Sync) */}
+            {isOwnProfile && profileData.officialPurchases && profileData.officialPurchases.length > 0 && (
+                <div className="mt-6 bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg border border-purple-100 dark:border-purple-900/30">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <Box className="w-5 h-5 text-purple-500" />
+                        Official Costume Claims
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {profileData.officialPurchases.map(order => (
+                            <div key={order.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border border-gray-100 dark:border-gray-600">
+                                <div className="bg-white p-2 rounded-xl shrink-0">
+                                    <QRCodeSVG value={`ORDER_ID:${order.id}`} size={80} level="H" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-sm text-gray-900 dark:text-white capitalize">{order.listingTitle}</h3>
+                                    <p className="text-xs text-gray-500 mb-2">Band: {order.sellerName || 'Official Band'}</p>
+                                    <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${order.distributionStatus === 'Distributed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        {order.distributionStatus || 'Pending'}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Carnival History */}
             {carnivalHistory.length > 0 && (
                 <div className="mt-6">
@@ -270,6 +342,55 @@ export default function MasqueraderProfile({
                     </div>
                 </div>
             )}
+
+            {/* Help & Guides */}
+            <div className="mt-6 bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg border border-indigo-100 dark:border-indigo-900/30">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-indigo-500" />
+                    Help & Guides
+                </h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div onClick={() => { setInitialSlide(0); setPlaybookOpen(true); }} className="relative h-32 rounded-2xl overflow-hidden cursor-pointer group shadow-md border border-gray-100 dark:border-gray-700">
+                        <img src="/guides/playbook_squad.png" className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Build a Squad" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+                        <div className="absolute bottom-3 left-3 right-3">
+                            <span className="text-[9px] font-bold text-pink-400 uppercase tracking-widest block mb-0.5">Step 1</span>
+                            <h3 className="text-white font-bold text-sm leading-tight drop-shadow-md">Build a Squad</h3>
+                        </div>
+                    </div>
+                    <div onClick={() => { setInitialSlide(1); setPlaybookOpen(true); }} className="relative h-32 rounded-2xl overflow-hidden cursor-pointer group shadow-md border border-gray-100 dark:border-gray-700">
+                        <img src="/guides/playbook_sell.png" className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Sell Costumes" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+                        <div className="absolute bottom-3 left-3 right-3">
+                            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest block mb-0.5">Step 2</span>
+                            <h3 className="text-white font-bold text-sm leading-tight drop-shadow-md">Sell Costumes</h3>
+                        </div>
+                    </div>
+                    <div onClick={() => { setInitialSlide(2); setPlaybookOpen(true); }} className="relative h-32 rounded-2xl overflow-hidden cursor-pointer group shadow-md border border-gray-100 dark:border-gray-700">
+                        <img src="/guides/playbook_ar.png" className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="AR Viewer" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+                        <div className="absolute bottom-3 left-3 right-3">
+                            <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest block mb-0.5">Step 3</span>
+                            <h3 className="text-white font-bold text-sm leading-tight drop-shadow-md">AR Viewer</h3>
+                        </div>
+                    </div>
+                    <div onClick={() => { setInitialSlide(3); setPlaybookOpen(true); }} className="relative h-32 rounded-2xl overflow-hidden cursor-pointer group shadow-md border border-gray-100 dark:border-gray-700">
+                        <img src="/guides/playbook_bandos.png" className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="BandOS" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+                        <div className="absolute bottom-3 left-3 right-3">
+                            <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest block mb-0.5">Step 4</span>
+                            <h3 className="text-white font-bold text-sm leading-tight drop-shadow-md">BandOS</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <GuidesCarousel
+                isOpen={playbookOpen}
+                onClose={() => setPlaybookOpen(false)}
+                initialSlide={initialSlide}
+                isBandLeader={isBandLeader || profileData?.bandLeaderStatus === 'approved'}
+            />
         </div>
     );
 }

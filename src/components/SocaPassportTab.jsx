@@ -11,9 +11,11 @@ import AchievementList from './AchievementList';
 import PassportCard from './PassportCard';
 import Leaderboard from './Leaderboard';
 import RewardsList from './RewardsList';
+import TelecomStore from './telecom/TelecomStore';
+import MyEsims from './telecom/MyEsims';
 
 export default function SocaPassportTab({ user, isPremium, activeCarnivalId, activePlanId, isDemoMode }) {
-    const [currentView, setCurrentView] = useState('home'); // home, stamps, achievements, leaderboard
+    const [currentView, setCurrentView] = useState('home'); // home, stamps, achievements, leaderboard, telecom, my-esims
     const [showCheckinModal, setShowCheckinModal] = useState(false);
     const [showPassportCard, setShowPassportCard] = useState(false);
     const [profile, setProfile] = useState(null);
@@ -94,6 +96,21 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
                         onBack={() => setCurrentView('home')}
                     />
                 );
+            case 'telecom':
+                return (
+                    <TelecomStore
+                        user={user}
+                        isPremium={isPremium}
+                        onBack={() => setCurrentView('home')}
+                    />
+                );
+            case 'my-esims':
+                return (
+                    <MyEsims
+                        user={user}
+                        onBack={() => setCurrentView('telecom')}
+                    />
+                );
             default:
                 return (
                     <PassportHome
@@ -108,6 +125,7 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
                         onViewAchievements={() => setCurrentView('achievements')}
                         onViewLeaderboard={() => setCurrentView('leaderboard')}
                         onViewRewards={() => setCurrentView('rewards')}
+                        onViewTelecom={() => setCurrentView('my-esims')}
                     />
                 );
         }

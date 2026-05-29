@@ -4,7 +4,7 @@ import {
     Ticket, Users, MapPin, Clock, Search, Filter,
     ChevronRight, ArrowUpRight, Copy, Check, MoreVertical,
     Sparkles, ShieldCheck, AlertCircle, Loader2, DollarSign, Gift,
-    Image as ImageIcon, Download
+    Image as ImageIcon, Download, Trash2, X, Link2, QrCode
 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
@@ -12,13 +12,18 @@ import app from '../firebase';
 // Stripe Price ID for Promoter Pro ($9.99/mo)
 const PROMOTER_PRO_PRICE_ID = 'price_1SsDVdJR9xpdRiXiMw7dGtpC';
 
+// Admin emails that always get Pro access
+const ADMIN_EMAILS = ['djkrss1@gmail.com'];
+
 export default function PromoterDashboard({ user, isPremium, onExit }) {
     const [activeTab, setActiveTab] = useState('overview'); // overview, events, create, analytics
     const [stats, setStats] = useState(null);
     const [events, setEvents] = useState([]);
     const [rewards, setRewards] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isPromoterPro, setIsPromoterPro] = useState(false); // Mock for now
+    const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+    const [isPromoterPro, setIsPromoterPro] = useState(isAdmin); // Admin always starts as Pro
+    const [isOfficialBand, setIsOfficialBand] = useState(false);
     const [isUpgrading, setIsUpgrading] = useState(false);
 
     // Create Event Form State
@@ -29,10 +34,21 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
         location: '',
         capacity: '',
         type: 'fete',
-        description: ''
+        description: '',
+        bottleService: false,
+        vipTables: false,
+        standingTables: false,
+        vipPrice: '',
+        tableCapacity: '',
+        ticketsEnabled: false,
+        ticketTiers: [{ name: 'General Admission', price: '', quantity: '', description: '' }]
     });
+    const [ticketSales, setTicketSales] = useState(null);
+    const [copiedLink, setCopiedLink] = useState(null);
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState('');
+    const [activeMenu, setActiveMenu] = useState(null);
+    const [deleting, setDeleting] = useState(null);
 
     // Reward Form State
     const [newReward, setNewReward] = useState({ title: '', cost: '', description: '', quantity: '' });
@@ -51,7 +67,8 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
 
             setStats(result.data.stats);
             setEvents(result.data.events);
-            setIsPromoterPro(result.data.isPro || false);
+            setIsPromoterPro(isAdmin || result.data.isPro || result.data.isOfficialBand || false);
+            setIsOfficialBand(result.data.isOfficialBand || false);
 
             // Fetch Rewards
             try {
@@ -64,33 +81,16 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
             }
         } catch (err) {
             console.error("Failed to load promoter data:", err);
-            // Mock data for development if backend fails or doesn't exist yet
+            // Show empty state when backend is unavailable
             setStats({
-                totalCheckins: 142,
-                activeEvents: 2,
-                totalRevenue: 0, // Placeholder
-                todayCheckins: 12
+                totalCheckins: 0,
+                activeEvents: 0,
+                totalRevenue: 0,
+                todayCheckins: 0
             });
-            setEvents([
-                {
-                    id: 'evt-1',
-                    title: 'Soca Sunset',
-                    date: '2026-02-14',
-                    checkins: 85,
-                    capacity: 200,
-                    status: 'active',
-                    accessCode: 'SUNSET-14'
-                },
-                {
-                    id: 'evt-2',
-                    title: 'Cooler Fete',
-                    date: '2026-02-20',
-                    checkins: 57,
-                    capacity: 500,
-                    status: 'active',
-                    accessCode: 'COOLER-20'
-                }
-            ]);
+            setEvents([]);
+            // Admin override — ensure Pro even when backend fails
+            if (isAdmin) setIsPromoterPro(true);
         } finally {
             setLoading(false);
         }
@@ -112,17 +112,47 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
         try {
             const functions = getFunctions(app);
             const createEvent = httpsCallable(functions, 'createPromoterEvent');
-            await createEvent(newEvent);
+            await createEvent({
+                ...newEvent,
+                ticketTiers: newEvent.ticketsEnabled ? newEvent.ticketTiers.filter(t => t.name && t.price) : []
+            });
 
             // Success
             setActiveTab('events');
-            loadDashboardData(); // Refresh list
-            setNewEvent({ title: '', date: '', time: '', location: '', capacity: '', type: 'fete', description: '' });
+            loadDashboardData();
+            setNewEvent({
+                title: '', date: '', time: '', location: '', capacity: '', type: 'fete',
+                description: '', bottleService: false, vipTables: false, standingTables: false,
+                vipPrice: '', tableCapacity: '', ticketsEnabled: false,
+                ticketTiers: [{ name: 'General Admission', price: '', quantity: '', description: '' }]
+            });
         } catch (err) {
             console.error("Create event error:", err);
             setCreateError(err.message || "Failed to create event");
         } finally {
             setCreating(false);
+        }
+    };
+
+    // Delete Event
+    const handleDeleteEvent = async (eventId, eventTitle) => {
+        if (!window.confirm(`Delete "${eventTitle}"? This cannot be undone.`)) return;
+        setDeleting(eventId);
+        try {
+            const functions = getFunctions(app);
+            const deleteEvent = httpsCallable(functions, 'deletePromoterEvent');
+            await deleteEvent({ eventId });
+            setEvents(prev => prev.filter(e => e.id !== eventId));
+            setStats(prev => ({
+                ...prev,
+                activeEvents: Math.max(0, (prev.activeEvents || 0) - 1)
+            }));
+        } catch (err) {
+            console.error('Delete failed:', err);
+            alert('Failed to delete event: ' + (err.message || 'Unknown error'));
+        } finally {
+            setDeleting(null);
+            setActiveMenu(null);
         }
     };
 
@@ -231,6 +261,19 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                         onClick={() => setActiveTab('create')}
                     />
                     <NavButton
+                        active={activeTab === 'tickets'}
+                        label="Ticket Sales"
+                        icon={<Ticket className="w-5 h-5" />}
+                        onClick={() => {
+                            setActiveTab('tickets');
+                            if (!ticketSales) {
+                                const functions = getFunctions(app);
+                                const getSales = httpsCallable(functions, 'getPromoterTicketSales');
+                                getSales().then(r => setTicketSales(r.data)).catch(e => console.error(e));
+                            }
+                        }}
+                    />
+                    <NavButton
                         active={activeTab === 'rewards'}
                         label="Rewards"
                         icon={<Gift className="w-5 h-5" />}
@@ -251,7 +294,7 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                     />
                 </nav>
 
-                {!isPromoterPro && (
+                {!isPromoterPro && !isOfficialBand && (
                     <div className="mt-8 p-4 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl text-white">
                         <h3 className="font-bold mb-1 flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-yellow-300" />
@@ -272,6 +315,16 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                                 'Upgrade $9.99/mo'
                             )}
                         </button>
+                    </div>
+                )}
+
+                {isOfficialBand && (
+                    <div className="mt-8 p-4 bg-gradient-to-br from-teal-600 to-emerald-600 rounded-xl text-white">
+                        <h3 className="font-bold mb-1 flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-teal-200" />
+                            BandOS Active
+                        </h3>
+                        <p className="text-sm opacity-90">100% Free for Official Bands. No monthly fees.</p>
                     </div>
                 )}
             </div>
@@ -295,7 +348,13 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
 
                         <div>
                             <h2 className="font-bold text-gray-900 dark:text-white mb-4">Recent Events</h2>
-                            <EventsList events={events.slice(0, 3)} />
+                            <EventsList 
+                                events={events.slice(0, 3)} 
+                                activeMenu={activeMenu}
+                                setActiveMenu={setActiveMenu}
+                                deleting={deleting}
+                                handleDeleteEvent={handleDeleteEvent}
+                            />
                         </div>
                     </div>
                 )}
@@ -303,7 +362,14 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                 {/* EVENTS TAB */}
                 {activeTab === 'events' && (
                     <div>
-                        <EventsList events={events} full />
+                        <EventsList 
+                            events={events} 
+                            full 
+                            activeMenu={activeMenu}
+                            setActiveMenu={setActiveMenu}
+                            deleting={deleting}
+                            handleDeleteEvent={handleDeleteEvent}
+                        />
                     </div>
                 )}
 
@@ -397,8 +463,198 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                                         <option value="jouvert">J'ouvert</option>
                                         <option value="boat_ride">Boat Ride</option>
                                         <option value="concert">Concert</option>
+                                        <option value="brunch">Brunch</option>
+                                        <option value="all_inclusive">All Inclusive</option>
+                                        <option value="cooler_fete">Cooler Fete</option>
+                                        <option value="pool_party">Pool Party</option>
+                                        <option value="vip_experience">VIP Experience</option>
+                                        <option value="pageant">Pageant</option>
+                                        <option value="parade">Parade / Band Launch</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                                <textarea
+                                    rows={3}
+                                    className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 resize-none"
+                                    placeholder="Describe your event..."
+                                    value={newEvent.description}
+                                    onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                                />
+                            </div>
+
+                            {/* VIP / Hospitality Options */}
+                            <div className="border border-gray-200 dark:border-gray-600 rounded-xl p-4 space-y-4">
+                                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-yellow-500" />
+                                    VIP & Hospitality
+                                </h3>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                        newEvent.bottleService
+                                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                                    }`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={newEvent.bottleService}
+                                            onChange={e => setNewEvent({ ...newEvent, bottleService: e.target.checked })}
+                                            className="w-4 h-4 text-purple-600 rounded"
+                                        />
+                                        <div>
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white">🍾 Bottle Service</span>
+                                        </div>
+                                    </label>
+
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                        newEvent.vipTables
+                                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                                    }`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={newEvent.vipTables}
+                                            onChange={e => setNewEvent({ ...newEvent, vipTables: e.target.checked })}
+                                            className="w-4 h-4 text-purple-600 rounded"
+                                        />
+                                        <div>
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white">🛋️ VIP Tables</span>
+                                        </div>
+                                    </label>
+
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                        newEvent.standingTables
+                                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                                    }`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={newEvent.standingTables}
+                                            onChange={e => setNewEvent({ ...newEvent, standingTables: e.target.checked })}
+                                            className="w-4 h-4 text-purple-600 rounded"
+                                        />
+                                        <div>
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white">🪑 Standing Tables</span>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                {(newEvent.vipTables || newEvent.bottleService) && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">VIP Price ($)</label>
+                                            <input
+                                                type="number"
+                                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                                                placeholder="e.g. 250"
+                                                value={newEvent.vipPrice}
+                                                onChange={e => setNewEvent({ ...newEvent, vipPrice: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Table Capacity</label>
+                                            <input
+                                                type="number"
+                                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                                                placeholder="e.g. 10"
+                                                value={newEvent.tableCapacity}
+                                                onChange={e => setNewEvent({ ...newEvent, tableCapacity: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Ticket Sales Section */}
+                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-xl p-5 border border-amber-200 dark:border-amber-800/40">
+                                <label className="flex items-center justify-between cursor-pointer">
+                                    <div className="flex items-center gap-3">
+                                        <Ticket className="w-5 h-5 text-amber-600" />
+                                        <div>
+                                            <span className="text-sm font-bold text-gray-900 dark:text-white">Enable Ticket Sales</span>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                {isOfficialBand 
+                                                    ? 'Sell via Stripe (5% booking fee passed to customer)' 
+                                                    : `Sell via Stripe (${isPromoterPro ? '0%' : '10%'} platform fee)`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className={`w-12 h-6 rounded-full p-0.5 transition-colors ${newEvent.ticketsEnabled ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                        onClick={() => setNewEvent({ ...newEvent, ticketsEnabled: !newEvent.ticketsEnabled })}>
+                                        <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${newEvent.ticketsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </div>
+                                </label>
+
+                                {newEvent.ticketsEnabled && (
+                                    <div className="mt-4 space-y-3">
+                                        <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">Ticket Tiers</p>
+                                        {newEvent.ticketTiers.map((tier, idx) => (
+                                            <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-gray-500">Tier {idx + 1}</span>
+                                                    {newEvent.ticketTiers.length > 1 && (
+                                                        <button type="button" onClick={() => {
+                                                            const tiers = [...newEvent.ticketTiers];
+                                                            tiers.splice(idx, 1);
+                                                            setNewEvent({ ...newEvent, ticketTiers: tiers });
+                                                        }} className="text-red-400 hover:text-red-600">
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Tier name"
+                                                        className="col-span-1 p-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700"
+                                                        value={tier.name}
+                                                        onChange={e => {
+                                                            const tiers = [...newEvent.ticketTiers];
+                                                            tiers[idx] = { ...tiers[idx], name: e.target.value };
+                                                            setNewEvent({ ...newEvent, ticketTiers: tiers });
+                                                        }}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Price ($)"
+                                                        className="p-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700"
+                                                        value={tier.price}
+                                                        onChange={e => {
+                                                            const tiers = [...newEvent.ticketTiers];
+                                                            tiers[idx] = { ...tiers[idx], price: e.target.value };
+                                                            setNewEvent({ ...newEvent, ticketTiers: tiers });
+                                                        }}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Qty"
+                                                        className="p-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700"
+                                                        value={tier.quantity}
+                                                        onChange={e => {
+                                                            const tiers = [...newEvent.ticketTiers];
+                                                            tiers[idx] = { ...tiers[idx], quantity: e.target.value };
+                                                            setNewEvent({ ...newEvent, ticketTiers: tiers });
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={() => setNewEvent({
+                                                ...newEvent,
+                                                ticketTiers: [...newEvent.ticketTiers, { name: '', price: '', quantity: '', description: '' }]
+                                            })}
+                                            className="w-full py-2 border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg text-amber-600 dark:text-amber-400 text-sm font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center justify-center gap-1"
+                                        >
+                                            <Plus className="w-4 h-4" /> Add Tier
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {createError && (
@@ -414,6 +670,97 @@ export default function PromoterDashboard({ user, isPremium, onExit }) {
                                 Create Event
                             </button>
                         </form>
+                    </div>
+                )}
+
+                {/* TICKETS TAB */}
+                {activeTab === 'tickets' && (
+                    <div className="space-y-6">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <StatCard label="Tickets Sold" value={ticketSales?.summary?.totalTicketsSold || 0} icon={<Ticket className="text-amber-500" />} />
+                            <StatCard label="Revenue" value={`$${(ticketSales?.summary?.totalRevenue || 0).toFixed(2)}`} icon={<DollarSign className="text-green-500" />} />
+                            <StatCard label="Total Orders" value={ticketSales?.summary?.totalOrders || 0} icon={<QrCode className="text-blue-500" />} />
+                            <StatCard label="Events Selling" value={ticketSales?.summary?.eventBreakdown?.length || 0} icon={<Calendar className="text-teal-500" />} />
+                        </div>
+
+                        {/* Event Breakdown */}
+                        {ticketSales?.summary?.eventBreakdown?.length > 0 && (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+                                <h3 className="font-bold text-gray-900 dark:text-white mb-3">Revenue by Event</h3>
+                                <div className="space-y-2">
+                                    {ticketSales.summary.eventBreakdown.map((evt, i) => (
+                                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-white text-sm">{evt.title}</p>
+                                                <p className="text-xs text-gray-500">{evt.sold} tickets sold</p>
+                                            </div>
+                                            <span className="font-bold text-green-600 dark:text-green-400">${evt.revenue.toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Recent Orders */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+                            <h3 className="font-bold text-gray-900 dark:text-white mb-3">Recent Orders</h3>
+                            {!ticketSales?.orders?.length ? (
+                                <div className="text-center py-8">
+                                    <Ticket className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                                    <p className="text-gray-500 text-sm">No ticket sales yet. Create an event with ticket sales enabled!</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {ticketSales.orders.slice(0, 50).map(order => (
+                                        <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{order.eventTitle}</p>
+                                                <p className="text-xs text-gray-500">{order.tierName} × {order.quantity} — {order.buyerEmail || 'unknown'}</p>
+                                            </div>
+                                            <div className="text-right ml-3 flex-shrink-0">
+                                                <p className="font-bold text-sm text-gray-900 dark:text-white">${order.sellerPayout?.toFixed(2)}</p>
+                                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                                    order.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                                }`}>{order.status}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Share Links Section */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+                            <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                <Link2 className="w-4 h-4" /> Shareable Ticket Links
+                            </h3>
+                            <p className="text-sm text-gray-500 mb-3">Share these links for customers to buy tickets directly.</p>
+                            <div className="space-y-2">
+                                {events.filter(e => e.ticketsEnabled).length === 0 ? (
+                                    <p className="text-sm text-gray-400 italic">No events with ticket sales enabled yet.</p>
+                                ) : (
+                                    events.filter(e => e.ticketsEnabled).map(evt => (
+                                        <div key={evt.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-medium text-sm text-gray-900 dark:text-white truncate">{evt.title}</p>
+                                                <p className="text-xs text-gray-500 truncate">{`${window.location.origin}?event=${evt.id}`}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(`${window.location.origin}?event=${evt.id}`);
+                                                    setCopiedLink(evt.id);
+                                                    setTimeout(() => setCopiedLink(null), 2000);
+                                                }}
+                                                className="ml-2 p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-200 flex-shrink-0"
+                                            >
+                                                {copiedLink === evt.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -617,7 +964,7 @@ function StatCard({ label, value, icon }) {
     );
 }
 
-function EventsList({ events, full }) {
+function EventsList({ events, full, activeMenu, setActiveMenu, deleting, handleDeleteEvent }) {
     if (!events?.length) {
         return (
             <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
@@ -652,13 +999,28 @@ function EventsList({ events, full }) {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 relative">
                         <div className="hidden md:block px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
                             <span className="text-xs font-mono text-gray-600 dark:text-gray-300">{event.accessCode}</span>
                         </div>
-                        <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                        <button
+                            onClick={() => setActiveMenu(activeMenu === event.id ? null : event.id)}
+                            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 relative"
+                        >
                             <MoreVertical className="w-5 h-5" />
                         </button>
+                        {activeMenu === event.id && (
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-20 overflow-hidden">
+                                <button
+                                    onClick={() => handleDeleteEvent(event.id, event.title)}
+                                    disabled={deleting === event.id}
+                                    className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                >
+                                    {deleting === event.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    Delete Event
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             ))}

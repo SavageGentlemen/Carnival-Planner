@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     CreditCard, Trophy, MapPin, Star, Ticket, ChevronRight,
-    Zap, Award, TrendingUp, Loader2, Sparkles, Gift, Users
+    Zap, Award, TrendingUp, Loader2, Sparkles, Gift, Users, Wifi
 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
@@ -58,7 +58,7 @@ const RARITY_COLORS = {
     LEGENDARY: 'border-yellow-400 dark:border-yellow-500'
 };
 
-export default function PassportHome({ user, isPremium, activeCarnivalId, activePlanId, isDemoMode, onOpenCheckin, onViewStamps, onViewAchievements, onViewLeaderboard, onViewRewards }) {
+export default function PassportHome({ user, isPremium, activeCarnivalId, activePlanId, isDemoMode, onOpenCheckin, onViewStamps, onViewAchievements, onViewLeaderboard, onViewRewards, onViewTelecom }) {
     const [profile, setProfile] = useState(null);
     const [recentStamps, setRecentStamps] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -67,8 +67,6 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
 
     // Load squad stats if in a squad
     useEffect(() => {
-        if (!activePlanId || !user) return;
-
         if (!activePlanId || !user) return;
 
         // DEMO MODE - Mock Squad Stats
@@ -521,6 +519,30 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
                     </button>
                 </div>
             </div>
+
+            {/* Telecom / Stay Connected CTA
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-5 text-white shadow-lg">
+                <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.1] mix-blend-overlay" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                            <Wifi className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg leading-tight uppercase tracking-tight">Travel Data</h3>
+                            <p className="text-white/70 text-xs font-bold uppercase tracking-widest">Global eSIM Packs</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onViewTelecom} 
+                        className="px-6 py-2 bg-white text-purple-600 rounded-xl text-sm font-black hover:bg-opacity-90 transition-all shadow-xl active:scale-95"
+                    >
+                        Access Store
+                    </button>
+                </div>
+            </div>
+            */}
         </div>
     );
 }

@@ -44,9 +44,44 @@ if (!webhookSecret) {
 const squadDb = getFirestore(app, 'squad-db');
 const defaultDb = getFirestore(app); // Default Firestore database for user tracking
 
+// ----- Premium Status Helper -----
+// Used to dynamically adjust platform fees: 0% for premium, 10% for free
+const PREMIUM_OVERRIDE_EMAILS = ['djkrss1@gmail.com', 'maikacooke@gmail.com'];
+
+async function checkUserPremium(uid, email) {
+  // 1. Email override
+  if (PREMIUM_OVERRIDE_EMAILS.includes((email || '').toLowerCase())) {
+    return true;
+  }
+  // 2. Firestore premium check
+  try {
+    const userAppDoc = await squadDb.doc(`users/${uid}/apps/${APP_ID}`).get();
+    if (userAppDoc.exists && userAppDoc.data()?.premiumActive === true) {
+      return true;
+    }
+  } catch (err) {
+    console.log('Premium check failed (non-critical):', err.message);
+  }
+  return false;
+}
+
+/**
+ * Calculate platform fee based on premium status and B2B "BandOS" role.
+ * Free:               10% platform fee (deducted from seller)
+ * Individual Premium: 0% platform fee (Pass-through)
+ * Official Band:      5% booking fee (added to total - passed to consumer)
+ */
+function calculatePlatformFee(amountInCents, isPremium, isOfficialBand = false) {
+  if (isOfficialBand) {
+    return Math.round(amountInCents * 0.05); // 5% B2B rate
+  }
+  if (isPremium) return 0;
+  return Math.round(amountInCents * 0.10);
+}
+
 // ----- Callable: createCheckoutSession (v2) -----
 exports.createCheckoutSession = onCall(
-  { cors: true, invoker: "public" },
+  { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY"] },
   async (request) => {
     const {
       priceId,
@@ -126,7 +161,9 @@ exports.createCheckoutSession = onCall(
 );
 
 // ----- Webhook: handleStripeWebhook -----
-exports.handleStripeWebhook = functions.https.onRequest(
+exports.handleStripeWebhook = functions.runWith({
+  secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "AIRALO_CLIENT_ID", "AIRALO_CLIENT_SECRET"]
+}).https.onRequest(
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -156,9 +193,18 @@ exports.handleStripeWebhook = functions.https.onRequest(
           const session = event.data.object;
           const meta = session.metadata || {};
           const uid = meta.firebaseUid;
-          const priceId = meta.priceId || null;
 
           if (!uid) break;
+
+          // --- AIRALO eSIM PURCHASE ---
+          if (meta.type === 'airalo_purchase') {
+            const packageId = meta.packageId;
+            console.log(`[Airalo Webhook] Completing eSIM order for ${uid}, package: ${packageId}`);
+            await completeAiraloOrder(uid, packageId);
+            return res.json({ received: true });
+          }
+
+          const priceId = meta.priceId || null;
 
           const subscriptionId = session.subscription;
           const customerId = session.customer;
@@ -2040,8 +2086,15 @@ exports.createPromoterEvent = onCall(
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
 
-    const { title, date, time, location, capacity, type } = request.data;
+    const { title, date, time, location, capacity, type,
+            bottleService, vipTables, standingTables, vipPrice, tableCapacity,
+            description, ticketsEnabled, ticketTiers } = request.data;
     const uid = request.auth.uid;
+    const userEmail = request.auth.token?.email || '';
+
+    // Admin override
+    const ADMIN_EMAILS = ['djkrss1@gmail.com'];
+    const isAdmin = ADMIN_EMAILS.includes(userEmail.toLowerCase());
 
     if (!title || !date) {
       throw new HttpsError('invalid-argument', 'Title and Date are required.');
@@ -2051,12 +2104,12 @@ exports.createPromoterEvent = onCall(
     const promoterProfileRef = squadDb.collection('promoterProfiles').doc(uid);
     const promoterDoc = await promoterProfileRef.get();
 
-    let isPro = false;
+    let isPro = isAdmin; // Admin always Pro
     if (promoterDoc.exists) {
-      isPro = promoterDoc.data().isPro || false;
+      isPro = isPro || promoterDoc.data().isPro || false;
     } else {
       // Auto-create basic profile
-      await promoterProfileRef.set({ isPro: false, createdAt: new Date() });
+      await promoterProfileRef.set({ isPro: isAdmin, createdAt: new Date() });
     }
 
     // Check active event limit for free tier
@@ -2072,9 +2125,9 @@ exports.createPromoterEvent = onCall(
     }
 
     // 2. Generate Access Code
-    // Simple logic: FETE-XXXX (random 4 chars)
+    const typePrefix = (type || 'fete').toUpperCase().substring(0, 4);
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const accessCode = `FETE-${randomSuffix}`;
+    const accessCode = `${typePrefix}-${randomSuffix}`;
 
     // 3. Create Event
     const eventData = {
@@ -2083,14 +2136,31 @@ exports.createPromoterEvent = onCall(
       location,
       capacity: parseInt(capacity) || 0,
       eventType: type || 'fete',
+      description: description || '',
       accessCode,
       creatorId: uid,
       isActive: true,
       totalCheckins: 0,
       createdAt: new Date(),
-      countryCode: 'XX', // Default, logic to infer from location needed later
+      countryCode: 'XX',
       carnivalCircuit: 'custom',
-      isFlagship: false
+      isFlagship: false,
+      // VIP / Hospitality options
+      bottleService: bottleService || false,
+      vipTables: vipTables || false,
+      standingTables: standingTables || false,
+      vipPrice: vipPrice ? parseFloat(vipPrice) : null,
+      tableCapacity: tableCapacity ? parseInt(tableCapacity) : null,
+      // Ticket sales
+      ticketsEnabled: !!ticketsEnabled,
+      ticketTiers: ticketsEnabled && Array.isArray(ticketTiers) ? ticketTiers.map(t => ({
+        name: String(t.name || 'General Admission').substring(0, 50),
+        price: Math.max(0, parseFloat(t.price) || 0),
+        quantity: Math.max(1, parseInt(t.quantity) || 100),
+        sold: 0,
+        description: String(t.description || '').substring(0, 200)
+      })) : [],
+      ticketsSold: 0
     };
 
     const docRef = await squadDb.collection('passportEvents').add(eventData);
@@ -2103,6 +2173,347 @@ exports.createPromoterEvent = onCall(
   }
 );
 
+// ----- Delete Promoter Event -----
+exports.deletePromoterEvent = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const { eventId } = request.data;
+    const uid = request.auth.uid;
+    const userEmail = request.auth.token?.email || '';
+
+    if (!eventId) {
+      throw new HttpsError('invalid-argument', 'Event ID is required.');
+    }
+
+    // Admin override
+    const ADMIN_EMAILS = ['djkrss1@gmail.com'];
+    const isAdmin = ADMIN_EMAILS.includes(userEmail.toLowerCase());
+
+    // Verify ownership
+    const eventDoc = await squadDb.collection('passportEvents').doc(eventId).get();
+    if (!eventDoc.exists) {
+      throw new HttpsError('not-found', 'Event not found.');
+    }
+
+    const eventData = eventDoc.data();
+    if (eventData.creatorId !== uid && !isAdmin) {
+      throw new HttpsError('permission-denied', 'You can only delete your own events.');
+    }
+
+    await squadDb.collection('passportEvents').doc(eventId).delete();
+
+    return { success: true, deletedId: eventId };
+  }
+);
+
+// ----- Get Event Public Info (no auth required to view) -----
+exports.getEventPublicInfo = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const { eventId } = request.data || {};
+    if (!eventId) {
+      throw new HttpsError('invalid-argument', 'Event ID is required.');
+    }
+
+    try {
+      const eventDoc = await squadDb.collection('passportEvents').doc(eventId).get();
+      if (!eventDoc.exists) {
+        throw new HttpsError('not-found', 'Event not found.');
+      }
+
+      const data = eventDoc.data();
+
+      // Parse date safely
+      let eventDate;
+      try {
+        if (data.date && typeof data.date.toDate === 'function') {
+          eventDate = data.date.toDate().toISOString();
+        } else if (data.date instanceof Date) {
+          eventDate = data.date.toISOString();
+        } else if (data.date) {
+          eventDate = new Date(data.date).toISOString();
+        } else {
+          eventDate = new Date().toISOString();
+        }
+      } catch (e) {
+        eventDate = new Date().toISOString();
+      }
+
+      // Return public-safe event data (no creatorId, accessCode, etc.)
+      return {
+        success: true,
+        event: {
+          id: eventDoc.id,
+          title: data.title,
+          date: eventDate,
+          location: data.location || '',
+          description: data.description || '',
+          eventType: data.eventType || 'fete',
+          capacity: data.capacity || 0,
+          isActive: data.isActive || false,
+          ticketsEnabled: data.ticketsEnabled || false,
+          ticketTiers: (data.ticketTiers || []).map(t => ({
+            name: t.name,
+            price: t.price,
+            quantity: t.quantity,
+            sold: t.sold || 0,
+            available: Math.max(0, (t.quantity || 0) - (t.sold || 0)),
+            description: t.description || ''
+          })),
+          bottleService: data.bottleService || false,
+          vipTables: data.vipTables || false,
+          vipPrice: data.vipPrice || null,
+          totalCheckins: data.totalCheckins || 0,
+          promoterName: data.promoterName || null
+        }
+      };
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      console.error('Error fetching event public info:', err);
+      throw new HttpsError('internal', 'Failed to load event info.');
+    }
+  }
+);
+
+// ----- Purchase Event Ticket -----
+exports.purchaseEventTicket = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to purchase tickets.');
+    }
+
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe is not configured on the server.');
+    }
+
+    const uid = request.auth.uid;
+    const buyerEmail = request.auth.token?.email || null;
+    const {
+      eventId,
+      tierName,
+      quantity = 1,
+      success_url,
+      cancel_url
+    } = request.data || {};
+
+    if (!eventId || !tierName) {
+      throw new HttpsError('invalid-argument', 'Event ID and tier name are required.');
+    }
+
+    const purchaseQty = Math.min(Math.max(1, parseInt(quantity) || 1), 10); // Max 10 per purchase
+
+    const DEFAULT_ORIGIN = "https://www.carnival-planner.com";
+
+    try {
+      // 1. Fetch the event
+      const eventDoc = await squadDb.collection('passportEvents').doc(eventId).get();
+      if (!eventDoc.exists) {
+        throw new HttpsError('not-found', 'Event not found.');
+      }
+
+      const event = eventDoc.data();
+
+      if (!event.isActive) {
+        throw new HttpsError('failed-precondition', 'This event is no longer active.');
+      }
+
+      if (!event.ticketsEnabled) {
+        throw new HttpsError('failed-precondition', 'Tickets are not available for this event.');
+      }
+
+      // 2. Find the requested tier
+      const tierIndex = (event.ticketTiers || []).findIndex(t => t.name === tierName);
+      if (tierIndex === -1) {
+        throw new HttpsError('not-found', 'Ticket tier not found.');
+      }
+
+      const tier = event.ticketTiers[tierIndex];
+      const available = (tier.quantity || 0) - (tier.sold || 0);
+      if (available < purchaseQty) {
+        throw new HttpsError('resource-exhausted', `Only ${available} tickets remaining for ${tierName}.`);
+      }
+
+      // Don't allow buying your own tickets
+      if (event.creatorId === uid) {
+        throw new HttpsError('failed-precondition', 'You cannot purchase tickets for your own event.');
+      }
+
+      // 3. Get the promoter's Stripe Connect account
+      const sellerDoc = await squadDb.doc(`marketplaceSellers/${event.creatorId}`).get();
+      if (!sellerDoc.exists || !sellerDoc.data().stripeAccountId) {
+        throw new HttpsError('failed-precondition', 'Event organizer has not completed payment setup.');
+      }
+
+      const sellerStripeId = sellerDoc.data().stripeAccountId;
+
+      // 4. Calculate pricing (premium users pay 0% platform fee)
+      const buyerIsPremium = await checkUserPremium(uid, buyerEmail);
+      const isOfficialBand = sellerDoc.data()?.isOfficialBand === true;
+      const pricePerTicket = Math.round(tier.price * 100); // cents
+      const baseProductAmount = pricePerTicket * purchaseQty;
+      const platformFee = calculatePlatformFee(baseProductAmount, buyerIsPremium, isOfficialBand);
+
+      // Total for consumer: Add fee ONLY for official bands (booking fee model)
+      const totalAmount = isOfficialBand ? (baseProductAmount + platformFee) : baseProductAmount;
+
+      // 5. Create ticket order document
+      const ticketCode = `TIX-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const orderRef = squadDb.collection('ticketOrders').doc();
+      await orderRef.set({
+        eventId,
+        eventTitle: event.title,
+        eventDate: event.date,
+        tierName,
+        quantity: purchaseQty,
+        pricePerTicket: tier.price,
+        totalAmount: totalAmount / 100,
+        platformFee: platformFee / 100,
+        sellerPayout: (totalAmount - platformFee) / 100,
+        buyerId: uid,
+        buyerEmail,
+        sellerId: event.creatorId,
+        sellerStripeId,
+        ticketCode,
+        status: 'pending',
+        buyerIsPremium,
+        createdAt: new Date(),
+        qrData: JSON.stringify({
+          orderId: orderRef.id,
+          eventId,
+          tierName,
+          ticketCode,
+          quantity: purchaseQty
+        })
+      });
+
+      // 6. Create Stripe Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        customer_email: buyerEmail || undefined,
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `${event.title} — ${tierName}`,
+              description: `🎫 ${purchaseQty}x ${tierName} ticket${purchaseQty > 1 ? 's' : ''}`,
+            },
+            unit_amount: isOfficialBand ? (pricePerTicket + Math.round(platformFee / purchaseQty)) : pricePerTicket,
+          },
+          quantity: purchaseQty,
+        }],
+        payment_intent_data: {
+          application_fee_amount: platformFee,
+          transfer_data: {
+            destination: sellerStripeId,
+          },
+        },
+        metadata: {
+          orderId: orderRef.id,
+          eventId,
+          buyerUid: uid,
+          sellerId: event.creatorId,
+          tierName,
+          tierIndex: String(tierIndex),
+          quantity: String(purchaseQty),
+          type: 'ticket_purchase',
+        },
+        success_url: `${success_url || DEFAULT_ORIGIN}?ticket_purchase=success&order_id=${orderRef.id}`,
+        cancel_url: `${cancel_url || DEFAULT_ORIGIN}?ticket_purchase=cancelled`,
+      });
+
+      // 7. Update order with session
+      await orderRef.update({ stripeSessionId: session.id });
+
+      return {
+        success: true,
+        checkoutUrl: session.url,
+        orderId: orderRef.id,
+        sessionId: session.id,
+      };
+    } catch (err) {
+      console.error("Error creating ticket checkout:", err);
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError('internal', `Failed to create ticket checkout: ${err.message}`);
+    }
+  }
+);
+
+// ----- Get Promoter Ticket Sales -----
+exports.getPromoterTicketSales = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+
+    try {
+      // Get all ticket orders for this promoter
+      const ordersQuery = await squadDb.collection('ticketOrders')
+        .where('sellerId', '==', uid)
+        .get();
+
+      const orders = [];
+      let totalRevenue = 0;
+      let totalTicketsSold = 0;
+      const eventBreakdown = {};
+
+      ordersQuery.forEach(doc => {
+        const data = doc.data();
+        orders.push({
+          id: doc.id,
+          eventTitle: data.eventTitle,
+          tierName: data.tierName,
+          quantity: data.quantity,
+          totalAmount: data.totalAmount,
+          sellerPayout: data.sellerPayout,
+          buyerEmail: data.buyerEmail,
+          status: data.status,
+          ticketCode: data.ticketCode,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date(data.createdAt).toISOString()
+        });
+
+        if (data.status === 'completed') {
+          totalRevenue += (data.sellerPayout || 0);
+          totalTicketsSold += (data.quantity || 0);
+
+          // Group by event
+          const eKey = data.eventId || 'unknown';
+          if (!eventBreakdown[eKey]) {
+            eventBreakdown[eKey] = { title: data.eventTitle, sold: 0, revenue: 0 };
+          }
+          eventBreakdown[eKey].sold += (data.quantity || 0);
+          eventBreakdown[eKey].revenue += (data.sellerPayout || 0);
+        }
+      });
+
+      // Sort by newest first
+      orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      return {
+        success: true,
+        orders,
+        summary: {
+          totalRevenue: Math.round(totalRevenue * 100) / 100,
+          totalTicketsSold,
+          totalOrders: orders.length,
+          eventBreakdown: Object.values(eventBreakdown)
+        }
+      };
+    } catch (err) {
+      console.error('Error fetching ticket sales:', err);
+      return { success: true, orders: [], summary: { totalRevenue: 0, totalTicketsSold: 0, totalOrders: 0, eventBreakdown: [] } };
+    }
+  }
+);
+
 // ----- Get Promoter Stats -----
 exports.getPromoterStats = onCall(
   { cors: true, invoker: "public" },
@@ -2112,41 +2523,74 @@ exports.getPromoterStats = onCall(
     }
 
     const uid = request.auth.uid;
+    const userEmail = request.auth.token?.email || '';
+
+    // Admin override — djkrss1@gmail.com always has Pro access
+    const ADMIN_EMAILS = ['djkrss1@gmail.com'];
+    const isAdmin = ADMIN_EMAILS.includes(userEmail.toLowerCase());
 
     // 1. Get Promoter Profile (for Pro status)
     const promoterDoc = await squadDb.collection('promoterProfiles').doc(uid).get();
-    const isPro = promoterDoc.exists ? promoterDoc.data().isPro : false;
+    const isPro = isAdmin || (promoterDoc.exists ? promoterDoc.data().isPro : false);
 
-    // 2. Get Events
-    const eventsQuery = await squadDb.collection('passportEvents')
-      .where('creatorId', '==', uid)
-      .orderBy('date', 'desc')
-      .get();
-
-    const events = [];
+    // 2. Get Events (no orderBy to avoid composite index requirement)
+    let events = [];
     let totalCheckins = 0;
     let activeEvents = 0;
 
-    // Calculate Today's Checkins
-    // Note: Ideally checkins collection query for today, but for efficiency we'll just sum totals here for now
-    // Or we could do a separate query if needed. 
-    // Let's stick to event-level aggregates for MVP speed.
+    try {
+      const eventsQuery = await squadDb.collection('passportEvents')
+        .where('creatorId', '==', uid)
+        .get();
 
-    eventsQuery.forEach(doc => {
-      const data = doc.data();
-      events.push({
-        id: doc.id,
-        title: data.title,
-        date: data.date.toDate().toISOString(),
-        checkins: data.totalCheckins || 0,
-        capacity: data.capacity,
-        status: data.isActive ? 'active' : 'past',
-        accessCode: data.accessCode
+      eventsQuery.forEach(doc => {
+        const data = doc.data();
+        // Safe date parsing — handle Firestore Timestamp, JS Date, or string
+        let eventDate;
+        try {
+          if (data.date && typeof data.date.toDate === 'function') {
+            eventDate = data.date.toDate().toISOString();
+          } else if (data.date instanceof Date) {
+            eventDate = data.date.toISOString();
+          } else if (data.date) {
+            eventDate = new Date(data.date).toISOString();
+          } else {
+            eventDate = new Date().toISOString();
+          }
+        } catch (e) {
+          console.warn(`Invalid date for event ${doc.id}:`, e.message);
+          eventDate = new Date().toISOString();
+        }
+
+        events.push({
+          id: doc.id,
+          title: data.title,
+          date: eventDate,
+          checkins: data.totalCheckins || 0,
+          capacity: data.capacity,
+          status: data.isActive ? 'active' : 'past',
+          accessCode: data.accessCode,
+          eventType: data.eventType || 'fete',
+          bottleService: data.bottleService || false,
+          vipTables: data.vipTables || false,
+          standingTables: data.standingTables || false,
+          vipPrice: data.vipPrice || null,
+          tableCapacity: data.tableCapacity || null,
+          ticketsEnabled: data.ticketsEnabled || false,
+          ticketTiers: data.ticketTiers || [],
+          ticketsSold: data.ticketsSold || 0
+        });
+
+        totalCheckins += (data.totalCheckins || 0);
+        if (data.isActive) activeEvents++;
       });
 
-      totalCheckins += (data.totalCheckins || 0);
-      if (data.isActive) activeEvents++;
-    });
+      // Sort by date descending in-memory (avoids composite index)
+      events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } catch (queryErr) {
+      console.error('Failed to query passportEvents:', queryErr.message);
+      // Return empty events rather than crashing
+    }
 
     return {
       stats: {
@@ -2203,17 +2647,28 @@ exports.getPromoterRewards = onCall(
 
     const uid = request.auth.uid;
 
-    const rewardsQuery = await squadDb.collection('promoterRewards')
-      .where('promoterId', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .get();
+    try {
+      const rewardsQuery = await squadDb.collection('promoterRewards')
+        .where('promoterId', '==', uid)
+        .get();
 
-    const rewards = [];
-    rewardsQuery.forEach(doc => {
-      rewards.push({ id: doc.id, ...doc.data() });
-    });
+      const rewards = [];
+      rewardsQuery.forEach(doc => {
+        rewards.push({ id: doc.id, ...doc.data() });
+      });
 
-    return { rewards };
+      // Sort in-memory to avoid index requirement
+      rewards.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt) || 0;
+        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt) || 0;
+        return dateB - dateA;
+      });
+
+      return { rewards };
+    } catch (error) {
+      console.error('Error fetching promoter rewards:', error);
+      return { rewards: [] };
+    }
   }
 );
 
@@ -2225,22 +2680,29 @@ exports.getAvailableRewards = onCall(
       throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
 
-    // 1. Get all active rewards
-    const rewardsQuery = await squadDb.collection('promoterRewards')
-      .where('active', '==', true)
-      .orderBy('cost', 'asc')
-      .get();
+    try {
+      // 1. Get all active rewards
+      const rewardsQuery = await squadDb.collection('promoterRewards')
+        .where('active', '==', true)
+        .get();
 
-    const rewards = [];
-    rewardsQuery.forEach(doc => {
-      const data = doc.data();
-      // Only include if quantity is null (unlimited) or > 0
-      if (data.quantity === null || data.quantity > 0) {
-        rewards.push({ id: doc.id, ...data });
-      }
-    });
+      const rewards = [];
+      rewardsQuery.forEach(doc => {
+        const data = doc.data();
+        // Only include if quantity is null (unlimited) or > 0
+        if (data.quantity === null || data.quantity > 0) {
+          rewards.push({ id: doc.id, ...data });
+        }
+      });
 
-    return { rewards };
+      // Sort in-memory to avoid index requirement
+      rewards.sort((a, b) => (a.cost || 0) - (b.cost || 0));
+
+      return { rewards };
+    } catch (error) {
+      console.error('Error fetching available rewards:', error);
+      return { rewards: [] };
+    }
   }
 );
 
@@ -2421,6 +2883,54 @@ exports.createConnectAccount = onCall(
   }
 );
 
+// ----- Callable: verifyConnectAccount -----
+// Manually requests account status from Stripe (useful if webhook drops)
+exports.verifyConnectAccount = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    if (!stripe) {
+      throw new HttpsError('failed-precondition', 'Stripe is not configured on the server.');
+    }
+
+    const uid = request.auth.uid;
+
+    try {
+      const sellerRef = squadDb.doc(`marketplaceSellers/${uid}`);
+      const sellerDoc = await sellerRef.get();
+
+      if (!sellerDoc.exists || !sellerDoc.data().stripeAccountId) {
+        return { success: false, isReady: false, message: 'No Stripe account linked.' };
+      }
+
+      const accountId = sellerDoc.data().stripeAccountId;
+      const account = await stripe.accounts.retrieve(accountId);
+
+      const isReady = account.charges_enabled && account.payouts_enabled;
+
+      await sellerRef.update({
+        onboardingComplete: isReady,
+        chargesEnabled: account.charges_enabled || false,
+        payoutsEnabled: account.payouts_enabled || false,
+        updatedAt: new Date(),
+      });
+
+      return {
+        success: true,
+        isReady,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled
+      };
+    } catch (err) {
+      console.error("Error verifying Connect account:", err);
+      throw new HttpsError('internal', `Failed to verify seller account: ${err.message}`);
+    }
+  }
+);
+
 // ----- Callable: createConnectLoginLink -----
 // Returns a Stripe Express dashboard link so sellers can view payouts/settings
 exports.createConnectLoginLink = onCall(
@@ -2463,7 +2973,7 @@ exports.createConnectLoginLink = onCall(
 // Creates a Stripe Checkout Session for a marketplace purchase
 // Routes funds: 90% to seller's Connect account, 10% platform fee
 exports.createMarketplaceCheckout = onCall(
-  { cors: true, invoker: "public" },
+  { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY"] },
   async (request) => {
     if (!request.auth || !request.auth.uid) {
       throw new HttpsError('unauthenticated', 'Must be signed in to purchase.');
@@ -2516,9 +3026,14 @@ exports.createMarketplaceCheckout = onCall(
 
       const sellerStripeId = sellerDoc.data().stripeAccountId;
 
-      // 3. Calculate fees
+      // 3. Calculate fees (premium users pay 0% platform fee)
+      const buyerIsPremium = await checkUserPremium(uid, buyerEmail);
+      const isOfficialBand = sellerDoc.data()?.isOfficialBand === true;
       const priceInCents = Math.round(listing.price * 100);
-      const platformFee = Math.round(priceInCents * 0.10); // 10% platform fee
+      const platformFee = calculatePlatformFee(priceInCents, buyerIsPremium, isOfficialBand);
+
+      // Total for consumer: Add fee ONLY for official bands (booking fee model)
+      const totalAmount = isOfficialBand ? (priceInCents + platformFee) : priceInCents;
 
       // 4. Create the order document (pending)
       const orderRef = squadDb.collection('marketplaceOrders').doc();
@@ -2538,6 +3053,7 @@ exports.createMarketplaceCheckout = onCall(
         sellerPayout: (priceInCents - platformFee) / 100,
         currency: listing.currency || 'usd',
         status: 'pending',
+        buyerIsPremium,
         createdAt: new Date(),
       });
 
@@ -2554,7 +3070,7 @@ exports.createMarketplaceCheckout = onCall(
               description: `${listing.category === 'ticket' ? '🎫 Event Ticket' : '👗 Costume'} — ${listing.carnival || 'Carnival'}`,
               ...(listing.imageUrl ? { images: [listing.imageUrl] } : {}),
             },
-            unit_amount: priceInCents,
+            unit_amount: totalAmount,
           },
           quantity: 1,
         }],
@@ -2688,7 +3204,9 @@ async function sendOrderEmails(orderData, sellerEmail) {
 
 // ----- Webhook: handleMarketplaceWebhook -----
 // Listens for Stripe Connect events and updates Firestore accordingly
-exports.handleMarketplaceWebhook = functions.https.onRequest(
+exports.handleMarketplaceWebhook = functions.runWith({
+  secrets: ["STRIPE_SECRET_KEY", "STRIPE_MARKETPLACE_WEBHOOK_SECRET"]
+}).https.onRequest(
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -2719,7 +3237,50 @@ exports.handleMarketplaceWebhook = functions.https.onRequest(
           const session = event.data.object;
           const meta = session.metadata || {};
 
-          // Only process marketplace purchases
+          // Only process marketplace purchases and ticket purchases
+          if (meta.type === 'ticket_purchase') {
+            // --- TICKET PURCHASE ---
+            const orderId = meta.orderId;
+            const eventId = meta.eventId;
+            const tierIndex = parseInt(meta.tierIndex);
+            const qty = parseInt(meta.quantity) || 1;
+
+            if (!orderId) {
+              console.warn("Ticket webhook: no orderId in metadata.");
+              break;
+            }
+
+            console.log(`Ticket: Completing order ${orderId} for event ${eventId}`);
+
+            // Update ticket order to completed
+            const ticketOrderRef = squadDb.doc(`ticketOrders/${orderId}`);
+            await ticketOrderRef.update({
+              status: 'completed',
+              completedAt: new Date(),
+              stripePaymentIntentId: session.payment_intent || null,
+            });
+
+            // Update event: decrement tier availability, increment sold
+            if (eventId && !isNaN(tierIndex)) {
+              const eventRef = squadDb.doc(`passportEvents/${eventId}`);
+              const eventSnap = await eventRef.get();
+              if (eventSnap.exists) {
+                const eventData = eventSnap.data();
+                const tiers = eventData.ticketTiers || [];
+                if (tiers[tierIndex]) {
+                  tiers[tierIndex].sold = (tiers[tierIndex].sold || 0) + qty;
+                  await eventRef.update({
+                    ticketTiers: tiers,
+                    ticketsSold: FieldValue.increment(qty)
+                  });
+                }
+              }
+            }
+
+            console.log(`Ticket: Order ${orderId} completed, ${qty} tickets sold.`);
+            break;
+          }
+
           if (meta.type !== 'marketplace_purchase') {
             console.log("Marketplace webhook: ignoring non-marketplace session.");
             break;
@@ -3240,53 +3801,313 @@ exports.ensureWallet = onCall(
     const uid = request.auth.uid;
     const email = request.auth.token.email || '';
 
-    // Check if user already has a wallet
-    const profileRef = admin.firestore().doc(`passportProfiles/${uid}`);
-    const profileSnap = await profileRef.get();
+    try {
+      // Check if user already has a wallet in squadDb (passportProfiles)
+      const profileRef = squadDb.doc(`passportProfiles/${uid}`);
+      const profileSnap = await profileRef.get();
 
-    if (profileSnap.exists && profileSnap.data().walletAddress) {
-      return {
-        walletAddress: profileSnap.data().walletAddress,
-        walletType: profileSnap.data().walletType || 'embedded',
-        isNew: false
+      if (profileSnap.exists && profileSnap.data().walletAddress) {
+        return {
+          walletAddress: profileSnap.data().walletAddress,
+          walletType: profileSnap.data().walletType || 'embedded',
+          isNew: false
+        };
+      }
+
+      // Generate a new wallet
+      const wallet = ethers.Wallet.createRandom();
+      const encryptedKey = encryptPrivateKey(wallet.privateKey);
+
+      // Save to Firestore — wallet address is public, key is encrypted
+      const walletData = {
+        walletAddress: wallet.address,
+        walletType: 'embedded',
+        walletCreatedAt: FieldValue.serverTimestamp(),
+        walletEmail: email,
       };
+
+      // Store encrypted key in a separate secure subcollection in squadDb
+      await squadDb.doc(`walletKeys/${uid}`).set({
+        encryptedKey: encryptedKey,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      // Update the user's passport profile in squadDb
+      await profileRef.set(walletData, { merge: true });
+
+      console.log(`[Wallet] Generated embedded wallet for ${uid}: ${wallet.address}`);
+
+    } catch (err) {
+      console.error('[Wallet] Failed to ensure wallet:', err);
+      throw new HttpsError('internal', 'Failed to generate or retrieve wallet.');
     }
+  }
+);
 
-    // Generate a new wallet
-    const wallet = ethers.Wallet.createRandom();
-    const encryptedKey = encryptPrivateKey(wallet.privateKey);
+// ===== AIRALO eSIM INTEGRATION (Telecom-as-a-Service) ============
 
-    // Save to Firestore — wallet address is public, key is encrypted
-    const walletData = {
-      walletAddress: wallet.address,
-      walletType: 'embedded',
-      walletCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      walletEmail: email,
-    };
+const AIRALO_BASE_URL = process.env.AIRALO_ENV === 'production' 
+  ? 'https://partners-api.airalo.com' 
+  : 'https://sandbox-partners-api.airalo.com';
 
-    // Store encrypted key in a separate secure subcollection
-    await admin.firestore().doc(`walletKeys/${uid}`).set({
-      encryptedKey: encryptedKey,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+const airaloClientId = process.env.AIRALO_CLIENT_ID || null;
+const airaloClientSecret = process.env.AIRALO_CLIENT_SECRET || null;
+
+/**
+ * Internal helper to complete an Airalo order after successful payment.
+ */
+async function completeAiraloOrder(uid, packageId) {
+  console.log(`[Airalo] Completing order for uid: ${uid}, pkg: ${packageId}`);
+  
+  try {
+    const token = await getAiraloToken();
+    
+    const response = await fetch(`${AIRALO_BASE_URL}/v2/orders`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        package_id: packageId,
+        quantity: 1,
+        description: `Order for user ${uid}`
+      })
     });
 
-    // Update the user's passport profile
-    await profileRef.set(walletData, { merge: true });
-
-    // Also update the squad-db path if it exists
-    try {
-      await admin.firestore().doc(`squad-db/passportProfiles/${uid}`).set(walletData, { merge: true });
-    } catch (e) {
-      // Ignore if this path doesn't exist
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Airalo API order failed: ${errText}`);
     }
 
-    console.log(`[Wallet] Generated embedded wallet for ${uid}: ${wallet.address}`);
+    const result = await response.json();
+    const orderData = result.data;
+    
+    // Store in Firestore
+    const userEsimRef = squadDb.collection('userEsims').doc();
+    await userEsimRef.set({
+      userId: uid,
+      packageId: packageId,
+      airaloOrderId: orderData.id,
+      esims: (orderData.sims || []).map(sim => ({
+        iccid: sim.iccid,
+        lpa: sim.lpa,
+        matchingId: sim.matching_id,
+        qrcodeUrl: sim.qrcode_url,
+        installationGuides: sim.installation_guides
+      })),
+      status: 'completed',
+      purchasedAt: FieldValue.serverTimestamp(),
+    });
 
-    return {
-      walletAddress: wallet.address,
-      walletType: 'embedded',
-      isNew: true
-    };
+    console.log(`[Airalo] Successfully completed order ${orderData.id} for ${uid}`);
+    return true;
+  } catch (err) {
+    console.error(`[Airalo] Order completion FAILED for ${uid}:`, err.message);
+    // Track failure for manual resolution
+    await squadDb.collection('failedOrders').add({
+      type: 'airalo_order_failure',
+      userId: uid,
+      packageId,
+      error: err.message,
+      createdAt: FieldValue.serverTimestamp()
+    });
+    return false;
+  }
+}
+
+/**
+ * Internal helper to retrieve (and cache) Airalo OAuth2 token.
+ */
+async function getAiraloToken() {
+  if (!airaloClientId || !airaloClientSecret) {
+    throw new Error("Airalo credentials (AIRALO_CLIENT_ID/SECRET) not configured.");
+  }
+
+  // Tokens are valid for 24h. We cache in Firestore to respect rate limits.
+  const tokenRef = squadDb.doc('config/airalo_token');
+  const tokenDoc = await tokenRef.get();
+  const now = Date.now();
+
+  if (tokenDoc.exists) {
+    const data = tokenDoc.data();
+    // Refresh if expiring within next hour
+    if (data.expiresAt > now + (3600 * 1000)) {
+      return data.accessToken;
+    }
+  }
+
+  console.log('[Airalo] Fetching new access token...');
+  const response = await fetch(`${AIRALO_BASE_URL}/v2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: airaloClientId,
+      client_secret: airaloClientSecret,
+      grant_type: 'client_credentials'
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Airalo auth failed: ${errText}`);
+  }
+
+  const result = await response.json();
+  const accessToken = result.data.access_token;
+  const expiresIn = result.data.expires_in || 86400;
+  const expiresAt = now + (expiresIn * 1000);
+
+  await tokenRef.set({
+    accessToken,
+    expiresAt,
+    updatedAt: FieldValue.serverTimestamp()
+  });
+
+  return accessToken;
+}
+
+/**
+ * Call: getAiraloPackages
+ * Fetches the eSIM catalog and applies the platform markup.
+ */
+exports.getAiraloPackages = onCall(
+  { cors: true, invoker: "public", secrets: ["AIRALO_CLIENT_ID", "AIRALO_CLIENT_SECRET"] },
+  async (request) => {
+    const { countryCode, regionCode, type = 'local' } = request.data || {};
+    
+    try {
+      const token = await getAiraloToken();
+      
+      // Build filters
+      let query = `?type=${type}`;
+      if (countryCode) query += `&filter[country]=${countryCode}`;
+      if (regionCode) query += `&filter[region]=${regionCode}`;
+
+      const response = await fetch(`${AIRALO_BASE_URL}/v2/packages${query}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Airalo Catalog API error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const packages = result.data || [];
+
+      // Resale Strategy: 20% markup + rounded up to nearest $0.99 or .00
+      const markupRatio = 1.25; // 25% markup
+      const resalablePackages = packages.map(pkg => {
+        const wholesalePrice = parseFloat(pkg.price);
+        const retailPrice = Math.ceil(wholesalePrice * markupRatio); // Rounded up to nearest dollar
+        
+        return {
+          id: pkg.id,
+          slug: pkg.slug,
+          type: pkg.type,
+          price: retailPrice, // User-facing price
+          originalPrice: wholesalePrice,
+          currency: 'USD',
+          data: pkg.data, // amount of data (e.g. 1GB)
+          validity: pkg.validity, // (e.g. 7 days)
+          operator: pkg.operator?.title || 'Airalo Global',
+          net_type: pkg.net_type,
+          countries: (pkg.countries || []).map(c => ({ name: c.title, code: c.country_code }))
+        };
+      });
+
+      return { packages: resalablePackages };
+    } catch (err) {
+      console.error("[Airalo] Catalog error:", err);
+      throw new HttpsError("internal", `Telecom catalog unavailable: ${err.message}`);
+    }
+  }
+);
+
+/**
+ * Call: initiateAiraloPurchase
+ * Creates a Stripe checkout session for an eSIM.
+ */
+exports.initiateAiraloPurchase = onCall(
+  { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY", "AIRALO_CLIENT_ID", "AIRALO_CLIENT_SECRET"] },
+  async (request) => {
+    const { packageId, packageName, retailPrice, uid: uidFromClient } = request.data || {};
+    const uid = (request.auth && request.auth.uid) || uidFromClient;
+
+    if (!uid) throw new HttpsError('unauthenticated', 'Must be signed in to purchase travel data.');
+    if (!packageId || !retailPrice) throw new HttpsError('invalid-argument', 'Missing package details.');
+
+    try {
+      const origin = "https://carnival-planner.web.app";
+      
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `eSIM Global Data: ${packageName || packageId}`,
+              images: ['https://www.airalo.com/assets/images/logo.png'],
+              description: 'Powered by Airalo - Digital travel data'
+            },
+            unit_amount: Math.round(retailPrice * 100),
+          },
+          quantity: 1,
+        }],
+        metadata: {
+          type: 'airalo_purchase',
+          packageId,
+          firebaseUid: uid,
+          retailPrice: retailPrice.toString()
+        },
+        success_url: `${origin}/telecom-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/telecom-cancel`,
+      });
+
+      return { 
+        sessionId: session.id,
+        checkoutUrl: session.url 
+      };
+    } catch (err) {
+      console.error("[Airalo] Checkout error:", err);
+      throw new HttpsError("internal", "Failed to initiate payment for data package.");
+    }
+  }
+);
+
+/**
+ * Call: getUserEsims
+ * Lists all purchased eSIMs for the current user.
+ */
+exports.getUserEsims = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const { uid: uidFromClient } = request.data || {};
+    const uid = (request.auth && request.auth.uid) || uidFromClient;
+
+    if (!uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+    try {
+      const snap = await squadDb.collection('userEsims')
+        .where('userId', '==', uid)
+        .orderBy('purchasedAt', 'desc')
+        .get();
+
+      return { 
+        esims: snap.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        })) 
+      };
+    } catch (err) {
+      console.error("[Airalo] Fetch error:", err);
+      throw new HttpsError("internal", "Could not retrieve your eSIMs.");
+    }
   }
 );
 

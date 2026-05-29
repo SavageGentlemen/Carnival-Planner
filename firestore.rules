@@ -165,8 +165,11 @@ service cloud.firestore {
     match /passportStamps/{stampId} {
       allow read: if request.auth != null && 
                     request.auth.uid == resource.data.userId;
-      // Stamps are created via Cloud Function only
-      allow create, update, delete: if false;
+      // Allow users to only update the isFavorite field
+      allow update: if request.auth != null && 
+                      request.auth.uid == resource.data.userId &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isFavorite']);
+      allow create, delete: if false;
     }
     
     // Passport Check-ins - created via Cloud Function, user can read their own
@@ -193,6 +196,16 @@ service cloud.firestore {
     match /passportLeaderboard/{entryId} {
       allow read: if true;
       allow write: if false; // Updated via Cloud Function
+    }
+    
+    // --- BANDOS REQUESTS ---
+    match /bandOSRequests/{requestId} {
+      // Users can read their own, Admin can read all
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
+      // Authenticated users can create requests for themselves
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Admin can approve/reject (update) or delete
+      allow update, delete: if isAdmin();
     }
     
     // --- ADMIN MANAGEMENT ---
@@ -230,7 +243,11 @@ service cloud.firestore {
         request.auth.uid == resource.data.buyerId ||
         request.auth.uid == resource.data.sellerId
       );
-      // Orders are created and updated via Cloud Functions only
+      allow update: if request.auth != null && 
+                       request.auth.uid == resource.data.sellerId &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['distributionStatus', 'distributedAt']);
+      // Orders are created and updated via Cloud Functions mostly
       allow read, write: if isAdmin();
     }
   }

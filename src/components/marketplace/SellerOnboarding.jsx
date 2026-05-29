@@ -4,11 +4,12 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
 import { ExternalLink, CheckCircle2, Clock, CreditCard, Loader2, ArrowRight } from 'lucide-react';
 
-export default function SellerOnboarding({ user }) {
+export default function SellerOnboarding({ user, isPremium }) {
     const [sellerStatus, setSellerStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [onboarding, setOnboarding] = useState(false);
     const [dashboardLoading, setDashboardLoading] = useState(false);
+    const [verifying, setVerifying] = useState(false);
 
     // Listen to seller status in Firestore
     useEffect(() => {
@@ -55,6 +56,30 @@ export default function SellerOnboarding({ user }) {
             alert('Failed to start seller onboarding. ' + (err.message || ''));
         } finally {
             setOnboarding(false);
+        }
+    };
+
+    // Verify Stripe Connect status manually
+    const handleVerifyStatus = async () => {
+        setVerifying(true);
+        try {
+            const functions = getFunctions();
+            const verifyAccount = httpsCallable(functions, 'verifyConnectAccount');
+
+            const result = await verifyAccount();
+
+            if (result.data?.isReady) {
+                // The onSnapshot listener will soon pick up the change,
+                // but we might want to alert them immediately
+                alert('Your account is now fully verified and active!');
+            } else {
+                alert('Your account is still not fully verified by Stripe. Please Continue Onboarding.');
+            }
+        } catch (err) {
+            console.error('Verification error:', err);
+            alert('Failed to verify seller status. ' + (err.message || ''));
+        } finally {
+            setVerifying(false);
         }
     };
 
@@ -142,7 +167,9 @@ export default function SellerOnboarding({ user }) {
                 </div>
 
                 <p className="text-xs text-gray-500 text-center">
-                    Platform fee: 10% per transaction • Payouts managed by Stripe
+                    Platform fee: {sellerStatus?.isOfficialBand 
+                        ? '5% (Passed to customer)' 
+                        : (isPremium ? '0%' : '10%')} per transaction • Payouts managed by Stripe
                 </p>
             </div>
         );
@@ -159,18 +186,32 @@ export default function SellerOnboarding({ user }) {
                 <p className="text-gray-400 text-sm mb-6 max-w-sm mx-auto">
                     You've started the process but haven't finished. Complete your Stripe identity verification to start selling.
                 </p>
-                <button
-                    onClick={handleStartOnboarding}
-                    disabled={onboarding}
-                    className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
-                >
-                    {onboarding ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                        <ArrowRight className="w-4 h-4" />
-                    )}
-                    Continue Onboarding
-                </button>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                        onClick={handleStartOnboarding}
+                        disabled={onboarding || verifying}
+                        className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {onboarding ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <ArrowRight className="w-4 h-4" />
+                        )}
+                        Continue Onboarding
+                    </button>
+                    <button
+                        onClick={handleVerifyStatus}
+                        disabled={onboarding || verifying}
+                        className="w-full sm:w-auto px-6 py-3 bg-white/10 border border-white/20 text-white font-bold text-sm rounded-xl hover:bg-white/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {verifying ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <span className="text-xl">🔄</span>
+                        )}
+                        Refresh Status
+                    </button>
+                </div>
             </div>
         );
     }
@@ -187,9 +228,14 @@ export default function SellerOnboarding({ user }) {
                     </div>
                 </div>
 
-                <h3 className="text-2xl font-black text-white mb-3">Become a Seller</h3>
-                <p className="text-gray-400 text-sm mb-2">
-                    Sell your carnival tickets and costumes to the community. Stripe handles all payments securely.
+                <h2 className="text-3xl font-black text-white mb-4">
+                    {/* profileData is not defined in this component, using a placeholder for demonstration */}
+                    {false ? 'Collect Costume Payments via Stripe' : 'Start Selling on the Marketplace'}
+                </h2>
+                <p className="text-purple-100 text-lg max-w-2xl mx-auto">
+                    {false
+                        ? 'Connect your bank account securely to receive payouts directly from masquerader registrations.'
+                        : 'Connect your bank account securely via Stripe to receive payouts when your items sell.'}
                 </p>
 
                 {/* How it Works */}
@@ -199,7 +245,9 @@ export default function SellerOnboarding({ user }) {
                         {[
                             { step: '1', text: 'Connect your bank account via Stripe (2 min)' },
                             { step: '2', text: 'List your tickets or costumes with a price' },
-                            { step: '3', text: 'Get paid directly when someone purchases — minus a 10% platform fee' },
+                            { step: '3', text: `Get paid directly when someone purchases — ${sellerStatus?.isOfficialBand 
+                                ? 'plus a 5% booking fee added for the buyer' 
+                                : `minus a ${isPremium ? '0%' : '10%'} platform fee`}` },
                         ].map((item) => (
                             <div key={item.step} className="flex items-start gap-3">
                                 <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">

@@ -15,8 +15,14 @@ const TABS = [
     { id: 'orders', label: 'Orders', icon: Package },
 ];
 
-export default function MarketplacePage({ user }) {
-    const [activeTab, setActiveTab] = useState('browse');
+export default function MarketplacePage({ user, isPremium }) {
+    const [activeTab, setActiveTab] = useState(() => {
+        if (sessionStorage.getItem('returnFromStripe') === 'true') {
+            sessionStorage.removeItem('returnFromStripe');
+            return 'sell';
+        }
+        return 'browse';
+    });
     const [sellerStatus, setSellerStatus] = useState(null);
 
     // Listen to seller onboarding status (if logged in)
@@ -85,11 +91,11 @@ export default function MarketplacePage({ user }) {
                 )}
 
                 {activeTab === 'sell' && (
-                    <SellerOnboarding user={user} />
+                    <SellerOnboarding user={user} isPremium={isPremium} />
                 )}
 
                 {activeTab === 'listings' && (
-                    <CreateListing user={user} sellerStatus={sellerStatus} />
+                    <CreateListing user={user} sellerStatus={sellerStatus} isPremium={isPremium} />
                 )}
 
                 {activeTab === 'orders' && (
@@ -99,7 +105,11 @@ export default function MarketplacePage({ user }) {
                 {/* Platform Info Footer */}
                 <div className="text-center pt-4 border-t border-gray-800">
                     <p className="text-[10px] text-gray-500">
-                        🔒 Payments secured by Stripe Connect • 10% platform fee per transaction • Seller identity verified by Stripe
+                        🔒 Payments secured by Stripe Connect • {sellerStatus?.isOfficialBand 
+                            ? '5% booking fee passed to customer' 
+                            : (isPremium 
+                                ? '0% platform fee (Premium benefit)' 
+                                : '10% platform fee')} • Seller identity verified by Stripe
                     </p>
                 </div>
             </div>

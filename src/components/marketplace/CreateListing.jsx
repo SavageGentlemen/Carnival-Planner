@@ -10,7 +10,7 @@ const CARNIVAL_OPTIONS = [
     'St. Vincent', 'Tobago', 'Other',
 ];
 
-export default function CreateListing({ user, sellerStatus }) {
+export default function CreateListing({ user, sellerStatus, isPremium }) {
     const [myListings, setMyListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -32,6 +32,7 @@ export default function CreateListing({ user, sellerStatus }) {
         price: '',
         carnival: '',
         imageUrl: '',
+        isOfficial: false,
     });
 
     // Fetch seller's own listings
@@ -57,7 +58,7 @@ export default function CreateListing({ user, sellerStatus }) {
     }, [user]);
 
     const resetForm = () => {
-        setForm({ title: '', description: '', category: 'ticket', price: '', carnival: '', imageUrl: '' });
+        setForm({ title: '', description: '', category: 'ticket', price: '', carnival: '', imageUrl: '', isOfficial: false });
         setEditingId(null);
         setShowForm(false);
         setImageFile(null);
@@ -139,6 +140,7 @@ export default function CreateListing({ user, sellerStatus }) {
             price: String(listing.price || ''),
             carnival: listing.carnival || '',
             imageUrl: listing.imageUrl || '',
+            isOfficial: listing.isOfficial || false,
         });
         setEditingId(listing.id);
         setShowForm(true);
@@ -186,6 +188,7 @@ export default function CreateListing({ user, sellerStatus }) {
                 sellerId: user.uid,
                 sellerName: user.displayName || user.email || 'Seller',
                 status: 'active',
+                isOfficial: form.isOfficial,
             };
 
             // Upload image if a new file was selected
@@ -313,6 +316,19 @@ export default function CreateListing({ user, sellerStatus }) {
                             })}
                         </div>
 
+                        {/* Official Listing Toggle (Band Leaders Only) */}
+                        {sellerStatus?.isBandLeader && (
+                            <div className="flex items-center gap-3 p-3 bg-purple-900/20 border border-purple-500/30 rounded-xl cursor-pointer" onClick={() => setForm(f => ({ ...f, isOfficial: !f.isOfficial }))}>
+                                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${form.isOfficial ? 'bg-purple-500 border-purple-500' : 'border-gray-500'}`}>
+                                    {form.isOfficial && <Box className="w-3.5 h-3.5 text-white" />}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-white">Official Band Listing</p>
+                                    <p className="text-xs text-gray-400">Mark this as a primary drop instead of a resale.</p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Title */}
                         <input
                             type="text"
@@ -357,6 +373,17 @@ export default function CreateListing({ user, sellerStatus }) {
                                     <option key={c} value={c}>{c}</option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Fee Help Text */}
+                        <div className="px-1">
+                            <p className="text-[10px] text-gray-500 italic">
+                                {sellerStatus?.isOfficialBand 
+                                    ? "Official Band: 5% booking fee is added to this price for the buyer. You get the full amount."
+                                    : (isPremium 
+                                        ? "Premium Member: 0% platform fee. You keep 100% (minus Stripe processing)."
+                                        : "Free Listing: 10% platform fee will be deducted from this price when sold.")}
+                            </p>
                         </div>
 
                         {/* Image Upload */}
@@ -496,7 +523,10 @@ export default function CreateListing({ user, sellerStatus }) {
                         <div key={listing.id} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 flex items-center justify-between gap-4">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="text-sm font-bold text-white truncate">{listing.title}</h4>
+                                    <h4 className="text-sm font-bold text-white truncate">
+                                        {listing.isOfficial && <span className="text-purple-400 mr-1">★</span>}
+                                        {listing.title}
+                                    </h4>
                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusColor(listing.status)}`}>
                                         {listing.status}
                                     </span>

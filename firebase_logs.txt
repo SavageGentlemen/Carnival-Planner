@@ -1,0 +1,321 @@
+Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+2026-03-09T19:07:24.474829Z ? scheduledscrapeevents: 
+Total events scraped: 255
+
+2026-03-09T19:07:24.480610Z ? scheduledscrapeevents: 
+Categorized events by carnival:
+
+2026-03-09T19:07:24.480688Z ? scheduledscrapeevents:   ny-labor-day: 7 events
+
+2026-03-09T19:07:24.480733Z ? scheduledscrapeevents:   miami: 24 events
+
+2026-03-09T19:07:24.480774Z ? scheduledscrapeevents:   toronto: 4 events
+
+2026-03-09T19:07:24.480815Z ? scheduledscrapeevents:   tobago: 6 events
+
+2026-03-09T19:07:24.480856Z ? scheduledscrapeevents:   grenada: 5 events
+
+2026-03-09T19:07:24.480897Z ? scheduledscrapeevents:   trinidad: 22 events
+
+2026-03-09T19:07:24.480937Z ? scheduledscrapeevents:   jamaica: 3 events
+
+2026-03-09T19:07:24.480975Z ? scheduledscrapeevents:   barbados: 6 events
+
+2026-03-09T19:07:24.481045Z ? scheduledscrapeevents:   stlucia: 3 events
+
+2026-03-09T19:07:24.481097Z ? scheduledscrapeevents:   dominica: 1 events
+
+2026-03-09T19:07:24.590404Z ? scheduledscrapeevents: Saved 7 events for ny-labor-day
+
+2026-03-09T19:07:24.653837Z ? scheduledscrapeevents: Saved 24 events for miami
+
+2026-03-09T19:07:24.760890Z ? scheduledscrapeevents: Saved 4 events for toronto
+
+2026-03-09T19:07:24.822578Z ? scheduledscrapeevents: Saved 6 events for tobago
+
+2026-03-09T19:07:24.866575Z ? scheduledscrapeevents: Saved 5 events for grenada
+
+2026-03-09T19:07:24.920520Z ? scheduledscrapeevents: Saved 22 events for trinidad
+
+2026-03-09T19:07:24.964801Z ? scheduledscrapeevents: Saved 3 events for jamaica
+
+2026-03-09T19:07:25.018924Z ? scheduledscrapeevents: Saved 6 events for barbados
+
+2026-03-09T19:07:25.055849Z ? scheduledscrapeevents: Saved 3 events for stlucia
+
+2026-03-09T19:07:25.089203Z ? scheduledscrapeevents: Saved 1 events for dominica
+
+2026-03-09T19:07:25.089276Z ? scheduledscrapeevents: 
+Events saved to 10 carnival categories
+
+2026-03-09T19:07:25.089325Z ? scheduledscrapeevents: 
+==================================================
+
+2026-03-09T19:07:25.089373Z ? scheduledscrapeevents: Scraper completed at: 2026-03-09T19:07:25.089Z
+
+2026-03-09T19:07:25.089411Z ? scheduledscrapeevents: ==================================================
+
+2026-03-09T19:07:25.089576Z ? scheduledscrapeevents: Vibe Engine: Scraper finished. 255 events across 10 carnivals.
+
+2026-03-09T19:07:25.089697Z ? scheduledscrapeevents: Vibe Engine: Starting score generation...
+
+2026-03-09T19:07:25.188097Z ? scheduledscrapeevents: Vibe Engine: Found 0 events with recent check-ins
+
+2026-03-09T19:07:26.016012Z ? scheduledscrapeevents: Vibe Engine: Scored 1 events for antigua (avg: 3.0)
+
+2026-03-09T19:07:28.734565Z ? scheduledscrapeevents: Vibe Engine: Scored 6 events for barbados (avg: 4.8)
+
+2026-03-09T19:07:29.646300Z ? scheduledscrapeevents: Vibe Engine: Scored 1 events for dominica (avg: 6.0)
+
+2026-03-09T19:07:31.612820Z ? scheduledscrapeevents: Vibe Engine: Scored 5 events for grenada (avg: 4.8)
+
+2026-03-09T19:07:33.130131Z ? scheduledscrapeevents: Vibe Engine: Scored 3 events for jamaica (avg: 4.3)
+
+2026-03-09T19:07:40.242207Z ? scheduledscrapeevents: Vibe Engine: Scored 20 events for miami (avg: 5.3)
+
+2026-03-09T19:07:41.298415Z ? scheduledscrapeevents: Vibe Engine: Scored 3 events for nevis (avg: 3.0)
+
+2026-03-09T19:07:43.949587Z ? scheduledscrapeevents: Vibe Engine: Scored 7 events for ny-labor-day (avg: 3.7)
+
+2026-03-09T19:07:45.473654Z ? scheduledscrapeevents: Vibe Engine: Scored 3 events for stlucia (avg: 5.0)
+
+2026-03-09T19:07:47.480298Z ? scheduledscrapeevents: Vibe Engine: Scored 6 events for tobago (avg: 3.5)
+
+2026-03-09T19:07:49.539018Z ? scheduledscrapeevents: Vibe Engine: Scored 4 events for toronto (avg: 4.3)
+
+2026-03-09T19:07:54.041193Z ? scheduledscrapeevents: Vibe Engine: Scored 20 events for trinidad (avg: 2.5)
+
+2026-03-09T19:07:54.041279Z ? scheduledscrapeevents: Vibe Engine: Completed. Total events scored: 79
+
+2026-03-09T19:07:54.041376Z ? scheduledscrapeevents: Vibe Engine: Scoring finished. 79 events scored.
+
+2026-03-09T19:12:02.645188Z I getsharedcarnivaldata: 
+2026-03-09T19:12:02.647069Z I getscrapedevents: 
+2026-03-09T19:12:02.671762Z I getscrapedevents: Starting new instance. Reason: AUTOSCALING - Instance started due to configured scaling factors (e.g. CPU utilization, request throughput, etc.) or no existing capacity for current traffic.
+2026-03-09T19:12:02.672342Z I getsharedcarnivaldata: Starting new instance. Reason: AUTOSCALING - Instance started due to configured scaling factors (e.g. CPU utilization, request throughput, etc.) or no existing capacity for current traffic.
+2026-03-09T19:12:03.081439Z E ensurewallet: 
+2026-03-09T19:12:03.104119Z I ensurewallet: Starting new instance. Reason: AUTOSCALING - Instance started due to configured scaling factors (e.g. CPU utilization, request throughput, etc.) or no existing capacity for current traffic.
+2026-03-09T19:12:04.651754Z I getsharedcarnivaldata: Default STARTUP TCP probe succeeded after 1 attempt for container "worker" on port 8080.
+2026-03-09T19:12:04.688482Z I getscrapedevents: Default STARTUP TCP probe succeeded after 1 attempt for container "worker" on port 8080.
+2026-03-09T19:12:04.818921Z D getsharedcarnivaldata: {"message":"Callable request verification passed","verifications":{"app":"MISSING","auth":"VALID"}}
+2026-03-09T19:12:04.841770Z D getscrapedevents: {"verifications":{"app":"MISSING","auth":"VALID"},"message":"Callable request verification passed"}
+2026-03-09T19:12:05.404325Z I ensurewallet: Default STARTUP TCP probe succeeded after 1 attempt for container "worker" on port 8080.
+2026-03-09T19:12:05.563116Z D ensurewallet: {"verifications":{"auth":"VALID","app":"MISSING"},"message":"Callable request verification passed"}
+2026-03-09T19:12:06.058564Z E ensurewallet: Unhandled error Error: 9 FAILED_PRECONDITION: The Cloud Firestore API is not available for Firestore in Datastore Mode database projects/carnival-planner/databases/(default).
+    at callErrorFromStatus (/workspace/node_modules/@grpc/grpc-js/build/src/call.js:32:19)
+    at Object.onReceiveStatus (/workspace/node_modules/@grpc/grpc-js/build/src/client.js:359:73)
+    at Object.onReceiveStatus (/workspace/node_modules/@grpc/grpc-js/build/src/client-interceptors.js:327:181)
+    at /workspace/node_modules/@grpc/grpc-js/build/src/resolving-call.js:135:78
+    at process.processTicksAndRejections (node:internal/process/task_queues:77:11)
+for call at
+    at ServiceClientImpl.makeServerStreamRequest (/workspace/node_modules/@grpc/grpc-js/build/src/client.js:342:32)
+    at ServiceClientImpl.<anonymous> (/workspace/node_modules/@grpc/grpc-js/build/src/make-client.js:105:19)
+    at /workspace/node_modules/@google-cloud/firestore/build/src/v1/firestore_client.js:242:33
+    at /workspace/node_modules/google-gax/build/src/streamingCalls/streamingApiCaller.js:38:28
+    at /workspace/node_modules/google-gax/build/src/normalCalls/timeout.js:44:16
+    at Object.request (/workspace/node_modules/google-gax/build/src/streamingCalls/streaming.js:234:40)
+    at makeRequest (/workspace/node_modules/retry-request/index.js:159:28)
+    at retryRequest (/workspace/node_modules/retry-request/index.js:119:5)
+    at StreamProxy.setStream (/workspace/node_modules/google-gax/build/src/streamingCalls/streaming.js:225:37)
+    at StreamingApiCaller.call (/workspace/node_modules/google-gax/build/src/streamingCalls/streamingApiCaller.js:54:16)
+Caused by: Error
+    at /workspace/node_modules/@google-cloud/firestore/build/src/index.js:1040:27
+    at /workspace/node_modules/@google-cloud/firestore/build/src/telemetry/enabled-trace-util.js:110:30
+    at NoopContextManager.with (/workspace/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/workspace/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/workspace/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/workspace/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at EnabledTraceUtil.startActiveSpan (/workspace/node_modules/@google-cloud/firestore/build/src/telemetry/enabled-trace-util.js:102:28)
+    at Firestore.getAll (/workspace/node_modules/@google-cloud/firestore/build/src/index.js:1031:32)
+    at /workspace/node_modules/@google-cloud/firestore/build/src/reference/document-reference.js:182:36
+    at /workspace/node_modules/@google-cloud/firestore/build/src/telemetry/enabled-trace-util.js:110:30 {
+  code: 9,
+  details: 'The Cloud Firestore API is not available for Firestore in Datastore Mode database projects/carnival-planner/databases/(default).',
+  metadata: Metadata {
+    internalRepr: Map(1) { 'x-debug-tracking-id' => [Array] },
+    opaqueData: Map(0) {},
+    options: {}
+  }
+}
+2026-03-09T19:22:08.601737Z I scheduledscrapeevents: 
+2026-03-09T19:22:08.617327Z ? scheduledscrapeevents: Vibe Engine: Scheduled scrape + score run starting...
+
+2026-03-09T19:22:08.617421Z ? scheduledscrapeevents: ==================================================
+
+2026-03-09T19:22:08.617470Z ? scheduledscrapeevents: Caribbean Carnival Event Scraper (Node.js)
+
+2026-03-09T19:22:08.617547Z ? scheduledscrapeevents: Started at: 2026-03-09T19:22:08.618Z
+
+2026-03-09T19:22:08.617594Z ? scheduledscrapeevents: ==================================================
+
+2026-03-09T19:22:08.617642Z ? scheduledscrapeevents: Scraping fetelist.com...
+
+2026-03-09T19:22:12.017043Z ? scheduledscrapeevents: Found 23 events from fetelist.com
+
+2026-03-09T19:22:12.017231Z ? scheduledscrapeevents: Scraping frontlineticketing.com...
+
+2026-03-09T19:22:16.687266Z ? scheduledscrapeevents: HTTP 404 for https://frontlineticketing.com/caribbean
+
+2026-03-09T19:22:18.873237Z ? scheduledscrapeevents: HTTP 404 for https://frontlineticketing.com/carnival
+
+2026-03-09T19:22:18.873314Z ? scheduledscrapeevents: Found 0 events from frontlineticketing.com
+
+2026-03-09T19:22:18.873377Z ? scheduledscrapeevents: Scraping islandetickets.com...
+
+2026-03-09T19:22:21.499840Z ? scheduledscrapeevents: Found 192 events from islandetickets.com
+
+2026-03-09T19:22:21.500006Z ? scheduledscrapeevents: Scraping ticketfederation.com...
+
+2026-03-09T19:22:23.685798Z ? scheduledscrapeevents: HTTP 403 for https://www.ticketfederation.com/upcoming-events/
+
+2026-03-09T19:22:23.685882Z ? scheduledscrapeevents: Scraping trinijunglejuice.com (via API)...
+
+2026-03-09T19:22:26.632355Z ? scheduledscrapeevents: Found 41 events from trinijunglejuice.com
+
+2026-03-09T19:22:26.632449Z ? scheduledscrapeevents: 
+Total events scraped: 256
+
+2026-03-09T19:22:26.641484Z ? scheduledscrapeevents: 
+Categorized events by carnival:
+
+2026-03-09T19:22:26.641537Z ? scheduledscrapeevents:   ny-labor-day: 7 events
+
+2026-03-09T19:22:26.641606Z ? scheduledscrapeevents:   miami: 24 events
+
+2026-03-09T19:22:26.641658Z ? scheduledscrapeevents:   toronto: 4 events
+
+2026-03-09T19:22:26.641705Z ? scheduledscrapeevents:   tobago: 6 events
+
+2026-03-09T19:22:26.641748Z ? scheduledscrapeevents:   grenada: 5 events
+
+2026-03-09T19:22:26.641796Z ? scheduledscrapeevents:   trinidad: 23 events
+
+2026-03-09T19:22:26.641837Z ? scheduledscrapeevents:   jamaica: 3 events
+
+2026-03-09T19:22:26.641882Z ? scheduledscrapeevents:   barbados: 6 events
+
+2026-03-09T19:22:26.641922Z ? scheduledscrapeevents:   stlucia: 3 events
+
+2026-03-09T19:22:26.641966Z ? scheduledscrapeevents:   dominica: 1 events
+
+2026-03-09T19:22:26.779980Z ? scheduledscrapeevents: Saved 7 events for ny-labor-day
+
+2026-03-09T19:22:26.845393Z ? scheduledscrapeevents: Saved 24 events for miami
+
+2026-03-09T19:22:26.904947Z ? scheduledscrapeevents: Saved 4 events for toronto
+
+2026-03-09T19:22:26.965871Z ? scheduledscrapeevents: Saved 6 events for tobago
+
+2026-03-09T19:22:27.019843Z ? scheduledscrapeevents: Saved 5 events for grenada
+
+2026-03-09T19:22:27.084843Z ? scheduledscrapeevents: Saved 23 events for trinidad
+
+2026-03-09T19:22:27.142365Z ? scheduledscrapeevents: Saved 3 events for jamaica
+
+2026-03-09T19:22:27.193788Z ? scheduledscrapeevents: Saved 6 events for barbados
+
+2026-03-09T19:22:27.242258Z ? scheduledscrapeevents: Saved 3 events for stlucia
+
+2026-03-09T19:22:27.283778Z ? scheduledscrapeevents: Saved 1 events for dominica
+
+2026-03-09T19:22:27.283847Z ? scheduledscrapeevents: 
+Events saved to 10 carnival categories
+
+2026-03-09T19:22:27.283899Z ? scheduledscrapeevents: 
+==================================================
+
+2026-03-09T19:22:27.283962Z ? scheduledscrapeevents: Scraper completed at: 2026-03-09T19:22:27.284Z
+
+2026-03-09T19:22:27.284002Z ? scheduledscrapeevents: ==================================================
+
+2026-03-09T19:22:27.284118Z ? scheduledscrapeevents: Vibe Engine: Scraper finished. 256 events across 10 carnivals.
+
+2026-03-09T19:22:27.284210Z ? scheduledscrapeevents: Vibe Engine: Starting score generation...
+
+2026-03-09T19:22:27.402465Z ? scheduledscrapeevents: Vibe Engine: Found 0 events with recent check-ins
+
+2026-03-09T19:22:28.140466Z ? scheduledscrapeevents: Vibe Engine: Scored 1 events for antigua (avg: 3.0)
+
+2026-03-09T19:22:30.335213Z ? scheduledscrapeevents: Vibe Engine: Scored 6 events for barbados (avg: 4.7)
+
+2026-03-09T19:22:31.163852Z ? scheduledscrapeevents: Vibe Engine: Scored 1 events for dominica (avg: 6.0)
+
+2026-03-09T19:22:33.086731Z ? scheduledscrapeevents: Vibe Engine: Scored 5 events for grenada (avg: 4.8)
+
+2026-03-09T19:22:34.645050Z ? scheduledscrapeevents: Vibe Engine: Scored 3 events for jamaica (avg: 4.3)
+
+2026-03-09T19:22:40.686328Z ? scheduledscrapeevents: Vibe Engine: Scored 20 events for miami (avg: 5.1)
+
+2026-03-09T19:22:41.878862Z ? scheduledscrapeevents: Vibe Engine: Scored 3 events for nevis (avg: 3.0)
+
+2026-03-09T19:22:44.071042Z ? scheduledscrapeevents: Vibe Engine: Scored 7 events for ny-labor-day (avg: 2.9)
+
+2026-03-09T19:22:45.330072Z ? scheduledscrapeevents: Vibe Engine: Scored 3 events for stlucia (avg: 5.7)
+
+2026-03-09T19:22:47.430392Z ? scheduledscrapeevents: Vibe Engine: Scored 6 events for tobago (avg: 3.3)
+
+2026-03-09T19:22:49.324228Z ? scheduledscrapeevents: Vibe Engine: Scored 4 events for toronto (avg: 4.3)
+
+2026-03-09T19:22:53.959101Z ? scheduledscrapeevents: Vibe Engine: Scored 20 events for trinidad (avg: 3.4)
+
+2026-03-09T19:22:53.959159Z ? scheduledscrapeevents: Vibe Engine: Completed. Total events scored: 79
+
+2026-03-09T19:22:53.959242Z ? scheduledscrapeevents: Vibe Engine: Scoring finished. 79 events scored.
+
+2026-03-09T19:37:14.537487Z I scheduledscrapeevents: 
+2026-03-09T19:37:14.556725Z ? scheduledscrapeevents: Vibe Engine: Scheduled scrape + score run starting...
+
+2026-03-09T19:37:14.556790Z ? scheduledscrapeevents: ==================================================
+
+2026-03-09T19:37:14.556836Z ? scheduledscrapeevents: Caribbean Carnival Event Scraper (Node.js)
+
+2026-03-09T19:37:14.556901Z ? scheduledscrapeevents: Started at: 2026-03-09T19:37:14.558Z
+
+2026-03-09T19:37:14.556953Z ? scheduledscrapeevents: ==================================================
+
+2026-03-09T19:37:14.557007Z ? scheduledscrapeevents: Scraping fetelist.com...
+
+2026-03-09T19:37:17.548752Z ? scheduledscrapeevents: Found 23 events from fetelist.com
+
+2026-03-09T19:37:17.548868Z ? scheduledscrapeevents: Scraping frontlineticketing.com...
+
+2026-03-09T19:37:22.171405Z ? scheduledscrapeevents: HTTP 404 for https://frontlineticketing.com/caribbean
+
+2026-03-09T19:37:24.351926Z ? scheduledscrapeevents: HTTP 404 for https://frontlineticketing.com/carnival
+
+2026-03-09T19:37:24.352019Z ? scheduledscrapeevents: Found 0 events from frontlineticketing.com
+
+2026-03-09T19:37:24.352101Z ? scheduledscrapeevents: Scraping islandetickets.com...
+
+2026-03-09T19:37:26.796197Z ? scheduledscrapeevents: Found 193 events from islandetickets.com
+
+2026-03-09T19:37:26.796329Z ? scheduledscrapeevents: Scraping ticketfederation.com...
+
+2026-03-09T19:37:28.881757Z ? scheduledscrapeevents: HTTP 403 for https://www.ticketfederation.com/upcoming-events/
+
+2026-03-09T19:37:28.881851Z ? scheduledscrapeevents: Scraping trinijunglejuice.com (via API)...
+
+2026-03-09T19:37:31.817312Z ? scheduledscrapeevents: Found 42 events from trinijunglejuice.com
+
+2026-03-09T19:37:31.817390Z ? scheduledscrapeevents: 
+Total events scraped: 258
+
+2026-03-09T19:37:31.826246Z ? scheduledscrapeevents: 
+Categorized events by carnival:
+
+2026-03-09T19:37:31.826302Z ? scheduledscrapeevents:   ny-labor-day: 7 events
+
+2026-03-09T19:37:31.826358Z ? scheduledscrapeevents:   miami: 24 events
+
+2026-03-09T19:37:31.826409Z ? scheduledscrapeevents:   toronto: 4 events
+
+2026-03-09T19:37:31.826459Z ? scheduledscrapeevents:   tobago: 6 events
+
+2026-03-09T19:37:31.826500Z ? scheduledscrapeevents:   grenada: 5 events
+
+2026-03-09T19:37:31.826548Z ? scheduledscrapeevents:   trinidad: 23 events
+
+2026-03-09T19:37:31.826593Z ? scheduledscrapeevents:   jamaica: 3 events
+

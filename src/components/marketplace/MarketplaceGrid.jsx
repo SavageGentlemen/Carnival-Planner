@@ -4,7 +4,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../firebase';
 import { Search, Tag, Ticket, Shirt, Filter, ShoppingCart, Loader2, AlertCircle, Box } from 'lucide-react';
 
-const ModelViewer = React.lazy(() => import('../ModelViewer'));
+const CostumeViewerAR = React.lazy(() => import('./CostumeViewerAR'));
 
 const CATEGORIES = [
     { id: 'all', label: 'All Items', icon: Filter },
@@ -17,6 +17,7 @@ export default function MarketplaceGrid({ user }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeCategory, setActiveCategory] = useState('all');
+    const [activeFilter, setActiveFilter] = useState('all'); // all, official, resale
     const [searchQuery, setSearchQuery] = useState('');
     const [purchasingId, setPurchasingId] = useState(null);
     const [view3dModel, setView3dModel] = useState(null);
@@ -68,6 +69,11 @@ export default function MarketplaceGrid({ user }) {
 
     // Filter listings by search query (client-side)
     const filteredListings = listings.filter(listing => {
+        // Filter by Official vs Resale
+        if (activeFilter === 'official' && !listing.isOfficial) return false;
+        if (activeFilter === 'resale' && listing.isOfficial) return false;
+
+        // Filter by text search
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
         return (
@@ -172,6 +178,28 @@ export default function MarketplaceGrid({ user }) {
                         );
                     })}
                 </div>
+
+                {/* Filter Tabs (Official vs Resale) */}
+                <div className="flex gap-1.5 bg-gray-800/50 p-1 rounded-xl border border-gray-700 w-full sm:w-auto overflow-x-auto">
+                    <button
+                        onClick={() => setActiveFilter('all')}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${activeFilter === 'all' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Browse All
+                    </button>
+                    <button
+                        onClick={() => setActiveFilter('official')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${activeFilter === 'official' ? 'bg-purple-900/50 text-purple-300 border border-purple-500/50 shadow' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        <Box className="w-3.5 h-3.5" /> Official Drops
+                    </button>
+                    <button
+                        onClick={() => setActiveFilter('resale')}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${activeFilter === 'resale' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        Resale Market
+                    </button>
+                </div>
             </div>
 
             {/* Error State */}
@@ -250,6 +278,16 @@ export default function MarketplaceGrid({ user }) {
                                     </span>
                                 </div>
 
+                                {/* Official Badge */}
+                                {listing.isOfficial && (
+                                    <div className="absolute top-3 right-3">
+                                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500 border border-purple-400 text-white shadow-lg flex items-center gap-1">
+                                            <Box className="w-3 h-3" />
+                                            Official
+                                        </span>
+                                    </div>
+                                )}
+
                                 {/* Price Badge */}
                                 <div className="absolute bottom-3 right-3">
                                     <span className="px-3 py-1.5 bg-black/80 backdrop-blur-sm rounded-lg text-white font-bold text-sm">
@@ -326,12 +364,10 @@ export default function MarketplaceGrid({ user }) {
             {/* 3D Model Viewer overlay */}
             {view3dModel && (
                 <React.Suspense fallback={null}>
-                    <ModelViewer
-                        modelUrl={view3dModel.url}
-                        usdzUrl={view3dModel.usdzUrl}
+                    <CostumeViewerAR
+                        url={view3dModel.url}
                         title={view3dModel.title}
                         onClose={() => setView3dModel(null)}
-                        isPremium={true}
                     />
                 </React.Suspense>
             )}

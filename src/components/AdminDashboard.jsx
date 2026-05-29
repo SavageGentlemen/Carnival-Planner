@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Megaphone, MessageSquare, Users, Settings,
-    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target
+    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target, Box
 } from 'lucide-react';
 import {
     collection, query, where, getDocs, doc, updateDoc,
@@ -15,6 +15,7 @@ import AdManager from './AdManager';
 import { SupportAdmin } from './ContactSupport';
 import SponsorshipManager from './SponsorshipManager';
 import AffiliateManager from './AffiliateManager';
+import BandOSApprovals from './BandOSApprovals';
 
 export default function AdminDashboard({ user }) {
     const [activeTab, setActiveTab] = useState('Overview');
@@ -40,6 +41,7 @@ export default function AdminDashboard({ user }) {
         { id: 'Ads', label: 'Ad Manager', icon: Megaphone },
         { id: 'Sponsorships', label: 'Sponsorships', icon: Target },
         { id: 'Affiliates', label: 'Affiliates', icon: Users },
+        { id: 'BandOS', label: 'BandOS', icon: Box },
         { id: 'Support', label: 'Support', icon: MessageSquare },
         { id: 'Settings', label: 'Admins', icon: Settings },
     ];
@@ -78,6 +80,7 @@ export default function AdminDashboard({ user }) {
                 {activeTab === 'Ads' && <AdManager />}
                 {activeTab === 'Sponsorships' && <SponsorshipManager />}
                 {activeTab === 'Affiliates' && <AffiliateManager />}
+                {activeTab === 'BandOS' && <BandOSApprovals user={user} />}
                 {activeTab === 'Support' && <SupportAdmin />}
                 {activeTab === 'Settings' && <AdminManagement user={user} isSuperAdmin={isSuperAdmin} />}
             </div>
