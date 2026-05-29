@@ -898,8 +898,6 @@ export default function App() {
   const currentSharedPlanId = carnivals[activeCarnivalId]?.sharedPlanId;
   const isCollaborative = !!currentSharedPlanId;
 
-  // State for shared collaborative data
-  const [sharedCarnivalData, setSharedCarnivalData] = useState(null);
   const [loadingSharedData, setLoadingSharedData] = useState(false);
 
   // Load shared carnival data when in a squad
