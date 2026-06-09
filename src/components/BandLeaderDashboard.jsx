@@ -12,7 +12,7 @@ import BandCRM from './bandos/BandCRM';
 import BandFinancials from './bandos/BandFinancials';
 import { supabase } from '../supabaseClient';
 
-export default function BandLeaderDashboard({ user, onExit }) {
+export default function BandLeaderDashboard({ user, onExit, onClose }) {
     const [activeTab, setActiveTab] = useState('overview'); // overview, sections, roster, scanner
     const [stats, setStats] = useState({
         totalMasqueraders: 0,
@@ -250,7 +250,7 @@ export default function BandLeaderDashboard({ user, onExit }) {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">
                         {activeTab === 'scanner' ? 'Costume Distribution' : activeTab}
                     </h1>
-                    <button onClick={onExit} className="text-sm font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
+                    <button onClick={onExit || onClose} className="text-sm font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
                         Back to Profile
                     </button>
                 </div>
