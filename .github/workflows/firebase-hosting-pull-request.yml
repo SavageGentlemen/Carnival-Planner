@@ -11,6 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm install && npm run build
+        env:
+          VITE_SUPABASE_URL: https://yzvhbebyottadfjryeye.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable_Qo3c6CPx35nHcloN0d_DEQ_Gd4plse1
       - name: Deploy Firestore Rules
         uses: w9jds/firebase-action@master
         with:
