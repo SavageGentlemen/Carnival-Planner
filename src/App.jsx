@@ -16,11 +16,11 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import app, { auth, db, requestNotificationPermission, onForegroundMessage } from './firebase';
+import app, { auth, db } from './firebase';
 import logo from './assets/carnival-logo.png';
 import { carnivalData } from './carnivals';
 import { query, where, getDocs, limit } from 'firebase/firestore';
-
+import { supabase } from './supabaseClient';
 // ── CRITICAL PATH (static imports — needed for initial render) ──
 import PromoAd from './components/PromoAd';
 import SplashPage from './components/SplashPage';
@@ -71,13 +71,17 @@ const CheckinModal = React.lazy(() => import('./components/CheckinModal'));
 const SquadLiveStream = React.lazy(() => import('./components/SquadLiveStream'));
 const VibeAlert = React.lazy(() => import('./components/VibeAlert'));
 const SquadVoice = React.lazy(() => import('./components/SquadVoice'));
-const WearableMonitor = React.lazy(() => import('./components/WearableMonitor'));
+
+const DigitalPassport = React.lazy(() => import('./components/DigitalPassport'));
+const SquadLeaderboard = React.lazy(() => import('./components/SquadLeaderboard'));
+const BountyBoard = React.lazy(() => import('./components/BountyBoard'));
 const EventTicketPage = React.lazy(() => import('./components/EventTicketPage'));
 
 // ── SWR FIRESTORE CACHING ──
 import { useFirestoreDoc } from './hooks/useFirestoreSWR';
 import { useVibeEngine } from './hooks/useVibeEngine';
 import { useSquadSubscription } from './hooks/useSquadSubscription';
+import { useSquadMeshNetwork } from './hooks/useSquadMeshNetwork';
 
 // --- CONFIGURATION ---
 const appId = 'carnival-planner-v1';
@@ -153,6 +157,25 @@ export default function App() {
     setSquadShareCode,
     setTargetSquadId
   } = useSquadSubscription({ user, isDemoMode, db });
+
+  // P2: Mesh Network
+  const {
+    peerId,
+    messages: meshMessages,
+    connectedPeers,
+    connectToSquadMembers,
+    broadcastMessage,
+    broadcastLocation
+  } = useSquadMeshNetwork({ user, currentSquad, isRoadMode: roadMode });
+
+  const [meshChatInput, setMeshChatInput] = useState('');
+
+  // Auto-connect when squad members update in road mode
+  useEffect(() => {
+    if (roadMode && squadMembers.length > 0) {
+      connectToSquadMembers(squadMembers);
+    }
+  }, [roadMode, squadMembers, connectToSquadMembers]);
   
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [isJoiningSquad, setIsJoiningSquad] = useState(false);
@@ -713,37 +736,27 @@ export default function App() {
     }
   }, [isDemoMode]);
 
-  // 5. Request notification permission and save FCM token
+  // P3: Supabase Realtime "Go Road Ready" Alerts
   useEffect(() => {
-    if (!user || isDemoMode) return; // Skip in demo
+    if (!user || isDemoMode || !currentSquad?.id) return;
 
-    const setupNotifications = async () => {
-      try {
-        const vapidKey = 'BLbW7EjHjQ9_YjKrRbJwgBgRqnkSmZsXMnEWTQZpqYwSRbVgYLmXW5RvXA2_aS3vH9XJpCxHu4VmXnZL2wQxMvI';
-        const token = await requestNotificationPermission(vapidKey);
-
-        if (token) {
-          const functions = getFunctions(app);
-          const saveFcmToken = httpsCallable(functions, 'saveFcmToken');
-          await saveFcmToken({ fcmToken: token });
-          console.log('FCM token saved');
+    // Listen for squad road ready pings
+    const pingChannel = supabase.channel(`squad-pings-${currentSquad.id}`)
+      .on('broadcast', { event: 'road_ready' }, (payload) => {
+        if (payload.payload.userId !== user.uid) {
+          setToastMessage({
+            title: '🎉 Squad Alert',
+            body: `${payload.payload.userName} is Road Ready! They are at their location.`
+          });
+          setTimeout(() => setToastMessage(null), 5000);
         }
-      } catch (err) {
-        console.log('Error setting up notifications:', err);
-      }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(pingChannel);
     };
-
-    setupNotifications();
-
-    onForegroundMessage((payload) => {
-      console.log('Foreground message:', payload);
-      setToastMessage({
-        title: payload.notification?.title || 'Squad Alert',
-        body: payload.notification?.body || 'Someone in your squad is Road Ready!'
-      });
-      setTimeout(() => setToastMessage(null), 5000);
-    });
-  }, [user, isDemoMode]);
+  }, [user, isDemoMode, currentSquad?.id]);
 
   // Handle successful marketplace redirects
   useEffect(() => {
@@ -1059,7 +1072,7 @@ export default function App() {
   }, [user, activeCarnivalId, isPremium]);
 
   // Vibe Engine logic moved to custom hook
-  const { vibeAlert, handleVibeSwap, dismissVibeAlert } = useVibeEngine({
+  const { vibeScores, vibeAlert, handleVibeSwap, dismissVibeAlert } = useVibeEngine({
     user,
     activeCarnivalId,
     isDemoMode,
@@ -1703,7 +1716,7 @@ export default function App() {
                   {/* TABS */}
                   <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
                     {[
-                      'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport',
+                      'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport', 'Bounties', 'Leaderboard',
                       'Packing', 'Map', 'Media', 'Profile', 'Promoter', 'Marketplace', 'Marketing', 'Info'
                     ].filter(tab => (isPremium || !['Map', 'Media', 'Passport'].includes(tab)) && (isAdmin || tab !== 'Marketing') && (!isDemoMode || !['Promoter', 'Marketing', 'Profile'].includes(tab))).map((tab) => (
                       <button
@@ -2109,141 +2122,135 @@ export default function App() {
                           />
                         </React.Suspense>
 
-                        {/* WEARABLE SAFETY MONITOR (Premium) */}
-                        <div className="mt-4">
-                          <React.Suspense fallback={null}>
-                            <WearableMonitor
-                              isPremium={isPremium}
-                              userId={user?.uid}
-                              userName={user?.displayName}
-                              activeCarnivalId={activeCarnivalId}
-                              onSafetyAlert={async (alertData) => {
-                                try {
-                                  const functions = getFunctions(app);
-                                  const sendSafetyAlert = httpsCallable(functions, 'sendSafetyAlert');
-                                  await sendSafetyAlert({
-                                    carnivalId: activeCarnivalId,
-                                    userName: user?.displayName,
-                                    heartRate: alertData.heartRate,
-                                    duration: alertData.duration,
+                        {/* P3: BROWSER NATIVE "GO ROAD READY" (Supabase Broadcast + Geolocation) */}
+                        <div className="mt-4 mb-6">
+                          <button
+                            onClick={() => {
+                              if (!navigator.geolocation) {
+                                alert('Geolocation is not supported by your browser.');
+                                return;
+                              }
+                              navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                  // Send ping to squad channel
+                                  const pingChannel = supabase.channel(`squad-pings-${currentSquad?.id}`);
+                                  pingChannel.subscribe((status) => {
+                                    if (status === 'SUBSCRIBED') {
+                                      pingChannel.send({
+                                        type: 'broadcast',
+                                        event: 'road_ready',
+                                        payload: {
+                                          userId: user?.uid,
+                                          userName: user?.displayName || 'A squad member',
+                                          lat: pos.coords.latitude,
+                                          lng: pos.coords.longitude
+                                        }
+                                      });
+                                      setToastMessage({title: 'Road Ready ping sent to squad! 🎉', body: 'They see your location.'});
+                                      setTimeout(() => setToastMessage(null), 3000);
+                                    }
                                   });
-                                  console.log('Safety alert sent to squad');
-                                } catch (err) {
-                                  console.error('Failed to send safety alert:', err);
+                                },
+                                (err) => {
+                                  console.error('Location error:', err);
+                                  alert('Could not get your location to send ping.');
                                 }
-                              }}
-                            />
-                          </React.Suspense>
+                              );
+                            }}
+                            className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-black text-xl rounded-xl shadow-lg transform transition active:scale-95"
+                          >
+                            🟢 GO ROAD READY
+                          </button>
+                          <p className="text-center text-xs text-gray-500 mt-2">
+                            Pings your squad with your exact location using browser geolocation.
+                          </p>
                         </div>
 
-                        {/* ROAD MODE: OFFLINE CHAT via Bitchat */}
+                        {/* P2: NATIVE ROAD MODE MESH CHAT */}
                         <div className="relative overflow-hidden bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl p-4 mb-6 shadow-lg border border-gray-700">
                           <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.08] mix-blend-screen" />
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h4 className="font-bold text-lg flex items-center gap-2">
-                                <span>📡</span> Road Mode: Offline Chat
+                                <span>📡</span> Mesh Chat
                               </h4>
                               <p className="text-xs text-gray-400 mt-1">
-                                Mesh chat for when cell service dies. Uses Bluetooth & Wi-Fi — no data needed.
+                                Direct browser-to-browser comms. No cell service needed.
                               </p>
                             </div>
-                            <span className="bg-blue-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider flex-shrink-0">
-                              No Data Needed
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="bg-blue-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
+                                {connectedPeers.length} Peers
+                              </span>
+                              {peerId && (
+                                <span className="text-[9px] text-green-400 font-mono">
+                                  Node: {peerId.slice(-4)}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          {!activeCarnivalId || !currentSquad ? (
-                            <div className="space-y-3">
-                              <div className="text-center py-4 bg-white/5 rounded-lg border border-white/10">
-                                <p className="text-sm text-gray-300">Create or join a squad to enable offline comms.</p>
-                              </div>
-                              {/* How it works — always visible */}
-                              <div className="bg-white/5 rounded-lg border border-white/10 p-3">
-                                <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">How it works</p>
-                                <ol className="text-xs text-gray-300 space-y-1.5 list-decimal list-inside">
-                                  <li>Download <strong>Bitchat</strong> on your phone (iOS or Android)</li>
-                                  <li>Create or join a squad in Carnival Planner</li>
-                                  <li>Copy your squad's unique channel name</li>
-                                  <li>Open Bitchat &amp; join the channel — works without cell service!</li>
-                                </ol>
-                              </div>
-                              {/* App Store Links — always visible */}
-                              <div className="flex flex-wrap gap-2 justify-center">
-                                <a
-                                  href="https://apps.apple.com/us/app/bitchat-mesh/id6748219622"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
-                                >
-                                  <span>🍎</span> Get Bitchat for iOS
-                                </a>
-                                <a
-                                  href="https://play.google.com/store/apps/details?id=com.bitchat.droid"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
-                                >
-                                  <span>🤖</span> Get Bitchat for Android
-                                </a>
-                              </div>
+                          {!currentSquad ? (
+                            <div className="text-center py-4 bg-white/5 rounded-lg border border-white/10">
+                              <p className="text-sm text-gray-300">Join a squad to enable mesh chat.</p>
                             </div>
                           ) : (
                             <div className="space-y-4">
-                              {/* Channel Name Display */}
-                              {(() => {
-                                const squadIdShort = currentSquad.id.slice(0, 8).toUpperCase();
-                                const channelName = `#CP-${squadIdShort}`;
-
-                                return (
-                                  <div className="bg-black/30 p-4 rounded-lg border border-white/10">
-                                    <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">Your squad's Bitchat channel</p>
-                                    <div className="flex items-center gap-3">
-                                      <p className="font-mono text-2xl font-bold text-blue-400 tracking-wider select-all flex-1">{channelName}</p>
-                                      <button
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(channelName);
-                                          setToastMessage('Channel name copied!');
-                                          setTimeout(() => setToastMessage(null), 3000);
-                                        }}
-                                        className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors"
-                                      >
-                                        Copy
-                                      </button>
+                              <div className="h-48 overflow-y-auto bg-black/40 rounded border border-white/10 p-3 space-y-2 relative z-10 flex flex-col">
+                                {meshMessages.length === 0 ? (
+                                  <p className="text-xs text-gray-500 text-center m-auto">No messages yet. Say hi!</p>
+                                ) : (
+                                  meshMessages.map((msg, idx) => (
+                                    <div key={idx} className={`flex flex-col ${msg.senderId === user?.id ? 'items-end' : 'items-start'}`}>
+                                      <span className="text-[10px] text-gray-400 mb-0.5">{msg.senderName}</span>
+                                      <div className={`px-3 py-1.5 rounded-lg text-sm max-w-[85%] ${
+                                        msg.senderId === user?.id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200'
+                                      }`}>
+                                        {msg.type === 'location' ? `📍 Shared Location (${msg.lat.toFixed(4)}, ${msg.lng.toFixed(4)})` : msg.text}
+                                      </div>
                                     </div>
-                                  </div>
-                                );
-                              })()}
-
-                              {/* Step-by-step instructions */}
-                              <div className="bg-white/5 rounded-lg border border-white/10 p-3">
-                                <p className="text-[10px] uppercase text-gray-400 font-bold mb-2">Quick start</p>
-                                <ol className="text-xs text-gray-300 space-y-1.5 list-decimal list-inside">
-                                  <li>Copy the channel name above</li>
-                                  <li>Open <strong>Bitchat</strong> on your phone</li>
-                                  <li>Join the channel — chat works even without cell service!</li>
-                                </ol>
+                                  ))
+                                )}
                               </div>
-
-                              {/* App Store Links */}
-                              <div className="flex flex-wrap gap-2 justify-center">
-                                <a
-                                  href="https://apps.apple.com/us/app/bitchat-mesh/id6748219622"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
+                              <div className="flex gap-2 relative z-10">
+                                <input
+                                  type="text"
+                                  value={meshChatInput}
+                                  onChange={(e) => setMeshChatInput(e.target.value)}
+                                  placeholder="Message squad..."
+                                  className="flex-1 bg-black/30 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter' && meshChatInput.trim()) {
+                                      broadcastMessage(meshChatInput.trim());
+                                      setMeshChatInput('');
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={() => {
+                                    if (meshChatInput.trim()) {
+                                      broadcastMessage(meshChatInput.trim());
+                                      setMeshChatInput('');
+                                    }
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-500 p-2 rounded-lg transition-colors"
                                 >
-                                  <span>🍎</span> Get Bitchat for iOS
-                                </a>
-                                <a
-                                  href="https://play.google.com/store/apps/details?id=com.bitchat.droid"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-2"
-                                >
-                                  <span>🤖</span> Get Bitchat for Android
-                                </a>
+                                  ➤
+                                </button>
                               </div>
+                              <button
+                                onClick={() => {
+                                  if (navigator.geolocation) {
+                                    navigator.geolocation.getCurrentPosition(
+                                      (pos) => broadcastLocation(pos.coords.latitude, pos.coords.longitude),
+                                      (err) => alert("Could not get location")
+                                    );
+                                  }
+                                }}
+                                className="w-full text-xs py-2 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors relative z-10"
+                              >
+                                📍 Broadcast My Location
+                              </button>
                             </div>
                           )}
                         </div>
@@ -2533,13 +2540,25 @@ export default function App() {
                     {activeTab === 'Passport' && isPremium && (
                       <div className="animate-fadeIn">
                         <React.Suspense fallback={<LazyFallback />}>
-                          <SocaPassportTab
-                            user={user}
-                            isPremium={isPremium}
-                            activeCarnivalId={activeCarnivalId}
-                            activePlanId={currentSharedPlanId}
-                            isDemoMode={isDemoMode}
-                          />
+                          <DigitalPassport user={user} />
+                        </React.Suspense>
+                      </div>
+                    )}
+
+                    {/* TAB: BOUNTIES */}
+                    {activeTab === 'Bounties' && (
+                      <div className="animate-fadeIn">
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <BountyBoard user={user} activeCarnivalId={activeCarnivalId} />
+                        </React.Suspense>
+                      </div>
+                    )}
+
+                    {/* TAB: LEADERBOARD */}
+                    {activeTab === 'Leaderboard' && (
+                      <div className="animate-fadeIn">
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <SquadLeaderboard user={user} currentSquad={currentSquad} />
                         </React.Suspense>
                       </div>
                     )}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Check, X, Box, Trash2 } from 'lucide-react';
-import { collection, query, doc, updateDoc, setDoc, deleteDoc, Timestamp, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabaseClient';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase'; // Keep this just to update the legacy userProfiles
 
 export default function BandOSApprovals({ user }) {
     const [allRequests, setAllRequests] = useState([]);
@@ -13,23 +14,33 @@ export default function BandOSApprovals({ user }) {
     const [confirmModal, setConfirmModal] = useState({ open: false, id: null, action: null, name: '' });
 
     useEffect(() => {
-        // Query bandOSRequests collection
-        const q = query(collection(db, 'bandOSRequests'));
-        const unsub = onSnapshot(q,
-            (snapshot) => {
-                const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                docs.sort((a, b) => (b.appliedAt?.toMillis?.() || 0) - (a.appliedAt?.toMillis?.() || 0));
-                setAllRequests(docs);
-                setLoading(false);
-                setError(null);
-            },
-            (err) => {
-                console.error("BandOSRequests query failed:", err);
+        const fetchProfiles = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('band_profiles')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                setAllRequests(data || []);
+            } catch (err) {
+                console.error("Failed to fetch band profiles:", err);
                 setError(err.message);
+            } finally {
                 setLoading(false);
             }
-        );
-        return () => unsub();
+        };
+
+        fetchProfiles();
+
+        // Optional: Set up real-time subscription for new signups
+        const channel = supabase.channel('public:band_profiles')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'band_profiles' }, payload => {
+                fetchProfiles(); // Just re-fetch on any change to keep it simple
+            })
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
     }, []);
 
     const filteredRequests = allRequests.filter(c => {
@@ -52,19 +63,16 @@ export default function BandOSApprovals({ user }) {
 
         try {
             if (action === 'delete') {
-                await deleteDoc(doc(db, 'bandOSRequests', id));
+                const { error } = await supabase.from('band_profiles').delete().eq('id', id);
+                if (error) throw error;
             } else {
-                await updateDoc(doc(db, 'bandOSRequests', id), {
-                    status: action,
-                    reviewedAt: Timestamp.now(),
-                    reviewedBy: user.email
-                });
+                const { error } = await supabase.from('band_profiles').update({ status: action }).eq('id', id);
+                if (error) throw error;
 
+                // Sync the legacy Firebase boolean so the rest of the app knows they are a band leader
                 if (action === 'approved') {
-                    // Update the user's main profile to grant BandOS access
                     await setDoc(doc(db, 'userProfiles', id), { isBandLeader: true }, { merge: true });
                 } else if (action === 'rejected') {
-                    // Strip the flag if they were previously approved and then rejected
                     await setDoc(doc(db, 'userProfiles', id), { isBandLeader: false }, { merge: true });
                 }
             }
@@ -101,7 +109,7 @@ export default function BandOSApprovals({ user }) {
                     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
                         <h3 className="text-lg font-bold dark:text-white mb-2">Confirm Action</h3>
                         <p className="text-gray-600 dark:text-gray-300 mb-6">
-                            Are you sure you want to <span className="font-bold">{confirmModal.action}</span> BandOS access for "{confirmModal.name}"?
+                            Are you sure you want to <span className="font-bold">{confirmModal.action}</span> "{confirmModal.name}"?
                             {confirmModal.action === 'delete' && <span className="text-red-500 block mt-2">This action cannot be undone.</span>}
                         </p>
                         <div className="flex gap-3 justify-end">
@@ -131,7 +139,6 @@ export default function BandOSApprovals({ user }) {
                     BandOS Approvals
                 </h2>
 
-                {/* Filter Tabs */}
                 <div className="flex gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                     {[
                         { id: 'pending', label: 'Pending', count: allRequests.filter(c => c.status === 'pending').length },
@@ -162,14 +169,13 @@ export default function BandOSApprovals({ user }) {
                         <div key={req.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <div>
                                 <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="font-bold text-lg dark:text-white">{req.displayName || req.bandName}</h3>
+                                    <h3 className="font-bold text-lg dark:text-white">{req.business_name}</h3>
                                     {getStatusBadge(req.status)}
                                 </div>
-                                <p className="text-sm text-gray-500 font-mono mb-1">{req.email}</p>
-                                {req.bandName && <p className="text-sm font-medium text-purple-500 mb-1">Band: {req.bandName}</p>}
+                                <p className="text-sm text-gray-500 font-mono mb-1">{req.support_email}</p>
+                                {req.tax_id && <p className="text-sm font-medium text-purple-500 mb-1">Tax ID: {req.tax_id}</p>}
                                 <div className="flex gap-2 text-xs flex-wrap mt-2">
-                                    <span className="text-gray-400">Applied: {req.appliedAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
-                                    {req.reviewedBy && <span className="text-gray-400">Reviewed by: {req.reviewedBy}</span>}
+                                    <span className="text-gray-400">Applied: {new Date(req.created_at).toLocaleDateString()}</span>
                                 </div>
                             </div>
                             <div className="flex gap-2 w-full md:w-auto">
@@ -183,13 +189,13 @@ export default function BandOSApprovals({ user }) {
                                         {req.status === 'pending' && (
                                             <>
                                                 <button
-                                                    onClick={() => openConfirm(req.id, 'rejected', req.displayName || req.bandName)}
+                                                    onClick={() => openConfirm(req.id, 'rejected', req.business_name)}
                                                     className="flex-1 md:flex-none px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
                                                 >
                                                     <X className="w-4 h-4" /> Reject
                                                 </button>
                                                 <button
-                                                    onClick={() => openConfirm(req.id, 'approved', req.displayName || req.bandName)}
+                                                    onClick={() => openConfirm(req.id, 'approved', req.business_name)}
                                                     className="flex-1 md:flex-none px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                                                 >
                                                     <Check className="w-4 h-4" /> Approve
@@ -197,7 +203,7 @@ export default function BandOSApprovals({ user }) {
                                             </>
                                         )}
                                         <button
-                                            onClick={() => openConfirm(req.id, 'delete', req.displayName || req.bandName)}
+                                            onClick={() => openConfirm(req.id, 'delete', req.business_name)}
                                             className="px-3 py-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                             title="Delete request"
                                         >

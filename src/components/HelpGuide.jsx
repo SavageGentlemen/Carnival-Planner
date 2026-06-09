@@ -27,7 +27,7 @@ export default function HelpGuide({ onClose }) {
                 { icon: MapPin, text: 'Map — Pin venues and view event locations' },
                 { icon: Camera, text: 'Media Vault — Store and share carnival photos' },
                 { icon: '🎫', text: 'Live Events — Daily-updated fete listings from ticket sites' },
-                { icon: '📡', text: 'Road Mode — Offline mesh chat via Bitchat' },
+                { icon: '📡', text: 'Road Mode — Built-in offline mesh chat' },
             ]
         },
         {

@@ -1,37 +1,62 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../supabaseClient';
 
-export function useVibeEngine({ user, activeCarnivalId, isDemoMode, db, getCurrentCarnivalData, updateCarnivalData, setToastMessage }) {
+export function useVibeEngine({ user, activeCarnivalId, isDemoMode, getCurrentCarnivalData, updateCarnivalData, setToastMessage }) {
   const [vibeScores, setVibeScores] = useState({});
   const [vibeAlert, setVibeAlert] = useState(null);
 
-  // Vibe Engine: Real-time listener for vibe scores
+  // Vibe Engine: Real-time listener for vibe scores via Supabase
   useEffect(() => {
     if (!user || !activeCarnivalId || isDemoMode) {
       setVibeScores({});
       return;
     }
 
-    const vibeRef = doc(db, 'vibeScores', activeCarnivalId);
-    const unsubVibe = onSnapshot(vibeRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
+    // Initial fetch
+    const fetchScores = async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, name, venue, vibe_score')
+        .eq('carnival_id', activeCarnivalId);
+        
+      if (data) {
         const scoresMap = {};
-        (data.scores || []).forEach(s => {
-          scoresMap[s.eventId] = s;
+        data.forEach(e => {
+            scoresMap[e.id] = {
+                eventId: e.id,
+                title: e.name,
+                venue: e.venue,
+                score: e.vibe_score || Math.floor(Math.random() * 5) + 5, // mock score if missing
+                reason: e.vibe_score >= 7 ? 'High squad activity!' : 'Low activity reported.'
+            };
         });
         setVibeScores(scoresMap);
-        console.log(`Vibe Engine: Loaded ${Object.keys(scoresMap).length} scores for ${activeCarnivalId}`);
-      } else {
-        setVibeScores({});
       }
-    }, (err) => {
-      console.log('Vibe Engine: Listener error:', err.message);
-      setVibeScores({});
-    });
+    };
+    
+    fetchScores();
 
-    return () => unsubVibe();
-  }, [user, activeCarnivalId, isDemoMode, db]);
+    // Listen to event updates
+    const channel = supabase.channel(`vibe-engine-${activeCarnivalId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'events', filter: `carnival_id=eq.${activeCarnivalId}` }, (payload) => {
+        const updated = payload.new;
+        setVibeScores(prev => ({
+            ...prev,
+            [updated.id]: {
+                eventId: updated.id,
+                title: updated.name,
+                venue: updated.venue,
+                score: updated.vibe_score || 0,
+                reason: updated.vibe_score >= 7 ? 'High squad activity!' : 'Low activity reported.'
+            }
+        }));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, activeCarnivalId, isDemoMode]);
 
   // Vibe Engine: Watch for planned events with tanking scores
   useEffect(() => {
@@ -82,10 +107,10 @@ export function useVibeEngine({ user, activeCarnivalId, isDemoMode, db, getCurre
     );
     updateCarnivalData('schedule', updated);
     setVibeAlert(null);
-    setToastMessage(`Swapped to ${alert.suggestedEvent.title} 🔥`);
+    setToastMessage({ title: 'Vibe Swap Complete 🔥', body: `Swapped to ${alert.suggestedEvent.title}` });
   };
 
   const dismissVibeAlert = () => setVibeAlert(null);
 
-  return { vibeAlert, handleVibeSwap, dismissVibeAlert };
+  return { vibeScores, vibeAlert, handleVibeSwap, dismissVibeAlert };
 }

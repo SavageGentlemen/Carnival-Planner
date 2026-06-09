@@ -16,12 +16,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// EXPORT these services so App.jsx can use them
 export const auth = getAuth(app);
-
-// Initialize Firestore with persistent cache and multi-tab support
-// Using 'squad-db' database which is in Native Mode (default is in Datastore Mode)
-
 
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
@@ -31,15 +26,11 @@ export const db = initializeFirestore(app, {
 
 export const storage = getStorage(app);
 
-// Simple promise that resolves when Firestore is initialized
 export const firestoreReady = Promise.resolve(true);
-
 console.log('Firestore initialized');
 
-// Firebase Cloud Messaging for push notifications
 let messaging = null;
 
-// Initialize messaging only if supported
 const initMessaging = async () => {
   try {
     const supported = await isSupported();
@@ -57,7 +48,6 @@ const initMessaging = async () => {
   }
 };
 
-// Request permission and get FCM token
 export const requestNotificationPermission = async (vapidKey) => {
   try {
     const permission = await Notification.requestPermission();
@@ -65,15 +55,10 @@ export const requestNotificationPermission = async (vapidKey) => {
       console.log('Notification permission denied');
       return null;
     }
-
     if (!messaging) {
       await initMessaging();
     }
-
-    if (!messaging) {
-      return null;
-    }
-
+    if (!messaging) return null;
     const token = await getToken(messaging, { vapidKey });
     console.log('FCM Token:', token);
     return token;
@@ -83,20 +68,16 @@ export const requestNotificationPermission = async (vapidKey) => {
   }
 };
 
-// Listen for foreground messages
 export const onForegroundMessage = (callback) => {
   if (!messaging) {
     initMessaging().then(() => {
-      if (messaging) {
-        onMessage(messaging, callback);
-      }
+      if (messaging) onMessage(messaging, callback);
     });
   } else {
     onMessage(messaging, callback);
   }
 };
 
-// Initialize messaging on module load
 initMessaging();
 
 export default app;

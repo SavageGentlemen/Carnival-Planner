@@ -6,6 +6,11 @@ import {
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import CostumeBuilder from './bandos/CostumeBuilder';
+import TimeSlotManager from './bandos/TimeSlotManager';
+import BandCRM from './bandos/BandCRM';
+import BandFinancials from './bandos/BandFinancials';
+import { supabase } from '../supabaseClient';
 
 export default function BandLeaderDashboard({ user, onExit }) {
     const [activeTab, setActiveTab] = useState('overview'); // overview, sections, roster, scanner
@@ -95,35 +100,71 @@ export default function BandLeaderDashboard({ user, onExit }) {
             }
             const orderId = parts[1];
 
-            // Verify Order belongs to this band
-            const orderRef = doc(db, 'marketplaceOrders', orderId);
-            const orderSnap = await getDoc(orderRef);
+            // Verify Order belongs to this band in Supabase
+            const { data: orderData, error } = await supabase
+                .from('band_orders')
+                .select('*, band_costume_sections(title)')
+                .eq('id', orderId)
+                .single();
 
-            if (!orderSnap.exists()) {
-                throw new Error("Order not found");
+            if (error || !orderData) {
+                // Fallback to check if it's a legacy Firebase order
+                const legacyOrderRef = doc(db, 'marketplaceOrders', orderId);
+                const legacyOrderSnap = await getDoc(legacyOrderRef);
+                if (!legacyOrderSnap.exists()) {
+                    throw new Error("Order not found in system.");
+                }
+                const legacyData = legacyOrderSnap.data();
+                if (legacyData.sellerId !== user.uid) throw new Error("Order belongs to another Band");
+                if (legacyData.distributionStatus === 'Distributed') throw new Error("Costume already marked as Distributed!");
+                
+                await updateDoc(legacyOrderRef, {
+                    distributionStatus: 'Distributed',
+                    distributedAt: new Date()
+                });
+                
+                setScanResult({
+                    success: true,
+                    orderId,
+                    buyerName: legacyData.buyerName || 'Masquerader',
+                    listingTitle: legacyData.listingTitle || 'Costume',
+                    warehouseLocation: 'Legacy Section',
+                    isLegacy: true
+                });
+                return;
             }
 
-            const orderData = orderSnap.data();
-
-            if (orderData.sellerId !== user.uid) {
+            if (orderData.band_id !== user.uid) {
                 throw new Error("Order belongs to another Band");
             }
 
-            if (orderData.distributionStatus === 'Distributed') {
+            if (orderData.distribution_status === 'Distributed') {
                 throw new Error("Costume already marked as Distributed!");
             }
 
-            // Update status
-            await updateDoc(orderRef, {
-                distributionStatus: 'Distributed',
-                distributedAt: new Date()
-            });
+            // Update status in Supabase
+            const { error: updateError } = await supabase
+                .from('band_orders')
+                .update({ 
+                    distribution_status: 'Distributed',
+                    distributed_at: new Date().toISOString(),
+                    distributed_by: user.uid
+                })
+                .eq('id', orderId);
+
+            if (updateError) throw updateError;
+
+            // Check if this was a proxy pickup (Squad pickup)
+            const isProxy = orderData.proxy_pickup_id && orderData.proxy_pickup_id !== orderData.buyer_id;
 
             setScanResult({
                 success: true,
                 orderId,
-                buyerName: orderData.buyerName || 'Masquerader',
-                listingTitle: orderData.listingTitle || 'Costume'
+                buyerName: orderData.buyer_name || 'Masquerader',
+                listingTitle: orderData.band_costume_sections?.title || 'Costume',
+                warehouseLocation: orderData.warehouse_location || 'Main Floor',
+                isProxy,
+                variants: orderData.selected_variants || {}
             });
 
         } catch (err) {
@@ -172,15 +213,27 @@ export default function BandLeaderDashboard({ user, onExit }) {
                     />
                     <NavButton
                         active={activeTab === 'sections'}
-                        label="Costume Sections"
+                        label="Sections & Inventory"
                         icon={<Shirt className="w-4 h-4" />}
                         onClick={() => setActiveTab('sections')}
+                    />
+                    <NavButton
+                        active={activeTab === 'financials'}
+                        label="Financials"
+                        icon={<DollarSign className="w-4 h-4" />}
+                        onClick={() => setActiveTab('financials')}
                     />
                     <NavButton
                         active={activeTab === 'roster'}
                         label="Masquerader Roster"
                         icon={<Users className="w-4 h-4" />}
                         onClick={() => setActiveTab('roster')}
+                    />
+                    <NavButton
+                        active={activeTab === 'logistics'}
+                        label="Logistics & Slots"
+                        icon={<Box className="w-4 h-4" />}
+                        onClick={() => setActiveTab('logistics')}
                     />
                     <NavButton
                         active={activeTab === 'scanner'}
@@ -250,86 +303,21 @@ export default function BandLeaderDashboard({ user, onExit }) {
                 {/* SECTIONS TAB */}
                 {activeTab === 'sections' && (
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
-                            <div>
-                                <h3 className="font-bold text-purple-900 dark:text-purple-300">Manage Sections</h3>
-                                <p className="text-sm text-purple-700 dark:text-purple-400">Head over to the Marketplace to add or edit sections.</p>
-                            </div>
-                        </div>
+                        <CostumeBuilder bandId={user.uid} />
+                    </div>
+                )}
 
-                        {sections.length === 0 ? (
-                            <div className="text-center py-10">
-                                <Shirt className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500">No active costume sections found.</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {sections.map(s => (
-                                    <div key={s.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 flex gap-4 items-center shadow-sm">
-                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                                            {s.imageUrl ? (
-                                                <img src={s.imageUrl} alt={s.title} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center"><Shirt className="text-gray-400" /></div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-gray-900 dark:text-white truncate">{s.title}</h4>
-                                            <p className="text-sm text-gray-500">${s.price}</p>
-                                            <span className="text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded">
-                                                {s.status}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                {/* FINANCIALS TAB */}
+                {activeTab === 'financials' && (
+                    <div className="h-full">
+                        <BandFinancials bandId={user.uid} />
                     </div>
                 )}
 
                 {/* ROSTER TAB */}
                 {activeTab === 'roster' && (
-                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-gray-900/50">
-                                    <tr>
-                                        <th className="px-6 py-3">Masquerader</th>
-                                        <th className="px-6 py-3">Section</th>
-                                        <th className="px-6 py-3">Status</th>
-                                        <th className="px-6 py-3">Order ID</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {roster.map(r => (
-                                        <tr key={r.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                                                {r.buyerName || 'Masquerader'}
-                                                {r.buyerEmail && <div className="text-xs text-gray-500 font-normal">{r.buyerEmail}</div>}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                                                {r.listingTitle}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded text-xs font-bold ${r.distributionStatus === 'Distributed' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400'}`}>
-                                                    {r.distributionStatus || 'Pending'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                                                {r.id.substring(0, 8)}...
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {roster.length === 0 && (
-                                        <tr>
-                                            <td colSpan="4" className="px-6 py-8 text-center text-gray-500 font-medium">
-                                                No roster data found.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                    <div className="h-full">
+                        <BandCRM bandId={user.uid} />
                     </div>
                 )}
 
@@ -351,17 +339,35 @@ export default function BandLeaderDashboard({ user, onExit }) {
                                 <div id={scannerId} className="w-full max-w-sm"></div>
                             </div>
 
-                            {/* Scan Results */}
+                                {/* Scan Results */}
                             {scanResult && (
                                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-5 text-center">
                                     <div className="w-12 h-12 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-3">
                                         <Check className="w-6 h-6 text-green-600 dark:text-green-400" />
                                     </div>
                                     <h3 className="font-bold text-green-900 dark:text-green-300 text-lg">Verified!</h3>
-                                    <p className="text-green-700 dark:text-green-400 text-sm mt-1 mb-4">
+                                    <p className="text-green-700 dark:text-green-400 text-sm mt-1 mb-2">
                                         <strong>{scanResult.buyerName}</strong> is cleared for: <br />
                                         <span className="italic">{scanResult.listingTitle}</span>
                                     </p>
+                                    
+                                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg mb-4 text-left border border-green-200 dark:border-green-700 shadow-sm">
+                                        <div className="text-xs text-gray-500 uppercase font-bold mb-1">Fulfillment Details</div>
+                                        <p className="font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                                            <Box className="w-4 h-4" /> Aisle: {scanResult.warehouseLocation}
+                                        </p>
+                                        {!scanResult.isLegacy && Object.entries(scanResult.variants || {}).map(([k, v]) => (
+                                            <p key={k} className="text-sm text-gray-600 dark:text-gray-300 capitalize">
+                                                <span className="font-medium">{k.replace('_', ' ')}:</span> {v}
+                                            </p>
+                                        ))}
+                                        {scanResult.isProxy && (
+                                            <div className="mt-2 p-2 bg-purple-100 text-purple-700 rounded text-xs font-bold border border-purple-200">
+                                                SQUAD PROXY PICKUP AUTHORIZED
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <button
                                         onClick={resumeScanning}
                                         className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition"
@@ -387,6 +393,13 @@ export default function BandLeaderDashboard({ user, onExit }) {
                                 </div>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* LOGISTICS TAB */}
+                {activeTab === 'logistics' && (
+                    <div className="space-y-4">
+                        <TimeSlotManager bandId={user.uid} />
                     </div>
                 )}
             </div>

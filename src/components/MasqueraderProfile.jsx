@@ -9,6 +9,7 @@ import { db } from '../firebase';
 import { truncateAddress, getExplorerUrl } from '../services/web3Service';
 import { QRCodeSVG } from 'qrcode.react';
 import GuidesCarousel from './GuidesCarousel';
+import BandSignup from './bandos/BandSignup';
 
 // Country flag emoji mapping
 const COUNTRY_FLAGS = {
@@ -70,25 +71,30 @@ export default function MasqueraderProfile({
 
     const countriesVisited = [...new Set(carnivalHistory.map(c => c.carnivalId))];
 
-    const handleRequestBandOS = async () => {
-        if (!currentUser) return;
-        setRequestingBandOS(true);
-        try {
-            await setDoc(doc(db, 'bandOSRequests', currentUser.uid), {
-                email: currentUser.email,
-                displayName: displayName || currentUser.displayName,
-                appliedAt: Timestamp.now(),
-                status: 'pending'
-            });
-            setBandOSRequested(true);
-            alert("BandOS access requested! An admin will review your account.");
-        } catch (err) {
-            console.error("Failed to request BandOS:", err);
-            alert("Failed to submit request: " + err.message);
-        } finally {
-            setRequestingBandOS(false);
-        }
-    };
+    const [showBandSignup, setShowBandSignup] = useState(false);
+
+    // If they are showing the signup form
+    if (showBandSignup) {
+        return (
+            <div className="max-w-4xl mx-auto animate-fadeIn relative">
+                <button 
+                    onClick={() => setShowBandSignup(false)}
+                    className="absolute top-4 left-4 text-sm font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                >
+                    ← Back to Profile
+                </button>
+                <div className="pt-12">
+                    <BandSignup 
+                        user={currentUser} 
+                        onComplete={() => {
+                            setBandOSRequested(true);
+                            setShowBandSignup(false);
+                        }} 
+                    />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto animate-fadeIn">
@@ -119,12 +125,12 @@ export default function MasqueraderProfile({
                             </button>
                         ) : (
                             <button
-                                onClick={handleRequestBandOS}
-                                disabled={requestingBandOS || bandOSRequested}
+                                onClick={() => setShowBandSignup(true)}
+                                disabled={bandOSRequested}
                                 className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-bold hover:bg-white/30 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                             >
                                 <Box className="w-3.5 h-3.5" />
-                                {bandOSRequested ? 'BandOS Requested' : 'Request BandOS Access'}
+                                {bandOSRequested ? 'BandOS Requested' : 'Apply for BandOS'}
                             </button>
                         )}
                         <button
