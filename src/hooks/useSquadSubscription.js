@@ -19,7 +19,7 @@ export function useSquadSubscription({ user, isDemoMode }) {
       const { data, error } = await supabase
         .from('users')
         .select('current_squad_id')
-        .eq('auth_id', user.id)
+        .eq('auth_id', user.uid || user.id)
         .single();
       
       if (data?.current_squad_id && data.current_squad_id !== targetSquadId) {
@@ -29,12 +29,12 @@ export function useSquadSubscription({ user, isDemoMode }) {
     fetchUser();
 
     // Listen to user updates
-    const userChannel = supabase.channel(`user-${user.id}`)
+    const userChannel = supabase.channel(`user-${user.uid || user.id}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'users',
-        filter: `auth_id=eq.${user.id}`
+        filter: `auth_id=eq.${user.uid || user.id}`
       }, (payload) => {
         const newSquadId = payload.new.current_squad_id;
         if (newSquadId !== targetSquadId) {

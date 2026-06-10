@@ -19,7 +19,7 @@ export function useSquadMeshNetwork({ user, currentSquad, isRoadMode }) {
 
     const initPeer = async () => {
       // Use the user's ID to deterministically create a PeerJS ID for the squad
-      const id = `squad-${currentSquad.id}-user-${user.id}`;
+      const id = `squad-${currentSquad.id}-user-${user.uid || user.id}`;
       const peer = new Peer(id, {
         debug: 2
       });
@@ -73,8 +73,10 @@ export function useSquadMeshNetwork({ user, currentSquad, isRoadMode }) {
     if (!peerRef.current || !currentSquad || !user) return;
 
     squadMembers.forEach((member) => {
-      if (member.id !== user.id) {
-        const targetId = `squad-${currentSquad.id}-user-${member.id}`;
+      const memberUid = member.auth_id || member.id;
+      const myUid = user.uid || user.id;
+      if (memberUid !== myUid) {
+        const targetId = `squad-${currentSquad.id}-user-${memberUid}`;
         if (!connections.has(targetId)) {
           console.log('[Mesh] Connecting to squad member:', targetId);
           const conn = peerRef.current.connect(targetId);
@@ -89,7 +91,7 @@ export function useSquadMeshNetwork({ user, currentSquad, isRoadMode }) {
     
     const message = {
       id: Date.now().toString(),
-      senderId: user.id,
+      senderId: user.uid || user.id,
       senderName: user.displayName || 'Squad Member',
       text,
       timestamp: new Date().toISOString(),
@@ -112,7 +114,7 @@ export function useSquadMeshNetwork({ user, currentSquad, isRoadMode }) {
 
     const message = {
       id: Date.now().toString(),
-      senderId: user.id,
+      senderId: user.uid || user.id,
       senderName: user.displayName || 'Squad Member',
       lat,
       lng,

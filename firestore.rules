@@ -1,9 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper function to check if user is super admin
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.email == 'djkrss1@gmail.com';
+    }
+    
     // Helper function to check if user is admin
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'djkrss1@gmail.com';
+      return request.auth != null && (
+        isSuperAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
     
     // PromoAds - readable by all (including unauthenticated for display), writable only by admin
@@ -210,8 +218,10 @@ service cloud.firestore {
     
     // --- ADMIN MANAGEMENT ---
     match /admins/{adminId} {
-      // Only super admin (djkrss1) can read/write admin list
-      allow read, write: if isAdmin();
+      // Allow any user to read their own admin record to verify status
+      allow read: if request.auth != null && request.auth.uid == adminId;
+      // Only super admin can manage other admins
+      allow write: if isSuperAdmin();
     }
     
     // --- MARKETPLACE ---
