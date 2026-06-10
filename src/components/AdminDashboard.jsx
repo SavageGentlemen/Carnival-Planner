@@ -41,7 +41,7 @@ export default function AdminDashboard({ user }) {
         { id: 'Ads', label: 'Ad Manager', icon: Megaphone },
         { id: 'Sponsorships', label: 'Sponsorships', icon: Target },
         { id: 'Affiliates', label: 'Affiliates', icon: Users },
-        { id: 'BandOS', label: 'BandOS', icon: Box },
+        { id: 'BandOS', label: 'BandOS Approvals', icon: Box },
         { id: 'Support', label: 'Support', icon: MessageSquare },
         { id: 'Settings', label: 'Admins', icon: Settings },
     ];
