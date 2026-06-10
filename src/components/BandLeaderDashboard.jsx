@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     LayoutDashboard, Plus, Settings, Users, ArrowUpRight, Copy, Check, MoreVertical,
-    Loader2, DollarSign, Image as ImageIcon, Shirt, Box, PackageOpen, ScanLine, AlertCircle
+    Loader2, DollarSign, Image as ImageIcon, Shirt, Box, PackageOpen, ScanLine, AlertCircle,
+    BookOpen
 } from 'lucide-react';
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -281,6 +282,12 @@ export default function BandLeaderDashboard({ user, onExit, onClose }) {
                         icon={<ScanLine className="w-4 h-4" />}
                         onClick={() => setActiveTab('scanner')}
                     />
+                    <NavButton
+                        active={activeTab === 'playbook'}
+                        label="Guide Playbook"
+                        icon={<BookOpen className="w-4 h-4" />}
+                        onClick={() => setActiveTab('playbook')}
+                    />
                 </nav>
             </div>
 
@@ -440,6 +447,85 @@ export default function BandLeaderDashboard({ user, onExit, onClose }) {
                 {activeTab === 'logistics' && (
                     <div className="space-y-4">
                         <TimeSlotManager bandId={user.uid} />
+                    </div>
+                )}
+
+                {/* PLAYBOOK TAB */}
+                {activeTab === 'playbook' && (
+                    <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-8 border border-gray-200 dark:border-gray-700 shadow-sm space-y-8 animate-fadeIn text-left">
+                        <div className="relative overflow-hidden bg-gradient-to-r from-purple-900 to-pink-900 text-white rounded-2xl p-6 shadow-md mb-6">
+                            <h2 className="text-2xl font-black mb-2">BandOS Enterprise Playbook</h2>
+                            <p className="text-purple-200 text-sm">Your comprehensive master guide to operating your band at scale using the BandOS suite.</p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b pb-2 mb-3">1. Operational Overview</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                                    BandOS is an enterprise management suite designed specifically for carnival band leaders. It consolidates costume manufacturing, inventory matrices, secure payments, masquerader registration management, and QR-based logistics fulfillment into a single control panel.
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/30 p-4 rounded-xl">
+                                        <h4 className="font-bold text-purple-900 dark:text-purple-400 text-sm mb-1">Inventory Management</h4>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400">Configure size profiles, belts, custom collar upgrades, and set hard stock caps to prevent overselling.</p>
+                                    </div>
+                                    <div className="bg-pink-50 dark:bg-pink-900/10 border border-pink-100 dark:border-pink-900/30 p-4 rounded-xl">
+                                        <h4 className="font-bold text-pink-900 dark:text-pink-400 text-sm mb-1">CRM & Roster Portability</h4>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400">Search masqueraders, send mass push notifications, and import/export lists in clean CSV format.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b pb-2 mb-3">2. Costume Builder (Tab: Sections)</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                                    Use the **Sections** tab to create your costume catalogue. You can define base listing prices and configure down-payment deposit amounts.
+                                </p>
+                                <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 p-4 rounded-xl mb-4 text-amber-800 dark:text-amber-300 flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                                    <div>
+                                        <h5 className="font-bold text-sm">Logistical Stock Control</h5>
+                                        <p className="text-xs opacity-90 mt-0.5">Always set inventory caps on popular sections. Leave blank only if you have unlimited raw materials for feathers/wireframes.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b pb-2 mb-3">3. Masquerader CRM & Portability (Tab: CRM)</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                                    The **Roster** tab provides advanced data portability features:
+                                </p>
+                                <ul className="list-disc pl-5 text-sm text-gray-600 dark:text-gray-300 space-y-2 mb-4">
+                                    <li><strong>Exporting:</strong> Use checkboxes to export a custom selected set, or export the currently searched list to standard CSV formats.</li>
+                                    <li><strong>Importing:</strong> Map legacy CSV columns (e.g. `Name`, `Email`, `Section`, `Amount Paid`) to bulk import masqueraders from other platforms.</li>
+                                    <li><strong>Broadcasts:</strong> Send mass real-time push messages to alert masqueraders of pickup schedule changes or emergency notifications.</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b pb-2 mb-3">4. QR Code Fulfillment (Tab: Scanner)</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                                    Eliminate distribution day queues. Scan the QR code presented in the masquerader's Digital Passport.
+                                </p>
+                                <div className="bg-gray-100 dark:bg-gray-950 p-4 rounded-xl border border-gray-200 dark:border-gray-800 space-y-3">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Scanner Responses</h4>
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2 items-center text-xs text-green-700 dark:text-green-400">
+                                            <span className="w-2.5 h-2.5 bg-green-500 rounded-full"></span>
+                                            <strong>Green (Verified):</strong> Displays customer sizes, options, and warehouse aisle/bin location.
+                                        </div>
+                                        <div className="flex gap-2 items-center text-xs text-yellow-700 dark:text-yellow-400">
+                                            <span className="w-2.5 h-2.5 bg-yellow-500 rounded-full"></span>
+                                            <strong>Yellow (Already Distributed):</strong> Costume has already been marked as picked up.
+                                        </div>
+                                        <div className="flex gap-2 items-center text-xs text-red-700 dark:text-red-400">
+                                            <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                                            <strong>Red (Error):</strong> Ticket belongs to another band, or does not exist in the database.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
