@@ -420,6 +420,7 @@ export default function App() {
 
   // Profile & Creator State
   const [userProfile, setUserProfile] = useState(null);
+  const [bandProfile, setBandProfile] = useState(null);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   // Email Auth State
@@ -701,6 +702,24 @@ export default function App() {
     }
   }, [carnivals, activeCarnivalId, user, isDemoMode]);
 
+  const fetchBandProfile = async () => {
+    if (!user || isDemoMode) {
+      setBandProfile(null);
+      return;
+    }
+    try {
+      const { data } = await supabase
+        .from('band_profiles')
+        .select('status')
+        .eq('id', user.uid)
+        .single();
+      setBandProfile(data || null);
+    } catch (e) {
+      console.error("Error fetching band profile:", e);
+      setBandProfile(null);
+    }
+  };
+
   // 4b. Load User Profile — SWR cached (loads instantly from cache, revalidates in background)
   const { data: swrProfile } = useFirestoreDoc(
     user && !isDemoMode ? `userProfiles/${user.uid}` : null
@@ -709,11 +728,14 @@ export default function App() {
     if (!user || isDemoMode) {
       setUserProfile(null);
       setOfficialPurchases([]);
+      setBandProfile(null);
       return;
     }
     if (swrProfile) {
       setUserProfile(swrProfile);
     }
+
+    fetchBandProfile();
 
     // Fetch user's official purchases for the QR code display
     const fetchPurchases = async () => {
@@ -2600,7 +2622,9 @@ export default function App() {
                               activeCarnivalId, // For context
                               isPromoter: userProfile?.isPromoter || isAdmin || false,
                               onAccessPromoter: () => setActiveTab('Promoter'),
-                              isBandLeader: userProfile?.isBandLeader || isAdmin || false,
+                              isBandLeader: userProfile?.isBandLeader || bandProfile?.status === 'approved' || isAdmin || false,
+                              bandLeaderStatus: bandProfile?.status || null,
+                              onRefreshBandProfile: fetchBandProfile,
                               onAccessBandLeader: () => setShowBandLeaderDashboard(true),
                               officialPurchases: officialPurchases
                             }}

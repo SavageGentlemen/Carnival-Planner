@@ -34,30 +34,70 @@ export default function BandLeaderDashboard({ user, onExit, onClose }) {
         if (!user) return;
         setLoading(true);
 
-        // Sub to Band's Official Listings (Sections)
-        const qSections = query(collection(db, 'marketplaceListings'), where('sellerId', '==', user.uid), where('category', '==', 'costume'));
-        const unsubSections = onSnapshot(qSections, (snap) => {
-            const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setSections(items);
-            setStats(s => ({ ...s, activeSections: items.length }));
-        });
+        const loadDashboardData = async () => {
+            try {
+                // 1. Fetch sections from Supabase
+                const { data: sbSections, error: secErr } = await supabase
+                    .from('band_costume_sections')
+                    .select('*')
+                    .eq('band_id', user.uid);
+                
+                if (secErr) throw secErr;
 
-        // Sub to Orders for this Band (Roster)
-        const qOrders = query(collection(db, 'marketplaceOrders'), where('sellerId', '==', user.uid), where('status', '==', 'completed'));
-        const unsubOrders = onSnapshot(qOrders, (snap) => {
-            const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            setRoster(items);
-            setStats(s => ({
-                ...s,
-                totalMasqueraders: items.length,
-                distributedCount: items.filter(i => i.distributionStatus === 'Distributed').length
-            }));
-            setLoading(false);
-        });
+                // 2. Fetch orders from Supabase
+                const { data: sbOrders, error: ordErr } = await supabase
+                    .from('band_orders')
+                    .select(`
+                        *,
+                        band_costume_sections (title)
+                    `)
+                    .eq('band_id', user.uid)
+                    .order('created_at', { ascending: false });
+
+                if (ordErr) throw ordErr;
+
+                // Convert Supabase orders to match the roster format expected in the overview tab
+                const formattedOrders = (sbOrders || []).map(o => ({
+                    id: o.id,
+                    buyerName: o.buyer_name,
+                    listingTitle: o.band_costume_sections?.title || 'Costume',
+                    distributionStatus: o.distribution_status,
+                    createdAt: o.created_at
+                }));
+
+                setSections(sbSections || []);
+                setRoster(formattedOrders);
+                setStats({
+                    totalMasqueraders: formattedOrders.length,
+                    activeSections: (sbSections || []).length,
+                    distributedCount: formattedOrders.filter(i => i.distributionStatus === 'Distributed').length
+                });
+
+            } catch (err) {
+                console.error("Error loading BandOS Dashboard data:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadDashboardData();
+
+        // Set up real-time subscription for orders and sections
+        const ordersChannel = supabase.channel('band_orders_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'band_orders', filter: `band_id=eq.${user.uid}` }, payload => {
+                loadDashboardData();
+            })
+            .subscribe();
+
+        const sectionsChannel = supabase.channel('band_sections_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'band_costume_sections', filter: `band_id=eq.${user.uid}` }, payload => {
+                loadDashboardData();
+            })
+            .subscribe();
 
         return () => {
-            unsubSections();
-            unsubOrders();
+            supabase.removeChannel(ordersChannel);
+            supabase.removeChannel(sectionsChannel);
         };
     }, [user]);
 

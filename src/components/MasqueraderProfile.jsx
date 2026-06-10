@@ -38,7 +38,9 @@ export default function MasqueraderProfile({
 }) {
     const [loading, setLoading] = useState(false);
     const [requestingBandOS, setRequestingBandOS] = useState(false);
-    const [bandOSRequested, setBandOSRequested] = useState(false);
+    const [bandOSRequested, setBandOSRequested] = useState(() => {
+        return profileData?.bandLeaderStatus === 'pending' || profileData?.bandLeaderStatus === 'rejected';
+    });
     const [playbookOpen, setPlaybookOpen] = useState(false);
     const [initialSlide, setInitialSlide] = useState(0);
 
@@ -71,6 +73,14 @@ export default function MasqueraderProfile({
 
     const countriesVisited = [...new Set(carnivalHistory.map(c => c.carnivalId))];
 
+    React.useEffect(() => {
+        if (profileData?.bandLeaderStatus === 'pending' || profileData?.bandLeaderStatus === 'rejected') {
+            setBandOSRequested(true);
+        } else {
+            setBandOSRequested(false);
+        }
+    }, [profileData?.bandLeaderStatus]);
+
     const [showBandSignup, setShowBandSignup] = useState(false);
 
     // If they are showing the signup form
@@ -89,6 +99,9 @@ export default function MasqueraderProfile({
                         onComplete={() => {
                             setBandOSRequested(true);
                             setShowBandSignup(false);
+                            if (profileData?.onRefreshBandProfile) {
+                                profileData.onRefreshBandProfile();
+                            }
                         }} 
                     />
                 </div>
