@@ -118,9 +118,10 @@ service cloud.firestore {
     // Public profiles - readable if public OR by owner, writable only by owner
     match /userProfiles/{userId} {
       allow read: if resource.data.isPublic == true || 
-                    (request.auth != null && request.auth.uid == userId);
-      allow create, update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+                    (request.auth != null && request.auth.uid == userId) ||
+                    isAdmin();
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if isAdmin();
     }
     
     // Username registry - for enforcing uniqueness
