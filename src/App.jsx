@@ -3,9 +3,12 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithCredential,
   signOut as firebaseSignOut,
   getRedirectResult,
 } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {
   collection,
   doc,
@@ -33,6 +36,9 @@ import HelpGuide from './components/HelpGuide';
 import EmailAuthForm, { EmailVerificationBanner } from './components/EmailAuthForm';
 import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerateInviteCode, getUserSquads, switchActiveSquad } from './services/squadService';
 import { useAffiliate } from './components/AffiliateProvider';
+import AndroidBetaPage from './components/AndroidBetaPage';
+import CarnivalConcierge from './components/CarnivalConcierge';
+
 
 // ── LAZY-LOADED (code-split — only loaded when user navigates to tab) ──
 // Loading fallback component
@@ -71,11 +77,12 @@ const CheckinModal = React.lazy(() => import('./components/CheckinModal'));
 const SquadLiveStream = React.lazy(() => import('./components/SquadLiveStream'));
 const VibeAlert = React.lazy(() => import('./components/VibeAlert'));
 const SquadVoice = React.lazy(() => import('./components/SquadVoice'));
-
 const DigitalPassport = React.lazy(() => import('./components/DigitalPassport'));
 const SquadLeaderboard = React.lazy(() => import('./components/SquadLeaderboard'));
 const BountyBoard = React.lazy(() => import('./components/BountyBoard'));
 const EventTicketPage = React.lazy(() => import('./components/EventTicketPage'));
+const WearableMonitor = React.lazy(() => import('./components/WearableMonitor'));
+const SquadVault = React.lazy(() => import('./components/SquadVault'));
 
 // ── SWR FIRESTORE CACHING ──
 import { useFirestoreDoc } from './hooks/useFirestoreSWR';
@@ -116,6 +123,9 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
   const [viewEventId, setViewEventId] = useState(null); // Ticket purchase page
+
+  // Routing State
+  const isAndroidBetaPage = window.location.pathname === '/android' || window.location.search.includes('android=true');
 
   // Data
   const [carnivals, setCarnivals] = useState({});
@@ -800,11 +810,32 @@ export default function App() {
   // --- ACTIONS ---
 
   const handleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      console.error('Sign in error:', err);
+      if (Capacitor.isNativePlatform()) {
+        // 1. Trigger the native Google sign-in sheet
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        
+        // If it works, you process the token here...
+        console.log("Success:", result); 
+        
+        // Bridge the native credential into the Firebase JS SDK
+        const idToken = result.credential?.idToken;
+        if (idToken) {
+          const credential = GoogleAuthProvider.credential(idToken);
+          await signInWithCredential(auth, credential);
+        }
+      } else {
+        // ── WEB: Standard popup flow ──
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+      }
+    } catch (error) {
+      // We stop using JSON.stringify. We extract the raw strings.
+      const errorMessage = error.message || String(error);
+      const errorCode = error.code || "UNKNOWN_CODE";
+      
+      alert("NATIVE CRASH \nCode: " + errorCode + "\nMessage: " + errorMessage);
+      console.error("Auth Failure:", error);
     }
   };
 
@@ -812,6 +843,10 @@ export default function App() {
     if (isDemoMode) {
       handleExitDemo();
       return;
+    }
+    // Sign out of native plugin too (clears cached Google session on Android)
+    if (Capacitor.isNativePlatform()) {
+      await FirebaseAuthentication.signOut();
     }
     await firebaseSignOut(auth);
     setShowLanding(true);
@@ -1460,6 +1495,11 @@ export default function App() {
     );
   }
 
+  // Intercept render for standalone Android Beta Page
+  if (isAndroidBetaPage) {
+    return <AndroidBetaPage />;
+  }
+
   // --- VIEW: MAIN APP ---
   return (
     <div className={`min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 ${isDemoMode ? 'pb-20' : ''}`}>
@@ -1738,7 +1778,7 @@ export default function App() {
                   {/* TABS */}
                   <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
                     {[
-                      'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Passport', 'Bounties', 'Leaderboard',
+                      'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Vault', 'Passport', 'Bounties', 'Leaderboard',
                       'Packing', 'Map', 'Media', 'Profile', 'Promoter', 'Marketplace', 'Marketing', 'Info'
                     ].filter(tab => (isPremium || !['Map', 'Media', 'Passport'].includes(tab)) && (isAdmin || tab !== 'Marketing') && (!isDemoMode || !['Promoter', 'Marketing', 'Profile'].includes(tab))).map((tab) => (
                       <button
@@ -2514,6 +2554,18 @@ export default function App() {
                       </div>
                     )}
 
+                    {/* TAB: VAULT (Sou Sou Savings) */}
+                    {activeTab === 'Vault' && (
+                      <div className="animate-fadeIn">
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <SquadVault
+                            user={user}
+                            isDemoMode={isDemoMode}
+                          />
+                        </React.Suspense>
+                      </div>
+                    )}
+
                     {/* TAB: PACKING (Free) */}
                     {activeTab === 'Packing' && (
                       <div className="animate-fadeIn">
@@ -2824,6 +2876,12 @@ export default function App() {
           />
         </React.Suspense>
       )}
+
+      {/* Carnival Concierge Chatbot Widget */}
+      {user && (
+        <CarnivalConcierge user={user} isPremium={isPremium} activeCarnivalId={activeCarnivalId} scrapedEvents={scrapedEvents} />
+      )}
+
       {/* PREVIEW MODE: Sticky Bottom Sign-Up Banner */}
       {isDemoMode && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-900/95 via-pink-900/95 to-orange-900/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_30px_rgba(0,0,0,0.3)]">

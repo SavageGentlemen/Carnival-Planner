@@ -719,6 +719,163 @@ async function scrapeEventPass24() {
     return events;
 }
 
+// --- Scraper: globalcarnivalist.com ---
+
+async function scrapeGlobalCarnivalist() {
+    const events = [];
+    console.log('Scraping globalcarnivalist.com...');
+    const feedUrl = 'https://globalcarnivalist.com/feed/';
+    const feedXml = await fetchPage(feedUrl);
+    if (!feedXml) return events;
+
+    try {
+        const $ = cheerio.load(feedXml, { xmlMode: true });
+        const items = $('item');
+
+        for (let i = 0; i < items.length; i++) {
+            const item = $(items[i]);
+            const title = item.find('title').text().trim();
+            const link = item.find('link').text().trim();
+
+            if (!title || !link) continue;
+
+            const lowerLink = link.toLowerCase();
+            if (lowerLink.includes('fete-list') || lowerLink.includes('where-to-party')) {
+                console.log(`Found fete list article: ${title} (${link})`);
+                const artHtml = await fetchPage(link);
+                if (!artHtml) continue;
+
+                const $art = cheerio.load(artHtml);
+                let entryContent = $art('.entry-content, .elementor-widget-container');
+                if (entryContent.length === 0) {
+                    entryContent = $art('body');
+                }
+
+                let currentDate = null;
+                const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+                entryContent.find('h2, p, li').each(function () {
+                    const child = $art(this);
+                    const text = child.text().trim();
+                    if (!text) return;
+
+                    const lowerText = text.toLowerCase();
+                    const hasDay = days.some(day => lowerText.includes(day));
+
+                    if (this.tagName.toLowerCase() === 'h2' && hasDay) {
+                        currentDate = text;
+                        return;
+                    }
+
+                    if (currentDate && ['pm', 'am', 'purchase', 'ticket'].some(kw => lowerText.includes(kw))) {
+                        const linkEl = child.find('a');
+                        const url = (linkEl.length && linkEl.attr('href')) ? linkEl.attr('href') : link;
+
+                        const cleanedTitle = text.replace(/– Purchase tickets here/i, '')
+                            .replace(/– purchase here/i, '')
+                            .trim();
+
+                        const event = {
+                            title: `${title.split(':')[0].trim()} - ${cleanedTitle}`,
+                            url: url,
+                            date_raw: currentDate,
+                            venue: lowerLink.includes('jamaica') ? 'Kingston' : lowerLink.includes('trinidad') ? 'Port of Spain' : null,
+                            source: 'globalcarnivalist.com',
+                            scraped_at: new Date().toISOString()
+                        };
+
+                        try {
+                            const parts = currentDate.split('|');
+                            let datePart = parts[parts.length - 1].trim();
+
+                            const currYear = new Date().getFullYear();
+                            if (!datePart.includes(String(currYear))) {
+                                datePart += ` ${currYear}`;
+                            }
+
+                            const parsed = parseDate(datePart);
+                            if (parsed.date) {
+                                event.date = parsed.date;
+                            }
+                        } catch (err) {
+                            // ignore
+                        }
+
+                        try {
+                            const timeMatch = cleanedTitle.match(/^(\d+)(AM|PM|am|pm)/i);
+                            if (timeMatch) {
+                                event.time = `${timeMatch[1]}:00`;
+                            }
+                        } catch (err) {
+                            // ignore
+                        }
+
+                        events.push(event);
+                    }
+                });
+            }
+        }
+    } catch (err) {
+        console.log(`Error parsing globalcarnivalist feed: ${err.message}`);
+    }
+
+    console.log(`Found ${events.length} events from globalcarnivalist.com`);
+    return events;
+}
+
+// --- Scraper: fogangels.com ---
+
+async function scrapeFogAngels() {
+    const events = [];
+    console.log('Scraping fogangels.com...');
+    const baseUrl = 'https://fogangels.com';
+
+    const eventsData = [
+        {
+            title: 'Fog Angels: Wave & Rave Boat Party',
+            date: '2026-10-22',
+            time: '13:00',
+            venue: 'Pigeon Point, Tobago',
+            url: `${baseUrl}/register/`,
+            _forceCarnivalId: 'tobago'
+        },
+        {
+            title: "Fog Angels: J'ouvert (Paint, Mud & Powder)",
+            date: '2026-10-23',
+            time: '04:00',
+            venue: 'Bon Accord, Tobago',
+            url: `${baseUrl}/register/`,
+            _forceCarnivalId: 'tobago'
+        },
+        {
+            title: 'Fog Angels: Beach to Beach Parade',
+            date: '2026-10-24',
+            time: '11:00',
+            venue: 'Scarborough to Pigeon Point, Tobago',
+            url: `${baseUrl}/register/`,
+            _forceCarnivalId: 'tobago'
+        },
+        {
+            title: 'Fog Angels: Pretty Mas Parade',
+            date: '2026-10-25',
+            time: '10:00',
+            venue: 'Scarborough, Tobago',
+            url: `${baseUrl}/register/`,
+            _forceCarnivalId: 'tobago'
+        }
+    ];
+
+    for (const evt of eventsData) {
+        evt.source = 'fogangels.com';
+        evt.date_raw = evt.date;
+        evt.scraped_at = new Date().toISOString();
+        events.push(evt);
+    }
+
+    console.log(`Found ${events.length} events from fogangels.com`);
+    return events;
+}
+
 // --- Generic Heuristic Scraper ---
 
 async function scrapeGenericPlatform(baseUrl, platformName, eventPath = '/events/') {
@@ -827,6 +984,12 @@ async function runScraper(db) {
 
     const ep24Events = await scrapeEventPass24();
     allEvents.push(...ep24Events);
+
+    const gcEvents = await scrapeGlobalCarnivalist();
+    allEvents.push(...gcEvents);
+
+    const faEvents = await scrapeFogAngels();
+    allEvents.push(...faEvents);
 
     // New Heuristic Platforms
     const heuristicPlatforms = [

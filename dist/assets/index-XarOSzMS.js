@@ -1,0 +1,31 @@
+const wallet = {
+  id: "org.base.account",
+  name: "Base Account",
+  homepage: "https://base.org/",
+  image_id: "base.svg",
+  app: {
+    browser: null,
+    ios: null,
+    android: null,
+    mac: null,
+    windows: null,
+    linux: null,
+    chrome: null,
+    firefox: null,
+    safari: null,
+    edge: null,
+    opera: null
+  },
+  rdns: "org.base.account",
+  mobile: {
+    native: null,
+    universal: null
+  },
+  desktop: {
+    native: null,
+    universal: null
+  }
+};
+export {
+  wallet
+};
