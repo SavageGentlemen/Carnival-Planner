@@ -6,6 +6,7 @@ import app from '../firebase';
 // Import Passport components
 import PassportHome from './PassportHome';
 import CheckinModal from './CheckinModal';
+import QRCodeScanner from './QRCodeScanner';
 import StampCollection from './StampCollection';
 import AchievementList from './AchievementList';
 import PassportCard from './PassportCard';
@@ -17,6 +18,7 @@ import MyEsims from './telecom/MyEsims';
 export default function SocaPassportTab({ user, isPremium, activeCarnivalId, activePlanId, isDemoMode }) {
     const [currentView, setCurrentView] = useState('home'); // home, stamps, achievements, leaderboard, telecom, my-esims
     const [showCheckinModal, setShowCheckinModal] = useState(false);
+    const [showQRScanner, setShowQRScanner] = useState(false);
     const [showPassportCard, setShowPassportCard] = useState(false);
     const [profile, setProfile] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -120,7 +122,7 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
                         activeCarnivalId={activeCarnivalId}
                         activePlanId={activePlanId}
                         isDemoMode={isDemoMode}
-                        onOpenCheckin={() => setShowCheckinModal(true)}
+                        onOpenCheckin={() => setShowQRScanner(true)}
                         onViewStamps={() => setCurrentView('stamps')}
                         onViewAchievements={() => setCurrentView('achievements')}
                         onViewLeaderboard={() => setCurrentView('leaderboard')}
@@ -158,12 +160,23 @@ export default function SocaPassportTab({ user, isPremium, activeCarnivalId, act
             {/* Main Content */}
             {renderView()}
 
-            {/* Check-in Modal */}
+            {/* Check-in Modal (Text based) */}
             <CheckinModal
                 isOpen={showCheckinModal}
                 onClose={() => setShowCheckinModal(false)}
                 onSuccess={handleCheckinSuccess}
             />
+
+            {/* QR Code Scanner (Camera based) */}
+            {showQRScanner && (
+                <QRCodeScanner 
+                    onClose={() => setShowQRScanner(false)}
+                    onSuccess={(result) => {
+                        setShowQRScanner(false);
+                        setRefreshKey(prev => prev + 1); // Trigger refresh
+                    }}
+                />
+            )}
 
             {/* Passport Card Modal */}
             <PassportCard

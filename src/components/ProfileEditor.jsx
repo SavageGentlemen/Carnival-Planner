@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     User, Camera, X, Check, Loader2, Instagram, Twitter,
-    Music, Globe, Shield, AlertCircle, Sparkles, Wallet, Link2, Unlink, Copy, ExternalLink, ChevronDown
+    Music, Globe, Shield, AlertCircle, Sparkles, Wallet, Link2, Unlink, Copy, ExternalLink, ChevronDown,
+    MessageCircle, Phone
 } from 'lucide-react';
 import { doc, getDoc, setDoc, deleteDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -33,6 +34,8 @@ export default function ProfileEditor({
         username: '',
         bio: '',
         isPublic: false,
+        whatsapp_number: '',
+        whatsapp_opt_in: false,
         socialLinks: {
             instagram: '',
             twitter: '',
@@ -59,6 +62,8 @@ export default function ProfileEditor({
                 username: currentProfile.username || '',
                 bio: currentProfile.bio || '',
                 isPublic: currentProfile.isPublic || false,
+                whatsapp_number: currentProfile.whatsapp_number || '',
+                whatsapp_opt_in: currentProfile.whatsapp_opt_in || false,
                 socialLinks: {
                     instagram: currentProfile.socialLinks?.instagram || '',
                     twitter: currentProfile.socialLinks?.twitter || '',
@@ -70,7 +75,9 @@ export default function ProfileEditor({
         } else {
             setFormData(prev => ({
                 ...prev,
-                displayName: user?.displayName || ''
+                displayName: user?.displayName || '',
+                whatsapp_number: '',
+                whatsapp_opt_in: false
             }));
         }
     }, [currentProfile, user]);
@@ -218,6 +225,8 @@ export default function ProfileEditor({
                 profilePhoto: profilePhotoUrl,
                 coverPhoto: coverPhotoUrl,
                 isPublic: formData.isPublic,
+                whatsapp_number: formData.whatsapp_number || null,
+                whatsapp_opt_in: formData.whatsapp_opt_in,
                 socialLinks: formData.socialLinks,
                 carnivalHistory,
                 walletAddress: walletAddress || null,
@@ -516,6 +525,46 @@ export default function ProfileEditor({
                                 </div>
                                 <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
                                     Your carnival wallet is generated automatically. No downloads or crypto needed.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* WhatsApp Alerts Option */}
+                    <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 rounded-2xl border border-green-100 dark:border-green-800/30 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <MessageCircle className="w-5 h-5 text-green-500" />
+                                <span className="font-medium text-gray-900 dark:text-white text-sm">WhatsApp Alerts</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, whatsapp_opt_in: !prev.whatsapp_opt_in }))}
+                                className={`relative w-12 h-7 rounded-full transition-colors ${formData.whatsapp_opt_in ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                                    }`}
+                            >
+                                <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${formData.whatsapp_opt_in ? 'translate-x-5' : ''
+                                    }`} />
+                            </button>
+                        </div>
+
+                        {formData.whatsapp_opt_in && (
+                            <div className="space-y-2">
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    WhatsApp Phone Number
+                                </label>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="tel"
+                                        value={formData.whatsapp_number}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, whatsapp_number: e.target.value }))}
+                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                                        placeholder="+18687726435"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-gray-400">
+                                    You'll receive squad Road Ready status and SOS emergency alerts on this number. Include country code (e.g. +1).
                                 </p>
                             </div>
                         )}

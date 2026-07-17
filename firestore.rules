@@ -170,6 +170,19 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Flash Quests - readable by all authenticated users, writable only by admins
+    match /flashQuests/{questId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+    
+    // Squad Wagers - readable by authenticated users, writable only via Cloud Functions
+    match /squadWagers/{wagerId} {
+      allow read: if request.auth != null;
+      // Wagers are created and updated via Cloud Functions to prevent tampering
+      allow write: if false;
+    }
+    
     // Passport Stamps - user can read their own, create via Cloud Function
     match /passportStamps/{stampId} {
       allow read: if request.auth != null && 
@@ -260,6 +273,43 @@ service cloud.firestore {
                        .hasOnly(['distributionStatus', 'distributedAt']);
       // Orders are created and updated via Cloud Functions mostly
       allow read, write: if isAdmin();
+    }
+    // --- SQUAD VAULT (SOU SOU) ---
+    
+    // Vaults - members can read, authenticated users can create, admin can update
+    match /vaults/{vaultId} {
+      allow read: if request.auth != null && 
+                    request.auth.uid in resource.data.members;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+                      request.auth.uid == resource.data.adminUserId;
+      allow delete: if request.auth != null && 
+                      request.auth.uid == resource.data.adminUserId;
+      // Admin override
+      allow read, write: if isAdmin();
+      
+      // Vault Members subcollection
+      match /members/{memberId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && 
+                       request.auth.uid == get(/databases/$(database)/documents/vaults/$(vaultId)).data.adminUserId;
+        // Cloud Functions can also write
+        allow write: if isAdmin();
+      }
+      
+      // Vault Contributions subcollection
+      match /contributions/{contributionId} {
+        allow read: if request.auth != null;
+        // Contributions created via Cloud Functions only
+        allow create, update, delete: if isAdmin();
+      }
+      
+      // Vault Payouts subcollection
+      match /payouts/{payoutId} {
+        allow read: if request.auth != null;
+        // Payouts created via Cloud Functions only
+        allow create, update, delete: if isAdmin();
+      }
     }
   }
 }

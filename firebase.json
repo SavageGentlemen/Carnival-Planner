@@ -20,6 +20,15 @@
     ],
     "headers": [
       {
+        "source": "**/*.apk",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/vnd.android.package-archive"
+          }
+        ]
+      },
+      {
         "source": "**",
         "headers": [
           {

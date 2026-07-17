@@ -6,13 +6,18 @@ import viteCompression from 'vite-plugin-compression'
 // Explicitly load env vars for production build
 const VITE_GOOGLE_API_KEY = process.env.VITE_GOOGLE_API_KEY || '';
 
+// When building for Capacitor, skip PWA service worker generation
+// Usage: CAPACITOR_BUILD=true npm run build
+const isCapacitorBuild = process.env.CAPACITOR_BUILD === 'true';
+
 export default defineConfig({
   define: {
     'import.meta.env.VITE_GOOGLE_API_KEY': JSON.stringify(VITE_GOOGLE_API_KEY),
   },
   plugins: [
     react(),
-    VitePWA({
+    // Conditionally include PWA plugin — disabled for Capacitor native builds
+    ...(!isCapacitorBuild ? [VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['fete192x192.png', 'carnival592x592.png', 'assets/*.png', 'assets/*.svg'],
       manifest: {
@@ -44,6 +49,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 5242880, // 5 MiB to support large JS chunks
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
@@ -74,7 +80,7 @@ export default defineConfig({
           }
         ]
       }
-    }),
+    })] : []),
     // Gzip compression for production builds
     viteCompression({
       algorithm: 'gzip',
@@ -89,8 +95,11 @@ export default defineConfig({
   ],
   server: {
     host: '0.0.0.0',
-    port: 5000,
+    port: 5173,
     allowedHosts: true,
+    watch: {
+      usePolling: true,
+    },
     headers: {
       // Required for Firebase Auth popup to work correctly
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
@@ -101,6 +110,8 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     cssCodeSplit: true,
+    minify: false,
+    chunkSizeWarningLimit: 2000,
     // Target modern browsers for smaller output
     target: 'es2020',
     rollupOptions: {

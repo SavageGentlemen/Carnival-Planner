@@ -71,3 +71,75 @@ body {
 .animate-slideIn {
   animation: slideIn 0.3s ease-out forwards;
 }
+
+/* ═══════════════════════════════════════════
+   CAPACITOR · "Native Illusion" Overrides
+   ═══════════════════════════════════════════ */
+
+/* 1. Disable text selection (native apps don't allow it) */
+*,
+*::before,
+*::after {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+/* 2. Prevent overscroll bounce / glow on the main body */
+html,
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 3. Safe-area insets for notches & gesture bars */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 4. Disable long-press context menu (native feel) */
+body {
+  -webkit-touch-callout: none;
+}
+
+/* ═══════════════════════════════════════════
+   GLASSMORPHISM V3.0 SPEC CLASSES
+   ═══════════════════════════════════════════ */
+.glass-panel {
+  background: rgba(17, 12, 28, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.35);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(236, 72, 153, 0.4); /* Neon-pink glow border */
+  box-shadow: 0 15px 45px 0 rgba(236, 72, 153, 0.15), 0 0 20px 0 rgba(139, 92, 246, 0.1);
+}
+
+.glass-btn-primary {
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.glass-btn-primary:hover {
+  opacity: 0.95;
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+}
+

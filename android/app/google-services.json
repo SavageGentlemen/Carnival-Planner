@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1036340118282",
+    "project_id": "carnival-planner",
+    "storage_bucket": "carnival-planner.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1036340118282:android:90a6d9b0fbf0016ff2f0f3",
+        "android_client_info": {
+          "package_name": "com.carnivalplanner.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1036340118282-6pqvjpdvmlo22ba1st8cleor2vri5318.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.carnivalplanner.app",
+            "certificate_hash": "7366bf57e045d205f4f5929bd7b70ee28564091d"
+          }
+        },
+        {
+          "client_id": "1036340118282-df6tmik8ee9o4q16ib8hs14bqbjs3kp2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDy_6uOi1ZD5Wc0TB81wJvkBtPQ3-w37Z0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1036340118282-df6tmik8ee9o4q16ib8hs14bqbjs3kp2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

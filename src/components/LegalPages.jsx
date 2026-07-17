@@ -191,6 +191,38 @@ export function TermsOfService({ onBack, logo }) {
       <Section title="13. Contact">
         <p>For questions about these Terms, contact us at <a href={`mailto:${COMPANY_EMAIL}`} className="text-pink-400 hover:underline">{COMPANY_EMAIL}</a>.</p>
       </Section>
+
+      <Section title="14. Vault / Sou Sou Feature">
+        <h4 className="font-semibold text-white mb-2">14.1 Nature of Service</h4>
+        <p className="mb-4">Squad Vault is a digital savings club modeled after traditional Caribbean sou sou/partner systems. You and your invited members pool funds for a shared carnival goal. This is not a bank account, investment, loan, or deposit product.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.2 Custody of Funds</h4>
+        <p className="mb-4">All funds are held in For Benefit Of (FBO) accounts with our banking partner via Stripe Treasury. {COMPANY_NAME} does not hold or own user funds and cannot access them except to execute your instructions.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.3 No Interest</h4>
+        <p className="mb-4">Funds do not earn interest or returns. Balance = sum of contributions minus fees.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.4 Fees</h4>
+        <p className="mb-4">1.9% fee assessed on withdrawals to external bank accounts. 0% fee when spending via issued virtual card at approved carnival vendors. ACH failures may incur $0.25 bank fee, passed through with notice.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.5 User Roles</h4>
+        <p className="mb-4">Vault "Banker" is responsible for inviting members and triggering payouts. Banker is not paid by us. Members authorize recurring ACH debits until they leave vault or vault closes.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.6 Failed Payments</h4>
+        <p className="mb-4">If 2+ members fail payments twice, vault auto-freezes to protect group. No new charges occur. Banker may close vault and refund pro-rata minus fees.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.7 Disputes</h4>
+        <p className="mb-4">As this is a private savings club between friends, {COMPANY_NAME} is not liable for disputes between members. We provide transaction history only. ACH disputes fall under NACHA rules.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.8 Compliance</h4>
+        <p className="mb-4">Users must complete KYC via Stripe. We reserve right to close vaults suspected of money laundering, fraud, or exceeding $20,000 aggregate. This service is not available in NY until further notice.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.9 Tax</h4>
+        <p className="mb-4">We do not issue 1099s. Contributions are not tax-deductible. Consult your advisor.</p>
+
+        <h4 className="font-semibold text-white mb-2">14.10 Termination</h4>
+        <p>You may close vault anytime. Funds returned to source accounts in 3-5 business days minus fees.</p>
+      </Section>
     </LegalPageWrapper>
   );
 }

@@ -81,7 +81,6 @@ const DigitalPassport = React.lazy(() => import('./components/DigitalPassport'))
 const SquadLeaderboard = React.lazy(() => import('./components/SquadLeaderboard'));
 const BountyBoard = React.lazy(() => import('./components/BountyBoard'));
 const EventTicketPage = React.lazy(() => import('./components/EventTicketPage'));
-const WearableMonitor = React.lazy(() => import('./components/WearableMonitor'));
 const SquadVault = React.lazy(() => import('./components/SquadVault'));
 
 // ── SWR FIRESTORE CACHING ──
@@ -89,6 +88,7 @@ import { useFirestoreDoc } from './hooks/useFirestoreSWR';
 import { useVibeEngine } from './hooks/useVibeEngine';
 import { useSquadSubscription } from './hooks/useSquadSubscription';
 import { useSquadMeshNetwork } from './hooks/useSquadMeshNetwork';
+import * as nip19 from 'nostr-tools/nip19';
 
 // --- CONFIGURATION ---
 const appId = 'carnival-planner-v1';
@@ -1489,6 +1489,45 @@ export default function App() {
                 <div className="text-gray-500 italic">No costume details saved.</div>
               )}
             </div>
+            {currentSquad?.nostr_pubkey && (
+              <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider">Decentralized Chat Bridge</h2>
+                  <span className="text-xs bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded border border-purple-700/50 font-mono">Nostr</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-3">
+                  External client apps (e.g. Bitchat, Damus) can subscribe to your squad stream using this npub address:
+                </p>
+                <div className="bg-black/40 p-3 rounded-xl border border-gray-700 flex items-center justify-between gap-2 overflow-hidden">
+                  <span className="font-mono text-[10px] text-purple-300 select-all truncate flex-1">
+                    {(() => {
+                      try {
+                        const pk = currentSquad.nostr_pubkey;
+                        return pk.startsWith('npub1') ? pk : nip19.npubEncode(pk);
+                      } catch (e) {
+                        return currentSquad.nostr_pubkey;
+                      }
+                    })()}
+                  </span>
+                  <button
+                    onClick={() => {
+                      try {
+                        const pk = currentSquad.nostr_pubkey;
+                        const npub = pk.startsWith('npub1') ? pk : nip19.npubEncode(pk);
+                        navigator.clipboard.writeText(npub);
+                        setToastMessage({ title: 'Copied!', body: 'Nostr npub copied to clipboard.' });
+                        setTimeout(() => setToastMessage(null), 3000);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }}
+                    className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded transition shrink-0"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </>

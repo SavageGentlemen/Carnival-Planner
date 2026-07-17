@@ -5,8 +5,12 @@ import {
     orderBy,
     limit,
     onSnapshot,
-    serverTimestamp
+    serverTimestamp,
+    doc,
+    getDoc
 } from 'firebase/firestore';
+import { publishNostrMessage } from './nostrService';
+import { supabase } from '../supabaseClient';
 import { db } from '../firebase';
 
 // Mock messages for Demo Mode
@@ -122,6 +126,22 @@ export const sendMessage = async (squadId, user, text, imageFile, isDemoMode, ca
     // 🤖 AI CONCIERGE (PRODUCTION)
     // Trigger a bot reply if not a bot message (prevent loops)
     if (!messageData.isBot) {
+        // --- NOSTR BRIDGE ---
+        // Fetch the squad's private key and blast the message to the decentralized network
+        try {
+            const { data: squadData } = await supabase
+                .from('squads')
+                .select('nostr_privkey')
+                .eq('id', squadId)
+                .single();
+            if (squadData?.nostr_privkey) {
+                console.log("Bridging message to Nostr...");
+                await publishNostrMessage(squadData.nostr_privkey, text || (imageFile ? "Sent an image 📸" : ""));
+            }
+        } catch (err) {
+            console.error("Nostr bridge failed:", err);
+        }
+
         setTimeout(async () => {
             const aiReply = generateMockAIReply(text || (imageFile ? "Nice photo! 📸" : "..."));
             const botMsg = {

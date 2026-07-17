@@ -209,15 +209,57 @@ export default function AdminAnalytics() {
     setError(null);
 
     try {
-      console.log('[AdminAnalytics] Fetching users...');
-      const usersMap = new Map(); // Use Map to deduplicate by userId
+      console.log('[AdminAnalytics] Fetching users via Cloud Function...');
 
-      // 1. Fetch from new users collection
+      // PRIMARY: Use Cloud Function to get all users from Firebase Auth (server-side)
       try {
-        console.log('[AdminAnalytics] Attempting to fetch users collection...');
+        const getAdminUsersFn = httpsCallable(functions, 'getAdminUsers');
+        const result = await getAdminUsersFn({});
+        const { users: serverUsers, total, premium } = result.data;
+
+        console.log(`[AdminAnalytics] Cloud Function returned ${total} users`);
+
+        const usersList = serverUsers.map(u => ({
+          id: u.id,
+          createdAt: u.createdAt ? { toDate: () => new Date(u.createdAt) } : null,
+          lastLoginAt: u.lastLoginAt ? { toDate: () => new Date(u.lastLoginAt) } : null,
+          profile: {
+            email: u.email,
+            displayName: u.displayName,
+          },
+          isPremium: u.isPremium,
+          premiumOverride: u.email && ['djkrss1@gmail.com'].includes(u.email.toLowerCase()),
+          carnivalCount: u.carnivalCount || 0,
+          provider: u.provider,
+          source: 'auth',
+        }));
+
+        usersList.sort((a, b) => {
+          const dateA = a.createdAt?.toDate?.() || new Date(0);
+          const dateB = b.createdAt?.toDate?.() || new Date(0);
+          return dateB - dateA;
+        });
+
+        setUsers(usersList);
+        setStats({
+          total: usersList.length,
+          premium: usersList.filter(u => u.isPremium).length,
+          free: usersList.filter(u => !u.isPremium).length,
+        });
+        setLoading(false);
+        return; // Success — skip Firestore fallback
+      } catch (cfErr) {
+        console.warn('[AdminAnalytics] Cloud Function failed, falling back to Firestore:', cfErr.message);
+      }
+
+      // FALLBACK: Query Firestore directly (original logic)
+      console.log('[AdminAnalytics] Falling back to Firestore queries...');
+      const usersMap = new Map();
+
+      // 1. Fetch from users collection
+      try {
         const usersSnapshot = await getDocs(collection(db, 'users'));
-        console.log('[AdminAnalytics] SUCCESS: Found', usersSnapshot.size, 'user documents in users collection');
-        usersSnapshot.docs.forEach(d => console.log('[AdminAnalytics] User doc:', d.id, d.data()));
+        console.log('[AdminAnalytics] Found', usersSnapshot.size, 'user documents in users collection');
 
         for (const userDoc of usersSnapshot.docs) {
           const userId = userDoc.id;
@@ -237,12 +279,9 @@ export default function AdminAnalytics() {
         console.log('[AdminAnalytics] Could not fetch users collection:', e.message);
       }
 
-      // 2. Fetch from user-activity collection (new login tracking)
+      // 2. Fetch from user-activity collection
       try {
-        console.log('[AdminAnalytics] Attempting to fetch user-activity collection...');
         const activitySnapshot = await getDocs(collection(db, 'user-activity'));
-        console.log('[AdminAnalytics] SUCCESS: Found', activitySnapshot.size, 'activity records');
-
         for (const actDoc of activitySnapshot.docs) {
           const data = actDoc.data();
           const userId = data.uid;
@@ -258,7 +297,6 @@ export default function AdminAnalytics() {
               source: 'user-activity'
             });
           } else if (userId && usersMap.has(userId)) {
-            // Update with latest login info
             const existing = usersMap.get(userId);
             if (data.loginAt && (!existing.lastLoginAt || data.loginAt.toMillis?.() > existing.lastLoginAt.toMillis?.())) {
               existing.lastLoginAt = data.loginAt;
@@ -272,12 +310,9 @@ export default function AdminAnalytics() {
         console.log('[AdminAnalytics] Could not fetch user-activity collection:', e.message);
       }
 
-      // 3. Also fetch from artifacts collection (legacy user data)
+      // 3. Fetch from artifacts collection (legacy)
       try {
-        console.log('[AdminAnalytics] Attempting to fetch artifacts collection...');
         const artifactsSnapshot = await getDocs(collection(db, 'artifacts', APP_ID, 'users'));
-        console.log('[AdminAnalytics] SUCCESS: Found', artifactsSnapshot.size, 'users in artifacts collection');
-
         for (const userDoc of artifactsSnapshot.docs) {
           const userId = userDoc.id;
           if (!usersMap.has(userId)) {
@@ -286,10 +321,7 @@ export default function AdminAnalytics() {
               id: userId,
               createdAt: artifactData.createdAt || null,
               lastLoginAt: artifactData.lastLoginAt || null,
-              profile: {
-                email: null,
-                displayName: null,
-              },
+              profile: { email: null, displayName: null },
               source: 'artifacts'
             });
           }
@@ -298,10 +330,9 @@ export default function AdminAnalytics() {
         console.log('[AdminAnalytics] Could not fetch artifacts collection:', e.message);
       }
 
-      // 3. Process each user to get additional data
+      // Process each user for premium/carnival data
       const usersList = [];
       for (const [userId, userData] of usersMap) {
-        // Try to fetch profile data
         try {
           const profileRef = doc(db, 'users', userId, 'profile', 'info');
           const profileSnap = await getDoc(profileRef);
@@ -314,14 +345,11 @@ export default function AdminAnalytics() {
               displayName: profileData.displayName || userData.profile.displayName,
             };
           }
-        } catch (e) {
-          // Silently continue
-        }
+        } catch (e) { /* skip */ }
 
         userData.isPremium = false;
         userData.carnivalCount = 0;
 
-        // Try to fetch app data from users/{userId}/apps path
         try {
           const appRef = doc(db, 'users', userId, 'apps', APP_ID);
           const appSnap = await getDoc(appRef);
@@ -333,7 +361,6 @@ export default function AdminAnalytics() {
             }
           }
         } catch (e) {
-          // Try artifacts path as fallback
           try {
             const artifactAppRef = doc(db, 'artifacts', APP_ID, 'users', userId);
             const artifactSnap = await getDoc(artifactAppRef);
@@ -344,12 +371,9 @@ export default function AdminAnalytics() {
                 userData.carnivalCount = Object.keys(appData.selectedCarnivals).length;
               }
             }
-          } catch (e2) {
-            // Silently continue
-          }
+          } catch (e2) { /* skip */ }
         }
 
-        // Check email override
         const userEmail = userData.profile?.email || '';
         if (userEmail && PREMIUM_OVERRIDE_EMAILS.includes(userEmail.toLowerCase())) {
           userData.isPremium = true;

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
     CreditCard, Trophy, MapPin, Star, Ticket, ChevronRight,
-    Zap, Award, TrendingUp, Loader2, Sparkles, Gift, Users, Wifi
+    Zap, Award, TrendingUp, Loader2, Sparkles, Gift, Users, Wifi, Swords
 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
+import SquadWagerModal from './SquadWagerModal';
+import TokenGate from './TokenGate';
 
 // Tier configuration with images
 const TIER_CONFIG = {
@@ -64,6 +66,7 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [squadStats, setSquadStats] = useState(null);
+    const [showWagerModal, setShowWagerModal] = useState(false);
 
     // Load squad stats if in a squad
     useEffect(() => {
@@ -326,27 +329,33 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
                 </div>
             </button>
 
-            {/* Rewards CTA */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-5 text-white shadow-lg">
-                <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.1] mix-blend-overlay" />
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                            <Gift className="w-6 h-6" />
+            {/* Rewards CTA (Wrapped in TokenGate for Testing) */}
+            <TokenGate
+                contractAddress="0xc1B732d6088FcFB2BA6638f9Ed021Cf9629C5dfd"
+                tokenId={0n}
+                fallbackMessage="You must own the Soca Passport VIP Pass to access the Rewards Market."
+            >
+                <div className="relative overflow-hidden bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-5 text-white shadow-lg">
+                    <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.1] mix-blend-overlay" />
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                <Gift className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">Rewards Market</h3>
+                                <p className="text-white/80 text-sm">Redeem your credits</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-bold text-lg">Rewards Market</h3>
-                            <p className="text-white/80 text-sm">Redeem your credits</p>
-                        </div>
+                        <button
+                            onClick={onViewRewards}
+                            className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-sm font-medium hover:bg-white/30 transition-colors"
+                        >
+                            Browse Rewards
+                        </button>
                     </div>
-                    <button
-                        onClick={onViewRewards}
-                        className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-sm font-medium hover:bg-white/30 transition-colors"
-                    >
-                        Browse Rewards
-                    </button>
                 </div>
-            </div>
+            </TokenGate>
 
             {/* Squad Stats Card */}
             {squadStats && (
@@ -406,6 +415,13 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
                     </div>
                 </div>
             )}
+
+            <button
+                onClick={() => setShowWagerModal(true)}
+                className="w-full bg-red-500/80 hover:bg-red-500 text-white rounded-xl py-2.5 font-bold text-sm flex justify-center items-center gap-2 transition shadow-lg shadow-red-500/20"
+            >
+                <Swords className="w-4 h-4" /> Initiate PvP Wager (Test)
+            </button>
 
             {/* Recent Stamps */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
@@ -543,6 +559,13 @@ export default function PassportHome({ user, isPremium, activeCarnivalId, active
                 </div>
             </div>
             */}
+
+            {showWagerModal && (
+                <SquadWagerModal
+                    onClose={() => setShowWagerModal(false)}
+                    currentSquadId={squadStats?.squadId || 'SQUAD-TEST'}
+                />
+            )}
         </div>
     );
 }

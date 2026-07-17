@@ -1,7 +1,7 @@
 // Cloud Functions entry point for Caribbean Carnival Planner.
 
 const functions = require("firebase-functions");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -43,6 +43,60 @@ if (!webhookSecret) {
 // Pass both app and database ID to ensure correct database is used
 const squadDb = getFirestore(app, 'squad-db');
 const defaultDb = getFirestore(app); // Default Firestore database for user tracking
+
+// ----- OpenWA WhatsApp Alerts Helper -----
+// Dispatches outbound WhatsApp messages to squad members who have opted in.
+// Looks up each member's whatsapp_number & whatsapp_opt_in from the users collection.
+async function dispatchWhatsAppAlerts(memberUids, alertTitle, alertBody) {
+  const openwaUrl = process.env.OPENWA_API_URL || null;
+  const openwaKey = process.env.OPENWA_API_KEY || 'secure_shared_secret';
+
+  if (!openwaUrl) {
+    console.log('[WhatsApp] OPENWA_API_URL not configured — skipping WhatsApp dispatch.');
+    return { sent: 0, skipped: memberUids.length };
+  }
+
+  let sent = 0;
+  let skipped = 0;
+
+  for (const uid of memberUids) {
+    try {
+      // Check opt-in and phone number from the default Firestore users collection
+      const userDoc = await defaultDb.collection('users').doc(uid).get();
+      if (!userDoc.exists) { skipped++; continue; }
+
+      const userData = userDoc.data();
+      if (!userData.whatsapp_opt_in || !userData.whatsapp_number) {
+        skipped++;
+        continue;
+      }
+
+      // Format number for WhatsApp: strip leading '+' and append @c.us
+      const rawNumber = String(userData.whatsapp_number).replace(/[^\d]/g, '');
+      const waId = `${rawNumber}@c.us`;
+
+      const content = `*${alertTitle}*\n\n${alertBody}`;
+
+      await globalThis.fetch(`${openwaUrl}/sendText`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openwaKey}`
+        },
+        body: JSON.stringify({ to: waId, content })
+      });
+
+      sent++;
+      console.log(`[WhatsApp] Alert sent to ${waId}`);
+    } catch (err) {
+      console.error(`[WhatsApp] Failed to send to ${uid}:`, err.message);
+      skipped++;
+    }
+  }
+
+  console.log(`[WhatsApp] Dispatch complete: ${sent} sent, ${skipped} skipped.`);
+  return { sent, skipped };
+}
 
 // ----- Premium Status Helper -----
 // Used to dynamically adjust platform fees: 0% for premium, 10% for free
@@ -161,9 +215,8 @@ exports.createCheckoutSession = onCall(
 );
 
 // ----- Webhook: handleStripeWebhook -----
-exports.handleStripeWebhook = functions.runWith({
-  secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "AIRALO_CLIENT_ID", "AIRALO_CLIENT_SECRET"]
-}).https.onRequest(
+exports.handleStripeWebhook = onRequest(
+  { secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "AIRALO_CLIENT_ID", "AIRALO_CLIENT_SECRET"] },
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -192,6 +245,41 @@ exports.handleStripeWebhook = functions.runWith({
         case "checkout.session.completed": {
           const session = event.data.object;
           const meta = session.metadata || {};
+
+          // Check if this is a vault contribution
+          if (meta.type === 'vault_contribution' && meta.vaultId && meta.contributionId) {
+            const vaultRef = squadDb.collection('vaults').doc(meta.vaultId);
+            const contribRef = vaultRef.collection('contributions').doc(meta.contributionId);
+            const contribDoc = await contribRef.get();
+
+            if (contribDoc.exists) {
+              const amount = contribDoc.data().amount || 0;
+              const userId = meta.firebaseUid;
+
+              // Mark contribution as succeeded
+              await contribRef.update({ status: 'succeeded', stripeCheckoutSessionId: session.id });
+
+              // Update vault total
+              await vaultRef.update({
+                totalSaved: FieldValue.increment(amount),
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+
+              // Update member's total contributed
+              if (userId) {
+                const memberRef = vaultRef.collection('members').doc(userId);
+                const memberDoc = await memberRef.get();
+                if (memberDoc.exists) {
+                  await memberRef.update({ totalContributed: FieldValue.increment(amount) });
+                }
+              }
+
+              console.log(`[Vault] Contribution of $${amount} to vault ${meta.vaultId} succeeded.`);
+            }
+            break; // Don't fall through to subscription handling
+          }
+
+          // Existing subscription checkout handling
           const uid = meta.firebaseUid;
 
           if (!uid) break;
@@ -666,37 +754,55 @@ exports.sendRoadReadyAlert = onCall(
       }
     }
 
-    if (tokens.length === 0) {
-      return { success: true, notified: 0, message: 'No squad members with notifications enabled.' };
+    const displayName = userName || 'A squad member';
+    let successCount = 0;
+
+    if (tokens.length > 0) {
+      // Send push notifications
+      const message = {
+        notification: {
+          title: `${displayName} is Road Ready!`,
+          body: `Ready to party at ${carnivalName || carnivalId}! Time to link up!`
+        },
+        data: {
+          type: 'road_ready',
+          carnivalId,
+          senderUid: uid
+        },
+        tokens
+      };
+
+      try {
+        const response = await admin.messaging().sendEachForMulticast(message);
+        successCount = response.successCount;
+        console.log(`Road Ready notifications sent: ${response.successCount} success, ${response.failureCount} failed`);
+      } catch (err) {
+        console.error('Error sending Road Ready notifications:', err);
+      }
     }
 
-    // Send push notifications
-    const displayName = userName || 'A squad member';
-    const message = {
-      notification: {
-        title: `${displayName} is Road Ready!`,
-        body: `Ready to party at ${carnivalName || carnivalId}! Time to link up!`
-      },
-      data: {
-        type: 'road_ready',
-        carnivalId,
-        senderUid: uid
-      },
-      tokens
-    };
-
     try {
-      const response = await admin.messaging().sendEachForMulticast(message);
-      console.log(`Road Ready notifications sent: ${response.successCount} success, ${response.failureCount} failed`);
+      // --- WhatsApp Dispatch (non-blocking) ---
+      const waResult = await dispatchWhatsAppAlerts(
+        Array.from(squadMemberUids),
+        `${displayName} is Road Ready! 🎉`,
+        `Ready to party at ${carnivalName || carnivalId}! Time to link up!`
+      );
 
       return {
         success: true,
-        notified: response.successCount,
-        message: `Notified ${response.successCount} squad member(s)!`
+        notified: successCount,
+        whatsappSent: waResult.sent,
+        message: `Notified ${successCount} squad member(s) via FCM! (${waResult.sent} via WhatsApp)`
       };
     } catch (err) {
-      console.error('Error sending Road Ready notifications:', err);
-      throw new HttpsError('internal', 'Failed to send notifications.');
+      console.error('Error sending WhatsApp alerts:', err);
+      return {
+        success: true,
+        notified: successCount,
+        whatsappSent: 0,
+        message: `Notified ${successCount} squad member(s) via FCM! (WhatsApp dispatch failed: ${err.message})`
+      };
     }
   }
 );
@@ -775,44 +881,62 @@ exports.sendSafetyAlert = onCall(
       }
     }
 
-    if (tokens.length === 0) {
-      return { success: true, notified: 0, message: 'No squad members with notifications enabled.' };
-    }
-
-    // Send HIGH priority safety alert
     const displayName = userName || 'A squad member';
     const hrText = heartRate ? ` (${heartRate} bpm for ${duration || '?'} min)` : '';
-    const message = {
-      notification: {
-        title: `⚠️ Check on ${displayName}!`,
-        body: `Elevated heart rate detected${hrText}. Make sure they're OK!`
-      },
-      data: {
-        type: 'safety_alert',
-        senderUid: uid,
-        heartRate: String(heartRate || ''),
-        duration: String(duration || '')
-      },
-      android: { priority: 'high' },
-      apns: { headers: { 'apns-priority': '10' } },
-      tokens
-    };
+    let successCount = 0;
+
+    if (tokens.length > 0) {
+      // Send HIGH priority safety alert
+      const message = {
+        notification: {
+          title: `⚠️ Check on ${displayName}!`,
+          body: `Elevated heart rate detected${hrText}. Make sure they're OK!`
+        },
+        data: {
+          type: 'safety_alert',
+          senderUid: uid,
+          heartRate: String(heartRate || ''),
+          duration: String(duration || '')
+        },
+        android: { priority: 'high' },
+        apns: { headers: { 'apns-priority': '10' } },
+        tokens
+      };
+
+      try {
+        const response = await admin.messaging().sendEachForMulticast(message);
+        successCount = response.successCount;
+        console.log(`Safety alert sent: ${response.successCount} success, ${response.failureCount} failed`);
+      } catch (err) {
+        console.error('Error sending safety alert FCM:', err);
+      }
+    }
 
     try {
-      const response = await admin.messaging().sendEachForMulticast(message);
-      console.log(`Safety alert sent: ${response.successCount} success, ${response.failureCount} failed`);
-
       // Set cooldown
       await cooldownRef.set({ lastAlertAt: Date.now() });
 
+      // --- WhatsApp Dispatch (non-blocking) ---
+      const waResult = await dispatchWhatsAppAlerts(
+        Array.from(squadMemberUids),
+        `⚠️ Check on ${displayName}!`,
+        `Elevated heart rate detected${hrText}. Make sure they're OK!`
+      );
+
       return {
         success: true,
-        notified: response.successCount,
-        message: `Safety alert sent to ${response.successCount} squad member(s).`
+        notified: successCount,
+        whatsappSent: waResult.sent,
+        message: `Safety alert sent to ${successCount} squad member(s) via FCM. (${waResult.sent} via WhatsApp)`
       };
     } catch (err) {
-      console.error('Error sending safety alert:', err);
-      throw new HttpsError('internal', 'Failed to send safety alert.');
+      console.error('Error sending safety alert WhatsApp:', err);
+      return {
+        success: true,
+        notified: successCount,
+        whatsappSent: 0,
+        message: `Safety alert sent to ${successCount} squad member(s) via FCM. (WhatsApp dispatch failed: ${err.message})`
+      };
     }
   }
 );
@@ -1148,6 +1272,104 @@ exports.migrateAuthUsers = onCall(
     } catch (err) {
       console.error('Error migrating users:', err);
       throw new HttpsError('internal', `Migration failed: ${err.message}`);
+    }
+  }
+);
+
+// ----- Callable: getAdminUsers -----
+// Returns all users from Firebase Auth + syncs them to squad-db
+// This ensures admin dashboard always shows accurate counts
+exports.getAdminUsers = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+    const userEmail = request.auth.token?.email || '';
+    // Check admin status from admins collection or hardcoded super admin
+    let isAdmin = userEmail === 'djkrss1@gmail.com';
+    if (!isAdmin) {
+      try {
+        const adminDoc = await squadDb.doc(`admins/${request.auth.uid}`).get();
+        isAdmin = adminDoc.exists;
+      } catch (e) { /* ignore */ }
+    }
+    if (!isAdmin) throw new HttpsError('permission-denied', 'Admin only.');
+
+    try {
+      // List ALL users from Firebase Auth (paginated)
+      let authUsers = [];
+      let pageToken = undefined;
+      do {
+        const listResult = await admin.auth().listUsers(1000, pageToken);
+        authUsers = authUsers.concat(listResult.users);
+        pageToken = listResult.pageToken;
+      } while (pageToken);
+
+      console.log(`[getAdminUsers] Found ${authUsers.length} users in Firebase Auth`);
+
+      // Sync each auth user to squad-db/users (upsert)
+      const usersList = [];
+      for (const authUser of authUsers) {
+        const userRef = squadDb.doc(`users/${authUser.uid}`);
+        const userDoc = await userRef.get();
+
+        const createdAt = authUser.metadata.creationTime
+          ? new Date(authUser.metadata.creationTime)
+          : new Date();
+        const lastLoginAt = authUser.metadata.lastSignInTime
+          ? new Date(authUser.metadata.lastSignInTime)
+          : createdAt;
+
+        if (!userDoc.exists) {
+          await userRef.set({
+            email: authUser.email || null,
+            displayName: authUser.displayName || null,
+            createdAt,
+            lastLoginAt,
+            migratedFromAuth: true,
+            migratedAt: new Date()
+          });
+        }
+
+        // Check premium status
+        let isPremium = false;
+        let carnivalCount = 0;
+        try {
+          const appRef = squadDb.doc(`users/${authUser.uid}/apps/${APP_ID}`);
+          const appSnap = await appRef.get();
+          if (appSnap.exists) {
+            isPremium = !!appSnap.data().premiumActive;
+            if (appSnap.data().selectedCarnivals) {
+              carnivalCount = Object.keys(appSnap.data().selectedCarnivals).length;
+            }
+          }
+        } catch (e) { /* ignore */ }
+
+        if (authUser.email && ['djkrss1@gmail.com'].includes(authUser.email.toLowerCase())) {
+          isPremium = true;
+        }
+
+        usersList.push({
+          id: authUser.uid,
+          email: authUser.email || null,
+          displayName: authUser.displayName || null,
+          createdAt: createdAt.toISOString(),
+          lastLoginAt: lastLoginAt.toISOString(),
+          isPremium,
+          carnivalCount,
+          provider: authUser.providerData?.[0]?.providerId || 'unknown',
+        });
+      }
+
+      return {
+        success: true,
+        total: usersList.length,
+        premium: usersList.filter(u => u.isPremium).length,
+        users: usersList,
+      };
+    } catch (err) {
+      console.error('[getAdminUsers] Error:', err);
+      throw new HttpsError('internal', `Failed to fetch users: ${err.message}`);
     }
   }
 );
@@ -3204,9 +3426,8 @@ async function sendOrderEmails(orderData, sellerEmail) {
 
 // ----- Webhook: handleMarketplaceWebhook -----
 // Listens for Stripe Connect events and updates Firestore accordingly
-exports.handleMarketplaceWebhook = functions.runWith({
-  secrets: ["STRIPE_SECRET_KEY", "STRIPE_MARKETPLACE_WEBHOOK_SECRET"]
-}).https.onRequest(
+exports.handleMarketplaceWebhook = onRequest(
+  { secrets: ["STRIPE_SECRET_KEY", "STRIPE_MARKETPLACE_WEBHOOK_SECRET"] },
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -4157,5 +4378,756 @@ exports.getPromoterDashboard = onCall(
       success: true,
       dashboard: requestedDashboard
     };
+  }
+);
+
+// --- SOCA PASSPORT V2 FUNCTIONS ---
+
+// 1. Transactional Squad Wagers
+exports.initiateSquadWager = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+    const { challengerSquadId, targetSquadId, wagerAmount, winCondition } = request.data || {};
+    
+    if (!challengerSquadId || !targetSquadId || !wagerAmount) {
+      throw new HttpsError('invalid-argument', 'Missing required wager fields.');
+    }
+
+    const parsedAmount = parseInt(wagerAmount, 10);
+    if (isNaN(parsedAmount) || parsedAmount < 50) {
+      throw new HttpsError('invalid-argument', 'Wager amount must be at least 50 credits.');
+    }
+
+    try {
+      let newWagerId = '';
+      await squadDb.runTransaction(async (transaction) => {
+        // Read challenger squad stats
+        const challengerRef = squadDb.doc(`squads/${challengerSquadId}`);
+        const challengerDoc = await transaction.get(challengerRef);
+        
+        let currentCredits = 0;
+
+        if (!challengerDoc.exists) {
+          if (challengerSquadId === 'SQUAD-TEST') {
+            // Auto-create for local testing and deduct immediately
+            transaction.set(challengerRef, {
+              squadName: 'Test Squad',
+              totalCredits: 1000 - parsedAmount
+            });
+            currentCredits = 1000;
+          } else {
+            throw new HttpsError('not-found', 'Challenger squad not found.');
+          }
+        } else {
+          currentCredits = challengerDoc.data().totalCredits || 0;
+          if (currentCredits < parsedAmount) {
+            throw new HttpsError('failed-precondition', 'Insufficient squad credits for this wager.');
+          }
+          // Deduct credits (lock them)
+          transaction.update(challengerRef, {
+            totalCredits: FieldValue.increment(-parsedAmount)
+          });
+        }
+
+        // Create the wager document
+        const wagerRef = squadDb.collection('squadWagers').doc();
+        newWagerId = wagerRef.id;
+        transaction.set(wagerRef, {
+          challengerSquadId,
+          targetSquadId,
+          wagerAmount: parsedAmount,
+          winCondition: winCondition || 'Most Events Attended',
+          status: 'pending_acceptance',
+          createdAt: FieldValue.serverTimestamp(),
+          createdBy: request.auth.uid
+        });
+      });
+
+      return { success: true, message: 'Wager initiated and credits locked.', wagerId: newWagerId };
+    } catch (err) {
+      console.error('Initiate wager failed:', err);
+      throw new HttpsError('internal', 'Failed to initiate wager: ' + err.message);
+    }
+  }
+);
+
+exports.resolveSquadWager = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+    const { wagerId, winnerSquadId } = request.data || {};
+    if (!wagerId || !winnerSquadId) {
+      throw new HttpsError('invalid-argument', 'Missing wagerId or winnerSquadId.');
+    }
+
+    const wagerRef = squadDb.collection('squadWagers').doc(wagerId);
+
+    try {
+      await squadDb.runTransaction(async (transaction) => {
+        const wagerDoc = await transaction.get(wagerRef);
+        if (!wagerDoc.exists) {
+          throw new HttpsError('not-found', 'Wager not found.');
+        }
+
+        const wager = wagerDoc.data();
+        if (wager.status !== 'active') {
+          throw new HttpsError('failed-precondition', 'Wager is not active.');
+        }
+
+        if (winnerSquadId !== wager.challengerSquadId && winnerSquadId !== wager.targetSquadId) {
+          throw new HttpsError('invalid-argument', 'Winner must be one of the participating squads.');
+        }
+
+        const reward = wager.wagerAmount * 2; // Winner takes all
+
+        transaction.update(wagerRef, {
+          status: 'resolved',
+          winnerSquadId: winnerSquadId,
+          resolvedAt: FieldValue.serverTimestamp()
+        });
+
+        // Add to winner's credits
+        const winnerStatsRef = squadDb.doc(`squads/${winnerSquadId}`);
+        transaction.set(winnerStatsRef, {
+          totalCredits: FieldValue.increment(reward)
+        }, { merge: true });
+      });
+
+      return { success: true, message: 'Wager resolved successfully.' };
+    } catch (err) {
+      console.error('Transaction failed:', err);
+      throw new HttpsError('internal', 'Wager resolution failed: ' + err.message);
+    }
+  }
+);
+
+// 2. Seasonal Reset
+exports.seasonalReset = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const userEmail = request.auth?.token?.email || '';
+    if (userEmail !== 'djkrss1@gmail.com') {
+      throw new HttpsError('permission-denied', 'Only admins can trigger seasonal reset.');
+    }
+
+    const profilesRef = defaultDb.collection('passportProfiles');
+    const snapshot = await profilesRef.get();
+
+    const batch = defaultDb.batch();
+    let count = 0;
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const currentCredits = data.totalCredits || 0;
+      
+      if (currentCredits > 0) {
+        batch.update(doc.ref, {
+          legacyTokens: FieldValue.increment(currentCredits),
+          totalCredits: 0,
+          currentTier: 'BRONZE',
+          lastSeasonalResetAt: FieldValue.serverTimestamp()
+        });
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      await batch.commit();
+    }
+
+    return { success: true, usersReset: count };
+  }
+);
+
+// 3. Verify Physical Attendance
+exports.verifyPhysicalAttendance = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const uid = request.auth.uid;
+    const { qrPayload } = request.data || {};
+    
+    if (!qrPayload) {
+      throw new HttpsError('invalid-argument', 'Missing QR payload.');
+    }
+
+    // Basic cryptographic validation simulation
+    let payloadObj;
+    try {
+      // Decode base64 JSON payload
+      const decoded = Buffer.from(qrPayload, 'base64').toString('utf-8');
+      payloadObj = JSON.parse(decoded);
+    } catch (e) {
+      throw new HttpsError('invalid-argument', 'Invalid QR format.');
+    }
+
+    const { eventId, secret, credits, countryCode } = payloadObj;
+    
+    // Validate secret
+    if (secret !== 'soca_passport_secure_key_2026') {
+      throw new HttpsError('permission-denied', 'Cryptographic signature invalid.');
+    }
+
+    const earnedCredits = credits || 100;
+
+    // Award Digital Stamp and Credits
+    const profileRef = defaultDb.collection('passportProfiles').doc(uid);
+    const stampsRef = defaultDb.collection('passportStamps');
+
+    const newStamp = {
+      userId: uid,
+      eventId: eventId || 'unknown_event',
+      eventTitle: `Physical Check-in ${eventId || ''}`,
+      countryCode: countryCode || 'XX',
+      rarity: 'COMMON',
+      creditsEarned: earnedCredits,
+      stampedAt: FieldValue.serverTimestamp(),
+      isFavorite: false,
+      editionNumber: Math.floor(Math.random() * 1000) + 1
+    };
+
+    try {
+      await defaultDb.runTransaction(async (t) => {
+        const profileDoc = await t.get(profileRef);
+        
+        const newStampRef = stampsRef.doc();
+        t.set(newStampRef, newStamp);
+
+        if (profileDoc.exists) {
+          t.update(profileRef, {
+            totalCredits: FieldValue.increment(earnedCredits),
+            totalEvents: FieldValue.increment(1)
+          });
+        } else {
+          t.set(profileRef, {
+            userId: uid,
+            totalCredits: earnedCredits,
+            totalEvents: 1,
+            currentTier: 'BRONZE'
+          });
+        }
+      });
+
+      return { success: true, message: 'Attendance verified! Digital Stamp awarded.', credits: earnedCredits };
+    } catch (err) {
+      console.error('Error verifying attendance:', err);
+      throw new HttpsError('internal', 'Failed to award stamp.');
+    }
+  }
+);
+
+// ═══════════════════════════════════════
+// SQUAD VAULT (SOU SOU) CLOUD FUNCTIONS
+// ═══════════════════════════════════════
+
+const VAULT_CASHOUT_FEE = 0.019; // 1.9%
+const VAULT_MAX_SIZE = 20000;
+
+// Email transporter (reuse existing nodemailer setup)
+function getMailTransporter() {
+  const gmailUser = process.env.GMAIL_USER || 'cpteamgt@gmail.com';
+  const gmailPass = process.env.GMAIL_APP_PASSWORD || '';
+  if (!gmailPass) {
+    console.warn('GMAIL_APP_PASSWORD not set for vault emails');
+    return null;
+  }
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: gmailUser, pass: gmailPass }
+  });
+}
+
+// ── createVault ──
+exports.createVault = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+    const uid = request.auth.uid;
+    const email = request.auth.token?.email || '';
+    const displayName = request.auth.token?.name || email.split('@')[0];
+
+    const { name, targetDate, goalAmount, contributionAmount, contributionFrequency, inviteEmails } = request.data || {};
+
+    if (!name || typeof name !== 'string') throw new HttpsError('invalid-argument', 'Vault name required.');
+    if (!goalAmount || goalAmount < 100 || goalAmount > VAULT_MAX_SIZE) throw new HttpsError('invalid-argument', `Goal must be $100–$${VAULT_MAX_SIZE}.`);
+    if (!contributionAmount || contributionAmount < 25 || contributionAmount > 500) throw new HttpsError('invalid-argument', 'Contribution must be $25–$500.');
+    if (!['weekly', 'biweekly', 'monthly'].includes(contributionFrequency)) throw new HttpsError('invalid-argument', 'Invalid frequency.');
+
+    const inviteCode = generateShareCode();
+
+    // Create vault document
+    const vaultRef = squadDb.collection('vaults').doc();
+    const vaultData = {
+      name: name.trim(),
+      targetDate: targetDate || null,
+      goalAmount: Number(goalAmount),
+      totalSaved: 0,
+      status: 'active',
+      adminUserId: uid,
+      adminEmail: email,
+      contributionAmount: Number(contributionAmount),
+      contributionFrequency,
+      maxVaultSize: VAULT_MAX_SIZE,
+      memberCount: 1,
+      members: [uid],
+      inviteCode,
+      frozenReason: null,
+      totalPayouts: 0,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    await vaultRef.set(vaultData);
+
+    // Add admin as first member
+    await vaultRef.collection('members').doc(uid).set({
+      userId: uid,
+      email,
+      displayName,
+      status: 'active',
+      role: 'admin',
+      totalContributed: 0,
+      failedPaymentCount: 0,
+      invitedAt: FieldValue.serverTimestamp(),
+      joinedAt: FieldValue.serverTimestamp(),
+    });
+
+    // Send email invites if provided
+    const emails = Array.isArray(inviteEmails) ? inviteEmails.filter(e => e && e.includes('@')).slice(0, 10) : [];
+    if (emails.length > 0) {
+      const transporter = getMailTransporter();
+      if (transporter) {
+        const joinUrl = `https://carnival-planner.web.app?joinVault=${vaultRef.id}&code=${inviteCode}`;
+        for (const inviteEmail of emails) {
+          // Create pending member doc
+          const memberRef = vaultRef.collection('members').doc();
+          await memberRef.set({
+            userId: null,
+            email: inviteEmail,
+            displayName: inviteEmail.split('@')[0],
+            status: 'invited',
+            role: 'member',
+            totalContributed: 0,
+            failedPaymentCount: 0,
+            invitedAt: FieldValue.serverTimestamp(),
+            joinedAt: null,
+          });
+
+          try {
+            await transporter.sendMail({
+              from: '"Carnival Planner" <cpteamgt@gmail.com>',
+              to: inviteEmail,
+              subject: `You're invited to save for carnival — ${name}`,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+                  <h2 style="color:#7c3aed;">🏦 Squad Vault Invite</h2>
+                  <p>${displayName} invited you to join <strong>"${name}"</strong> — a savings vault for carnival.</p>
+                  <p>Save ${contributionFrequency} with your crew. No awkward Venmo texts. No missed costume deposits.</p>
+                  <div style="background:#f3e8ff;padding:16px;border-radius:12px;margin:16px 0;">
+                    <p style="margin:0;font-size:14px;"><strong>Contribution:</strong> $${contributionAmount} ${contributionFrequency}</p>
+                    <p style="margin:4px 0 0;font-size:14px;"><strong>Goal:</strong> $${goalAmount}</p>
+                  </div>
+                  <a href="${joinUrl}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Join the Vault</a>
+                  <p style="margin-top:20px;font-size:12px;color:#888;">Squad Vault is a savings club by Carnival-Planner.com. Not a bank. Not lending.</p>
+                </div>
+              `
+            });
+          } catch (emailErr) {
+            console.error(`Failed to send vault invite to ${inviteEmail}:`, emailErr.message);
+          }
+        }
+      }
+    }
+
+    return { success: true, vaultId: vaultRef.id, inviteCode };
+  }
+);
+
+// ── joinVault ──
+exports.joinVault = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+    const uid = request.auth.uid;
+    const email = request.auth.token?.email || '';
+    const displayName = request.auth.token?.name || email.split('@')[0];
+    const { vaultId, inviteCode } = request.data || {};
+
+    if (!vaultId) throw new HttpsError('invalid-argument', 'Vault ID required.');
+
+    const vaultRef = squadDb.collection('vaults').doc(vaultId);
+    const vaultDoc = await vaultRef.get();
+    if (!vaultDoc.exists) throw new HttpsError('not-found', 'Vault not found.');
+
+    const vault = vaultDoc.data();
+    if (vault.status !== 'active') throw new HttpsError('failed-precondition', 'Vault is not active.');
+    if (vault.members?.includes(uid)) return { success: true, message: 'Already a member.' };
+    if ((vault.memberCount || 0) >= 10) throw new HttpsError('failed-precondition', 'Vault is full (max 10).');
+
+    // Update vault
+    await vaultRef.update({
+      members: FieldValue.arrayUnion(uid),
+      memberCount: FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    // Check if there's a pending invite for this email
+    const pendingQuery = await vaultRef.collection('members').where('email', '==', email).where('status', '==', 'invited').limit(1).get();
+    if (!pendingQuery.empty) {
+      await pendingQuery.docs[0].ref.update({
+        userId: uid,
+        displayName,
+        status: 'active',
+        joinedAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      await vaultRef.collection('members').doc(uid).set({
+        userId: uid,
+        email,
+        displayName,
+        status: 'active',
+        role: 'member',
+        totalContributed: 0,
+        failedPaymentCount: 0,
+        invitedAt: FieldValue.serverTimestamp(),
+        joinedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    return { success: true, vaultName: vault.name };
+  }
+);
+
+// ── contributeToVault — Creates Stripe Checkout for one-time contribution ──
+exports.contributeToVault = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+    if (!stripe) throw new HttpsError('failed-precondition', 'Stripe not configured.');
+
+    const uid = request.auth.uid;
+    const email = request.auth.token?.email || '';
+    const { vaultId, amount } = request.data || {};
+
+    if (!vaultId) throw new HttpsError('invalid-argument', 'Vault ID required.');
+    if (!amount || amount < 1 || amount > 5000) throw new HttpsError('invalid-argument', 'Amount must be $1–$5000.');
+
+    const vaultRef = squadDb.collection('vaults').doc(vaultId);
+    const vaultDoc = await vaultRef.get();
+    if (!vaultDoc.exists) throw new HttpsError('not-found', 'Vault not found.');
+
+    const vault = vaultDoc.data();
+    if (vault.status !== 'active') throw new HttpsError('failed-precondition', 'Vault is not active.');
+    if (!vault.members?.includes(uid)) throw new HttpsError('permission-denied', 'Not a member.');
+
+    // Check vault cap
+    if ((vault.totalSaved || 0) + amount > vault.maxVaultSize) {
+      throw new HttpsError('failed-precondition', `Would exceed vault max ($${vault.maxVaultSize}).`);
+    }
+
+    // Create pending contribution
+    const contribRef = vaultRef.collection('contributions').doc();
+    await contribRef.set({
+      userId: uid,
+      userEmail: email,
+      amount: Number(amount),
+      status: 'pending',
+      type: 'manual',
+      stripeCheckoutSessionId: null,
+      failureReason: null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    const DEFAULT_ORIGIN = "https://carnival-planner.web.app";
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      customer_email: email || undefined,
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `Vault Contribution: ${vault.name}` },
+          unit_amount: Math.round(amount * 100),
+        },
+        quantity: 1,
+      }],
+      metadata: {
+        type: 'vault_contribution',
+        vaultId,
+        contributionId: contribRef.id,
+        firebaseUid: uid,
+      },
+      success_url: `${DEFAULT_ORIGIN}?vaultSuccess=${vaultId}`,
+      cancel_url: `${DEFAULT_ORIGIN}?vaultCancel=${vaultId}`,
+    }, stripeAccountId ? { stripeAccount: stripeAccountId } : undefined);
+
+    // Save session ID
+    await contribRef.update({ stripeCheckoutSessionId: session.id });
+
+    return { checkoutUrl: session.url, sessionId: session.id };
+  }
+);
+
+// ── requestVaultPayout — Admin triggers bank transfer ──
+exports.requestVaultPayout = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+    const uid = request.auth.uid;
+    const { vaultId, amount, type, description } = request.data || {};
+
+    if (!vaultId || !amount) throw new HttpsError('invalid-argument', 'Vault ID and amount required.');
+
+    const vaultRef = squadDb.collection('vaults').doc(vaultId);
+    const vaultDoc = await vaultRef.get();
+    if (!vaultDoc.exists) throw new HttpsError('not-found', 'Vault not found.');
+
+    const vault = vaultDoc.data();
+    if (vault.adminUserId !== uid) throw new HttpsError('permission-denied', 'Only vault admin can request payouts.');
+    if (vault.status !== 'active') throw new HttpsError('failed-precondition', 'Vault is not active.');
+    if (amount > (vault.totalSaved || 0)) throw new HttpsError('failed-precondition', 'Insufficient vault balance.');
+
+    const payoutType = type || 'bank_transfer';
+    const feeAmount = payoutType === 'bank_transfer' ? Math.round(amount * VAULT_CASHOUT_FEE * 100) / 100 : 0;
+
+    // Create payout record
+    await vaultRef.collection('payouts').doc().set({
+      amount: Number(amount),
+      type: payoutType,
+      description: description || 'Payout',
+      merchant: null,
+      status: 'pending',
+      feeAmount,
+      netAmount: amount - feeAmount,
+      initiatedBy: uid,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    // Update vault balance
+    await vaultRef.update({
+      totalSaved: FieldValue.increment(-amount),
+      totalPayouts: FieldValue.increment(amount),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, feeAmount, netAmount: amount - feeAmount };
+  }
+);
+
+// ── freezeVault ──
+exports.freezeVault = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+    const uid = request.auth.uid;
+    const { vaultId, reason } = request.data || {};
+
+    const vaultRef = squadDb.collection('vaults').doc(vaultId);
+    const vaultDoc = await vaultRef.get();
+    if (!vaultDoc.exists) throw new HttpsError('not-found', 'Vault not found.');
+
+    const vault = vaultDoc.data();
+    // Allow admin or super admin
+    const userEmail = request.auth.token?.email || '';
+    if (vault.adminUserId !== uid && userEmail !== 'djkrss1@gmail.com') {
+      throw new HttpsError('permission-denied', 'Only vault admin can freeze.');
+    }
+
+    await vaultRef.update({
+      status: 'frozen',
+      frozenReason: reason || 'Manual freeze',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  }
+);
+
+// ── closeVault ──
+exports.closeVault = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+    const uid = request.auth.uid;
+    const { vaultId } = request.data || {};
+
+    const vaultRef = squadDb.collection('vaults').doc(vaultId);
+    const vaultDoc = await vaultRef.get();
+    if (!vaultDoc.exists) throw new HttpsError('not-found', 'Vault not found.');
+
+    const vault = vaultDoc.data();
+    const userEmail = request.auth.token?.email || '';
+    if (vault.adminUserId !== uid && userEmail !== 'djkrss1@gmail.com') {
+      throw new HttpsError('permission-denied', 'Only vault admin can close.');
+    }
+
+    await vaultRef.update({
+      status: 'closed',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, message: 'Vault closed. Refunds will be processed in 3-5 business days.' };
+  }
+);
+
+// ── inviteToVault ──
+exports.inviteToVault = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+    const uid = request.auth.uid;
+    const { vaultId, emails } = request.data || {};
+
+    if (!vaultId || !Array.isArray(emails)) throw new HttpsError('invalid-argument', 'Vault ID and emails required.');
+
+    const vaultRef = squadDb.collection('vaults').doc(vaultId);
+    const vaultDoc = await vaultRef.get();
+    if (!vaultDoc.exists) throw new HttpsError('not-found', 'Vault not found.');
+
+    const vault = vaultDoc.data();
+    if (vault.adminUserId !== uid) throw new HttpsError('permission-denied', 'Only admin can invite.');
+
+    const transporter = getMailTransporter();
+    const displayName = request.auth.token?.name || request.auth.token?.email?.split('@')[0] || 'Someone';
+    const inviteCode = vault.inviteCode || '';
+    let sent = 0;
+
+    for (const email of emails.filter(e => e && e.includes('@')).slice(0, 10)) {
+      const memberRef = vaultRef.collection('members').doc();
+      await memberRef.set({
+        userId: null, email, displayName: email.split('@')[0],
+        status: 'invited', role: 'member', totalContributed: 0,
+        failedPaymentCount: 0, invitedAt: FieldValue.serverTimestamp(), joinedAt: null,
+      });
+
+      if (transporter) {
+        try {
+          const joinUrl = `https://carnival-planner.web.app?joinVault=${vaultId}&code=${inviteCode}`;
+          await transporter.sendMail({
+            from: '"Carnival Planner" <cpteamgt@gmail.com>',
+            to: email,
+            subject: `Join "${vault.name}" Squad Vault`,
+            html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;"><h2 style="color:#7c3aed;">🏦 You're Invited!</h2><p>${displayName} wants you to join <strong>"${vault.name}"</strong> — a carnival savings vault.</p><a href="${joinUrl}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Join the Vault</a><p style="font-size:12px;color:#888;margin-top:20px;">Not a bank. Savings club by Carnival-Planner.com.</p></div>`
+          });
+          sent++;
+        } catch (err) { console.error(`Invite email failed for ${email}:`, err.message); }
+      }
+    }
+
+    return { success: true, sent };
+  }
+);
+
+// ----- WhatsApp Curated Local Knowledge Bases -----
+const WHATSAPP_COUNTRY_CONFIGS = {
+  trinidad: {
+    name: "Trinidad",
+    fetes: "Trinidad Carnival has legendary fetes! Here are the top ones for your schedule:\n\n1. **Soca Brainwash** (Saturdays, absolute staple) 🍹\n2. **AM Bush** (Saturdays, dirty mas/paint & powder) 🎨\n3. **Phuket** (Friday, ultra-premium all-inclusive) 🍾\n4. **Soaka Street Festival** (Sunday, high-energy rhythm & iron) 🥁\n\n*Pro-tip: Buy tickets early as they sell out fast on committee sites!*",
+    food: "Trinidad's street food is world-famous. You must try:\n\n1. **Doubles:** Two baras (flat fried dough) filled with channa (chickpeas). Check out *Sauce Doubles* in Curepe or the Savannah! 🌽\n2. **Bake & Shark:** Crispy fried shark meat in a fried bake. Head to *Maracas Bay* for the original! 🦈\n3. **Corn Soup:** Thick, spicy split pea soup. Best enjoyed hot after a late-night fete near the Savannah. 🥣",
+    transport: "Getting around during Carnival:\n\n1. **Rideshare:** Use local rideshare apps like **TT RideShare** or **Travelr**.\n2. **Private Drivers:** For squad groups, pre-book a registered driver for late-night fete returns.\n3. **Red Band Maxi Taxis:** Cheap and routes run along the Eastern Main Road.",
+    costumes: "Tribe / Bliss / Lost Tribe costume collection takes place at the Queen's Park Savannah distribution center. Bring your distribution slip, ID, and original credit card."
+  },
+  jamaica: {
+    name: "Jamaica",
+    fetes: "Jamaica Carnival has incredible energy! Must-attend events are:\n\n1. **Sunrise Breakfast Party** (A major highlight) 🍳\n2. **Frenchmen** (Ultra-premium event) 🍾\n3. **A.M.B.U.S.H. Jamaica** (J'ouvert) 🎨\n4. **PM Fete** 🍹",
+    food: "Jamaica's culinary scene:\n\n1. **Jerk Chicken/Pork:** Spiced and smoked. Best from roadside jerk pan drums in Kingston! 🍗\n2. **Ackee & Saltfish:** Jamaica's national dish, savory and delicious, served with fried dumplings. 🥟\n3. **Devon House Ice Cream:** Grab a scoop of local flavors in Kingston. 🍦",
+    transport: "Kingston transport:\n\n1. **Registered Taxis:** Look for official red plate taxis.\n2. **Private Shuttles:** Pre-booking a private driver is recommended.",
+    costumes: "Xodus, GenXS, and Yard Mas collections happen at their respective mas camps/distribution sites in Kingston. Bring printed receipt, credit card, and valid ID."
+  },
+  stlucia: {
+    name: "St. Lucia",
+    fetes: "St. Lucia Carnival features breathtaking scenic fetes:\n\n1. **Remedy** (Famous beach fete/coolers allowed) 🏖️\n2. **Mess** (Paint, powder J'ouvert) 🎨\n3. **Indulgence** (Scenic breakfast fete) 🍳",
+    food: "St. Lucia eats:\n\n1. **Green Fig & Saltfish:** St. Lucia's national dish made with green bananas and salted codfish. 🍌\n2. **Bouillon:** A hearty local stew with meat and provisions. 🍲\n3. **Fresh Seafood:** Head to the Gros Islet Friday Night Street Party! 🐟",
+    transport: "Transit tips: Use taxis with green license plates (official tourist transport). Minibuses Castries to Gros Islet are affordable.",
+    costumes: "Just 4 Fun, Legends, and Xuvo Mas costume pickup is done at the band houses in Rodney Bay. Bring collection slip, ID, and payment card."
+  },
+  barbados: {
+    name: "Barbados",
+    fetes: "Crop Over (Barbados) highlights:\n\n1. **Cohobblopot** (Huge stage show with masquerade) 🎭\n2. **Foreday Morning Jam** (Late-night J'ouvert jump) 🎨\n3. **Lifted / Mimosa** (Premium all-inclusive breakfast fetes) 🍳",
+    food: "Barbados local eats:\n\n1. **Flying Fish & Cou-Cou:** The national dish—steamed flying fish in spicy gravy. 🐟\n2. **Fish Cakes:** Spicy, deep-fried saltfish batter. Get them hot from Oistins Fish Fry! 🧆\n3. **Macaroni Pie:** Bajan baked macaroni pie is cheesy and packed with flavor. 🥧",
+    transport: "Barbados transport: ZR Vans (Route 11 for South Coast) are fast/cheap. Z-Plate Taxis are official registered taxis.",
+    costumes: "Aura, Zulu, Baje International showrooms. Collections happen at showrooms around Bridgetown. Bring Passport, receipt, and payment verification."
+  },
+  tobago: {
+    name: "Tobago",
+    fetes: "Tobago Carnival road/beach events:\n\n1. **Wave & Rave Boat Party** (Thursday before parade) ⛵\n2. **Fog Angels J'ouvert** (Paint, mud & powder, Friday morning) 🎨\n3. **Beach to Beach Parade** (Scenic Scarborough to Pigeon Point road march) 🏖️\n4. **Pretty Mas Parade** (Sunday showpiece) 🎭",
+    food: "Tobago's food:\n\n1. **Curry Crab & Dumpling:** Signature dish of Tobago! Try Store Bay or Pigeon Point. 🦀\n2. **Benne Balls:** Sesame seeds (benne) and brown sugar crunchy balls. 🧆\n3. **Dirt Oven Bread:** Traditional baking in clay dirt ovens, incredibly soft. 🍞",
+    transport: "Transit: Hired taxis starting with H plate. Car rentals are recommended to explore Speyside.",
+    costumes: "Fog Angels collection takes place at Chill Out Bar, Bon Accord, Tobago. Bring registration slip, ID, and original credit card."
+  }
+};
+
+// ----- Webhook: whatsappWebhook (v2) -----
+exports.whatsappWebhook = onRequest(
+  async (req, res) => {
+    console.log("Incoming WhatsApp event:", JSON.stringify(req.body));
+
+    const { event, data } = req.body || {};
+    if (event !== "message" || !data) {
+      res.sendStatus(200);
+      return;
+    }
+
+    const senderNumber = data.from; // e.g. "18687726435@c.us"
+    const messageText = (data.body || "").trim();
+
+    if (!messageText) {
+      res.sendStatus(200);
+      return;
+    }
+
+    let activeCountry = "trinidad";
+    const lowerText = messageText.toLowerCase();
+
+    if (lowerText.includes("jamaica") || lowerText.includes("kingston")) activeCountry = "jamaica";
+    else if (lowerText.includes("st lucia") || lowerText.includes("lucia") || lowerText.includes("rodney bay")) activeCountry = "stlucia";
+    else if (lowerText.includes("barbados") || lowerText.includes("crop over") || lowerText.includes("kadooment")) activeCountry = "barbados";
+    else if (lowerText.includes("tobago") || lowerText.includes("fog angels")) activeCountry = "tobago";
+
+    const config = WHATSAPP_COUNTRY_CONFIGS[activeCountry];
+    let replyText = "";
+
+    if (lowerText.includes("fete") || lowerText.includes("party") || lowerText.includes("event") || lowerText.includes("schedule")) {
+      replyText = `🎉 *${config.name} Carnival Fetes*:\n\n${config.fetes}`;
+    } else if (lowerText.includes("food") || lowerText.includes("eat") || lowerText.includes("doubles") || lowerText.includes("jerk") || lowerText.includes("crab")) {
+      replyText = `🍽️ *${config.name} Carnival Food Spots*:\n\n${config.food}`;
+    } else if (lowerText.includes("transport") || lowerText.includes("taxi") || lowerText.includes("drive") || lowerText.includes("get around")) {
+      replyText = `🚗 *${config.name} Transport Guide*:\n\n${config.transport}`;
+    } else if (lowerText.includes("costume") || lowerText.includes("pickup") || lowerText.includes("collection") || lowerText.includes("mas camp")) {
+      replyText = `🎭 *${config.name} Costume Pickup Info*:\n\n${config.costumes}`;
+    } else {
+      replyText = `👋 Hello! I am your AI Carnival Concierge.\n\nAsk me about:\n- *Fetes* (e.g., "tell me about Jamaica fetes")\n- *Food* (e.g., "where to get doubles in Trinidad")\n- *Transport* (e.g., "tips for getting around Barbados")\n- *Costumes* (e.g., "where to pick up Fog Angels costumes in Tobago")`;
+    }
+
+    try {
+      const openwaUrl = req.query.api_url || process.env.OPENWA_API_URL || "http://localhost:8080";
+      const openwaKey = req.query.api_key || process.env.OPENWA_API_KEY || "secure_shared_secret";
+
+      const targetFetch = globalThis.fetch;
+      await targetFetch(`${openwaUrl}/sendText`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openwaKey}`
+        },
+        body: JSON.stringify({
+          to: senderNumber,
+          content: replyText
+        })
+      });
+      console.log(`Sent WhatsApp reply to ${senderNumber}`);
+    } catch (err) {
+      console.error("Error sending reply to WhatsApp via OpenWA:", err.message);
+    }
+
+    res.sendStatus(200);
   }
 );

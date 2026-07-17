@@ -27,103 +27,63 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
       </nav>
 
       {/* --- HERO SECTION --- */}
-      <section className="relative z-10 pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-8 animate-fadeIn">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </span>
-          <span className="text-xs font-medium text-gray-400 tracking-wide uppercase">V2.0 Now Live</span>
-        </div>
-
-        {/* Headline */}
-        <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-gray-500 leading-tight">
-          The Operating System<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
-            For Caribbean Carnivals.
-          </span>
-        </h1>
-
-        {/* Subtitle */}
-        <p className="text-xl text-gray-400 max-w-2xl mb-12 leading-relaxed">
-          The all-in-one workspace for your next carnival. Budget, schedule, squad sync, and ticketing — seamlessly integrated.
-        </p>
-
-        {/* CTA */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button
-            onClick={onGetStarted}
-            className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-10px_rgba(255,255,255,0.5)] transition-all transform hover:scale-105"
-          >
-            Start Planning For Free
-            <ArrowRight className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
-          <button
-            onClick={onTryDemo}
-            className="group px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 border border-white/10 text-white rounded-full font-bold text-lg backdrop-blur-sm transition-all transform hover:scale-105 shadow-[0_0_30px_-8px_rgba(168,85,247,0.4)]"
-          >
-            <Eye className="inline-block mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
-            Preview App — No Sign Up
-          </button>
-        </div>
-
-        {/* Hero Visual / Dashboard Preview */}
-        <div className="mt-20 relative w-full max-w-5xl aspect-[16/9] rounded-2xl border border-white/10 overflow-hidden shadow-2xl group">
-          {/* Carnival feathers background */}
-          <img
-            src="/carnival-feathers.png"
-            alt="Caribbean Carnival Feathers"
-            className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity duration-700 scale-110 group-hover:scale-100"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 to-pink-900/20" />
-
-          {/* Window Chrome */}
-          <div className="absolute top-4 left-4 right-4 h-4 flex gap-2 z-20">
-            <div className="w-3 h-3 rounded-full bg-red-500/70" />
-            <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
-            <div className="w-3 h-3 rounded-full bg-green-500/70" />
-          </div>
-
-          {/* Mock Dashboard Content */}
-          <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8 z-20">
-            {/* Dashboard Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-white font-black text-xl sm:text-2xl">Trinidad Carnival 2026</h3>
-                <p className="text-gray-400 text-xs sm:text-sm">Your squad is ready • 4 members synced</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
-                <span className="text-3xl font-black text-white">47</span>
-                <span className="text-xs text-gray-300 ml-1">days to go</span>
-              </div>
+      <section className="relative z-10 pt-32 pb-20 px-6 max-w-7xl mx-auto">
+        <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+          {/* Left Column: Copy */}
+          <div className="flex-1 text-center lg:text-left">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-8 animate-fadeIn">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              <span className="text-xs font-medium text-gray-400 tracking-wide uppercase">All Carnivals 2026</span>
             </div>
 
-            {/* Data Cards Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Budget</p>
-                <p className="text-white font-bold text-lg">$2,850</p>
-                <div className="w-full bg-white/10 h-1 rounded-full mt-1.5 overflow-hidden">
-                  <div className="bg-green-400 w-3/4 h-full rounded-full" />
-                </div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Events</p>
-                <p className="text-white font-bold text-lg">6 Fetes</p>
-                <p className="text-green-400 text-[10px] mt-1">2 booked ✓</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10 hidden sm:block">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Costume</p>
-                <p className="text-white font-bold text-lg">Tribe</p>
-                <p className="text-pink-400 text-[10px] mt-1">Deposit paid ✓</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10 hidden sm:block">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Passport</p>
-                <p className="text-white font-bold text-lg">🥇 Gold</p>
-                <p className="text-yellow-400 text-[10px] mt-1">12 stamps</p>
-              </div>
+            {/* Headline */}
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-6 leading-[0.95]">
+              <span className="bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-gray-400">Stop Planning Carnival</span>
+              <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
+                in 6 Group Chats.
+              </span>
+            </h1>
+
+            {/* Subtitle */}
+            <p className="text-lg md:text-xl text-gray-400 max-w-xl mb-10 leading-relaxed">
+              Squad Sync, Smart Budget, Fete Map. 1 app for All Carnivals 2026. <span className="text-purple-400 font-medium">Vibes Included.</span>
+            </p>
+
+            {/* CTA */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <button
+                onClick={onGetStarted}
+                className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-10px_rgba(255,255,255,0.5)] transition-all transform hover:scale-105"
+              >
+                Create Your Squad Free
+                <ArrowRight className="inline-block ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button
+                onClick={onTryDemo}
+                className="group px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 border border-white/10 text-white rounded-full font-bold text-lg backdrop-blur-sm transition-all transform hover:scale-105 shadow-[0_0_30px_-8px_rgba(168,85,247,0.4)]"
+              >
+                <Eye className="inline-block mr-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                Preview App — No Sign Up
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Phone Mockup */}
+          <div className="flex-1 flex justify-center lg:justify-end relative">
+            {/* Glow effect behind phone */}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/10 to-indigo-500/20 blur-[80px] rounded-full scale-75" />
+            
+            <div className="relative w-[300px] md:w-[340px] transform hover:scale-[1.02] transition-transform duration-500">
+              <img
+                src="/squad-mockup.png"
+                alt="Squad Sync showing 8 squad members and Jade is Road Ready notification"
+                className="w-full h-auto relative z-10 drop-shadow-[0_20px_60px_rgba(168,85,247,0.3)]"
+              />
             </div>
           </div>
         </div>
@@ -321,7 +281,7 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo }) {
           onClick={onGetStarted}
           className="px-10 py-5 bg-white text-black rounded-full font-bold text-xl hover:scale-105 transition-transform shadow-2xl"
         >
-          Get Started Now
+          Create Your Squad Free
         </button>
 
         <div className="mt-16 text-sm text-gray-500 flex flex-col md:flex-row items-center justify-center gap-8">

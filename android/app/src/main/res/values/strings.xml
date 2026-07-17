@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Carnival Planner</string>
+    <string name="title_activity_main">Carnival Planner</string>
+    <string name="package_name">com.carnivalplanner.app</string>
+    <string name="custom_url_scheme">com.carnivalplanner.app</string>
+    <!-- Google Sign-In: Web Client ID from Firebase Console → Authentication → Google provider -->
+    <!-- REPLACE the value below with YOUR actual Web Client ID ending in .apps.googleusercontent.com -->
+    <string name="server_client_id">1036340118282-df6tmik8ee9o4q16ib8hs14bqbjs3kp2.apps.googleusercontent.com</string>
+    <string name="default_web_client_id">1036340118282-df6tmik8ee9o4q16ib8hs14bqbjs3kp2.apps.googleusercontent.com</string>
+</resources>

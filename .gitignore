@@ -68,3 +68,27 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 dist/
+
+# Capacitor Android build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+
+# Local logs and debug files
+build_log.txt
+firebase_logs.txt
+firestore-debug.log
+
+# Scratch scripts and temp scraper files
+test_hj_parser.js
+test_scraper_exp.js
+tmp_hj.html
+tmp_hj_events.html
+
+# Local session configs and tools
+.claw/
+.node-persist/
+_IGNORE_session/
+open-wa-session.postman_collection.json
+open-wa-session.sw_col.json
+

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Megaphone, MessageSquare, Users, Settings,
-    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target, Box
+    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target, Box, PiggyBank
 } from 'lucide-react';
 import {
     collection, query, where, getDocs, doc, updateDoc,
@@ -42,6 +42,7 @@ export default function AdminDashboard({ user }) {
         { id: 'Sponsorships', label: 'Sponsorships', icon: Target },
         { id: 'Affiliates', label: 'Affiliates', icon: Users },
         { id: 'BandOS', label: 'BandOS Approvals', icon: Box },
+        { id: 'Vaults', label: 'Vaults', icon: PiggyBank },
         { id: 'Support', label: 'Support', icon: MessageSquare },
         { id: 'Settings', label: 'Admins', icon: Settings },
     ];
@@ -81,9 +82,119 @@ export default function AdminDashboard({ user }) {
                 {activeTab === 'Sponsorships' && <SponsorshipManager />}
                 {activeTab === 'Affiliates' && <AffiliateManager />}
                 {activeTab === 'BandOS' && <BandOSApprovals user={user} />}
+                {activeTab === 'Vaults' && <VaultAdmin />}
                 {activeTab === 'Support' && <SupportAdmin />}
                 {activeTab === 'Settings' && <AdminManagement user={user} isSuperAdmin={isSuperAdmin} />}
             </div>
+        </div>
+    );
+}
+
+// --- SUB-COMPONENT: Vault Admin ---
+function VaultAdmin() {
+    const [vaults, setVaults] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [processingId, setProcessingId] = useState(null);
+
+    useEffect(() => {
+        const unsub = onSnapshot(
+            query(collection(db, 'vaults'), orderBy('createdAt', 'desc')),
+            (snap) => {
+                setVaults(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setLoading(false);
+            },
+            (err) => { console.error('Vault admin query failed:', err); setLoading(false); }
+        );
+        return () => unsub();
+    }, []);
+
+    const handleFreeze = async (vaultId) => {
+        if (!confirm('Freeze this vault?')) return;
+        setProcessingId(vaultId);
+        try {
+            await updateDoc(doc(db, 'vaults', vaultId), { status: 'frozen', frozenReason: 'Admin freeze', updatedAt: Timestamp.now() });
+        } catch (err) { alert(err.message); }
+        finally { setProcessingId(null); }
+    };
+
+    const handleClose = async (vaultId) => {
+        if (!confirm('Close this vault permanently?')) return;
+        setProcessingId(vaultId);
+        try {
+            await updateDoc(doc(db, 'vaults', vaultId), { status: 'closed', updatedAt: Timestamp.now() });
+        } catch (err) { alert(err.message); }
+        finally { setProcessingId(null); }
+    };
+
+    const totalGMV = vaults.reduce((sum, v) => sum + (v.totalSaved || 0), 0);
+    const feeRevenue = vaults.reduce((sum, v) => sum + ((v.totalPayouts || 0) * 0.019), 0);
+
+    if (loading) return <div className="text-center p-8"><Loader2 className="animate-spin mx-auto text-pink-500" /></div>;
+
+    return (
+        <div className="space-y-6">
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                    { label: 'Total Vaults', value: vaults.length, color: 'purple' },
+                    { label: 'Active', value: vaults.filter(v => v.status === 'active').length, color: 'green' },
+                    { label: 'Total Saved (GMV)', value: `$${totalGMV.toLocaleString()}`, color: 'blue' },
+                    { label: 'Est. Fee Revenue', value: `$${feeRevenue.toFixed(2)}`, color: 'yellow' },
+                ].map(stat => (
+                    <div key={stat.label} className={`bg-${stat.color}-50 dark:bg-${stat.color}-900/20 border border-${stat.color}-200 dark:border-${stat.color}-800 rounded-xl p-4`}>
+                        <p className="text-xs text-gray-500 uppercase font-bold">{stat.label}</p>
+                        <p className={`text-2xl font-black text-${stat.color}-600 dark:text-${stat.color}-400`}>{stat.value}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Vault Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-500">
+                            <th className="py-3 pr-4">Name</th>
+                            <th className="py-3 pr-4">Admin</th>
+                            <th className="py-3 pr-4">Members</th>
+                            <th className="py-3 pr-4">Saved</th>
+                            <th className="py-3 pr-4">Goal</th>
+                            <th className="py-3 pr-4">Status</th>
+                            <th className="py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {vaults.map(v => (
+                            <tr key={v.id} className="border-b border-gray-100 dark:border-gray-800">
+                                <td className="py-3 pr-4 font-medium dark:text-white">{v.name}</td>
+                                <td className="py-3 pr-4 text-gray-500 text-xs">{v.adminEmail || 'N/A'}</td>
+                                <td className="py-3 pr-4 dark:text-gray-300">{v.memberCount || 0}</td>
+                                <td className="py-3 pr-4 text-green-600 dark:text-green-400 font-bold">${(v.totalSaved || 0).toLocaleString()}</td>
+                                <td className="py-3 pr-4 dark:text-gray-300">${(v.goalAmount || 0).toLocaleString()}</td>
+                                <td className="py-3 pr-4">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                        v.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                        v.status === 'frozen' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                        'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                                    }`}>{v.status}</span>
+                                </td>
+                                <td className="py-3">
+                                    {processingId === v.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                                        <div className="flex gap-1">
+                                            {v.status === 'active' && (
+                                                <button onClick={() => handleFreeze(v.id)} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400">Freeze</button>
+                                            )}
+                                            {v.status !== 'closed' && (
+                                                <button onClick={() => handleClose(v.id)} className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400">Close</button>
+                                            )}
+                                        </div>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {vaults.length === 0 && <p className="text-center text-gray-500 py-8">No vaults created yet.</p>}
         </div>
     );
 }

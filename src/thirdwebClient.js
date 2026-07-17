@@ -11,7 +11,7 @@ if (!clientId) {
 }
 
 export const thirdwebClient = createThirdwebClient({
-    clientId: clientId || '',
+    clientId: clientId || '11111111111111111111111111111111', // Dummy fallback to prevent app crash
 });
 
 export default thirdwebClient;
