@@ -304,7 +304,8 @@ def compile_fete_video(location_filter="barbados"):
 
 if __name__ == "__main__":
     loc = sys.argv[1] if len(sys.argv) > 1 else "barbados"
-    webhook_url = os.environ.get("N8N_WEBHOOK_URL") or (sys.argv[2] if len(sys.argv) > 2 else None)
+    default_n8n_url = "https://sgx.app.n8n.cloud/webhook/36e6bf2c-0f5a-41ca-b639-eb8f9bcc81ae"
+    webhook_url = os.environ.get("N8N_WEBHOOK_URL") or (sys.argv[2] if len(sys.argv) > 2 else default_n8n_url)
     
     mp4_path = compile_fete_video(loc)
     if webhook_url:

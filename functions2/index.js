@@ -3806,11 +3806,7 @@ exports.scheduledFeteVideoPublish = onSchedule(
   },
   async (event) => {
     console.log("Auto-Shorts: Generating weekly fete video payload...");
-    const webhookUrl = process.env.N8N_WEBHOOK_URL;
-    if (!webhookUrl) {
-      console.log("Auto-Shorts: No N8N_WEBHOOK_URL environment variable set. Skipping auto-publish.");
-      return;
-    }
+    const webhookUrl = process.env.N8N_WEBHOOK_URL || "https://sgx.app.n8n.cloud/webhook/36e6bf2c-0f5a-41ca-b639-eb8f9bcc81ae";
 
     try {
       const snap = await squadDb.collection('carnivalEvents').get();
