@@ -3755,6 +3755,47 @@ Response:`;
   }
 );
 
+// HTTP Endpoint: Public Events Export for fete video compiler
+exports.publicEventsExport = onRequest(
+  { region: "us-central1", cors: true, invoker: "public" },
+  async (req, res) => {
+    const key = req.query.key;
+    const EXPORT_SECRET = "CCP-Video-Export-Token-2026-Secure";
+    if (key !== EXPORT_SECRET) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+
+    try {
+      const snap = await squadDb.collection('carnivalEvents').get();
+      const allEvents = [];
+      
+      snap.forEach(doc => {
+        const data = doc.data();
+        const events = data.events || [];
+        events.forEach(evt => {
+          allEvents.push({
+            id: evt.id,
+            title: evt.title,
+            date: evt.date || evt.date_raw || 'TBD',
+            venue: evt.venue || 'TBD',
+            price: evt.price || 'TBD',
+            url: evt.url || '#',
+            source: evt.source || 'CCP',
+            image: evt.image || null,
+            location: data.carnivalId || 'Caribbean'
+          });
+        });
+      });
+
+      res.status(200).json(allEvents);
+    } catch (err) {
+      console.error("Failed to export events:", err);
+      res.status(500).send(err.message);
+    }
+  }
+);
+
 // Callable: Fetch vibe scores for a carnival (fallback if real-time listener fails)
 exports.getVibeScores = onCall(
   { region: "us-central1", cors: true, invoker: "public" },
