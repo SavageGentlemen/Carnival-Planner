@@ -3796,6 +3796,61 @@ exports.publicEventsExport = onRequest(
   }
 );
 
+// Scheduled: Weekly Auto-Publish Top Fetes Short payload to n8n (Every Friday at 9 AM)
+exports.scheduledFeteVideoPublish = onSchedule(
+  {
+    schedule: "0 9 * * 5", // Every Friday at 9:00 AM AST
+    timeZone: "America/Port_of_Spain",
+    region: "us-central1",
+    timeoutSeconds: 300,
+  },
+  async (event) => {
+    console.log("Auto-Shorts: Generating weekly fete video payload...");
+    const webhookUrl = process.env.N8N_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.log("Auto-Shorts: No N8N_WEBHOOK_URL environment variable set. Skipping auto-publish.");
+      return;
+    }
+
+    try {
+      const snap = await squadDb.collection('carnivalEvents').get();
+      const carnivals = ["barbados", "trinidad", "jamaica"];
+
+      for (const carnId of carnivals) {
+        const doc = snap.docs.find(d => d.id === carnId);
+        if (!doc) continue;
+        const events = doc.data().events || [];
+        if (events.length === 0) continue;
+
+        const topEvents = events.slice(0, 5).map(e => ({
+          title: e.title,
+          date: e.date || e.date_raw || 'TBD',
+          venue: e.venue || 'TBD',
+          price: e.price || 'TBD'
+        }));
+
+        const payload = {
+          location: carnId,
+          title: `Top 5 Fetes This Weekend in ${carnId.toUpperCase()}! 🌴 #Shorts #Carnival`,
+          description: `Discover upcoming fetes and book travel on CaribPulse AI at https://carnival-planner.web.app! Island: ${carnId}`,
+          tags: `carnival,fetes,${carnId},caribbean,socamusic,party`,
+          topEvents: topEvents,
+          timestamp: new Date().toISOString()
+        };
+
+        const res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        console.log(`Auto-Shorts: Pushed ${carnId} payload to n8n (Status: ${res.status})`);
+      }
+    } catch (err) {
+      console.error("Auto-Shorts: Scheduled publish failed:", err);
+    }
+  }
+);
+
 // Callable: Fetch vibe scores for a carnival (fallback if real-time listener fails)
 exports.getVibeScores = onCall(
   { region: "us-central1", cors: true, invoker: "public" },
