@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Curated Local Knowledge Bases for each country/carnival
 const COUNTRY_CONFIGS = {
@@ -201,7 +202,7 @@ export default function CarnivalConcierge({ user, isPremium, activeCarnivalId, s
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [aiStatus, setAiStatus] = useState('Checking...'); // 'Local 7B', 'Local 1.5B', 'Offline'
+  const [aiStatus, setAiStatus] = useState('Cloud AI'); // 'Cloud AI', 'Offline'
   
   const chatEndRef = useRef(null);
 
@@ -212,34 +213,9 @@ export default function CarnivalConcierge({ user, isPremium, activeCarnivalId, s
     }
   }, [messages, isTyping]);
 
-  // Check the status of the local AI models
+  // Status is set to Cloud AI by default, verify connectivity
   useEffect(() => {
-    const checkAIStatus = async () => {
-      try {
-        // Try 7B model port first
-        const res4001 = await fetch('http://localhost:4001/v1/models').catch(() => null);
-        if (res4001 && res4001.ok) {
-          setAiStatus('Local 7B');
-          return;
-        }
-
-        // Try 1.5B model port second
-        const res4000 = await fetch('http://localhost:4000/v1/models').catch(() => null);
-        if (res4000 && res4000.ok) {
-          setAiStatus('Local 1.5B');
-          return;
-        }
-
-        setAiStatus('Offline');
-      } catch (err) {
-        setAiStatus('Offline');
-      }
-    };
-
-    checkAIStatus();
-    // Re-check every 30 seconds
-    const interval = setInterval(checkAIStatus, 30000);
-    return () => clearInterval(interval);
+    setAiStatus('Cloud AI');
   }, []);
 
   // Reset message history when active country changes
@@ -256,59 +232,21 @@ export default function CarnivalConcierge({ user, isPremium, activeCarnivalId, s
     ]);
   }, [activeCarnivalId]);
 
-  // Main handler to query local AI endpoints
+  // Main handler to query Google Gemini Cloud Function
   const fetchAIResponse = async (userMessage, history) => {
-    const ports = [4001, 4000];
-    
-    // Map existing history to OpenAI message format
-    const formattedHistory = history.map(msg => ({
-      role: msg.senderId === 'user' ? 'user' : 'assistant',
-      content: msg.text
-    }));
-
-    for (const port of ports) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-
-        const response = await fetch(`http://localhost:${port}/v1/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer dummy'
-          },
-          body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022',
-            messages: [
-              { role: 'system', content: getSystemPrompt(countryId, scrapedEvents) },
-              ...formattedHistory,
-              { role: 'user', content: userMessage }
-            ],
-            temperature: 0.7,
-            max_tokens: 300
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.choices?.[0]?.message?.content) {
-            return data.choices[0].message.content;
-          }
-        }
-      } catch (err) {
-        console.warn(`Local AI query failed on port ${port}, trying next...`, err);
+    try {
+      const functions = getFunctions();
+      const conciergeFn = httpsCallable(functions, 'feteConcierge');
+      const res = await conciergeFn({ query: userMessage });
+      
+      if (res?.data?.success && res?.data?.answer) {
+        return res.data.answer;
       }
+      throw new Error("Invalid response from cloud concierge");
+    } catch (err) {
+      console.warn("AI Cloud Function query failed, falling back to mock response...", err);
+      return getMockResponse(userMessage, countryId, scrapedEvents);
     }
-
-    // All local AI calls failed, fallback to mock response
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve(getMockResponse(userMessage, countryId, scrapedEvents));
-      }, 1000);
-    });
   };
 
   const handleSendMessage = async (textToSend) => {

@@ -1001,7 +1001,8 @@ async function runScraper(db) {
         ["https://kwiktix.net", "kwiktix.net", "/events/"],
         ["https://caribbeanticketshop.com", "caribbeanticketshop.com", "/events/"],
         ["https://myfetetickets.com", "myfetetickets.com", "/events/"],
-        ["https://www.eventbrite.com", "eventbrite.com", "/e/"]
+        ["https://www.eventbrite.com", "eventbrite.com", "/e/"],
+        ["https://www.caribtix.com", "caribtix.com", "/event/"]
     ];
 
     for (const [baseUrl, name, path] of heuristicPlatforms) {

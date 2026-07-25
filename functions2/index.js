@@ -3670,6 +3670,91 @@ exports.runVibeEngine = onCall(
   }
 );
 
+// Callable Cloud Function: AI Fete & Travel Concierge
+exports.feteConcierge = onCall(
+  {
+    region: "us-central1",
+    cors: true,
+    invoker: "public",
+    secrets: ["GEMINI_API_KEY"],
+  },
+  async (request) => {
+    const { query } = request.data || {};
+    if (!query || typeof query !== 'string') {
+      throw new HttpsError('invalid-argument', 'A query string is required.');
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      throw new HttpsError('failed-precondition', 'Gemini API key is not configured.');
+    }
+
+    try {
+      // 1. Fetch all scraped fete documents from Firestore
+      const snap = await squadDb.collection('carnivalEvents').get();
+      const allEvents = [];
+      
+      snap.forEach(doc => {
+        const data = doc.data();
+        const events = data.events || [];
+        events.forEach(evt => {
+          allEvents.push({
+            id: evt.id,
+            title: evt.title,
+            date: evt.date || 'TBD',
+            venue: evt.venue || 'TBD',
+            url: evt.url || '#',
+            price: evt.price || 'TBD',
+            source: evt.source || 'CCP',
+            location: data.carnivalId || 'Caribbean'
+          });
+        });
+      });
+
+      // 2. Select up to 40 events to fit context
+      const slicedEvents = allEvents.slice(0, 40);
+
+      // 3. Format the event corpus
+      const eventCorpus = slicedEvents.map(evt => {
+        return `- Title: "${evt.title}" | Location/Carnival: ${evt.location} | Date: ${evt.date} | Venue: ${evt.venue} | Tickets: ${evt.price} | Link: ${evt.url}`;
+      }).join('\n');
+
+      // 4. Initialize Gemini model
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(geminiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+      // 5. Build prompt
+      const prompt = `You are the CaribPulse AI Fete & Travel Concierge, a high-energy, helpful, and legendary Caribbean culture guide. Your job is to help partygoers find upcoming fetes, concerts, and travel accommodation tips based on the event directory database below.
+
+Event Directory Database:
+${eventCorpus || "No upcoming fetes found in directory currently."}
+
+User Question: "${query}"
+
+Guidelines:
+1. Tone: Enthusiastic, welcoming, and high-energy (use appropriate emojis and light Caribbean/Carnival slang like "vibe", "fete", "bacchanal", "pump", but keep it highly readable).
+2. Direct Links: If you mention an event that has a link in the database, you MUST render it as a clickable Markdown link using its exact URL. Example: [Buy Tickets here](URL).
+3. Travel/Hotels: If the user is asking about a location or fete, naturally recommend they check hotel listings. Insert a link to Booking.com search using their location. Example format: [Book Hotels in Location here](https://www.booking.com/searchresults.html?ss=LocationName&aid=caribpulse).
+4. Accuracy: Only recommend events that are listed in the database. If no direct match exists, suggest similar events or explain you don't see it in the active feed, but suggest searching for other locations.
+5. Formatting: Use bullet points and paragraphs. Keep responses concise and scannable.
+
+Response:`;
+
+      const result = await model.generateContent(prompt);
+      const answer = result.response.text();
+
+      return {
+        success: true,
+        answer
+      };
+    } catch (err) {
+      console.error("Fete Concierge AI error:", err);
+      throw new HttpsError('internal', `Concierge failed: ${err.message}`);
+    }
+  }
+);
+
 // Callable: Fetch vibe scores for a carnival (fallback if real-time listener fails)
 exports.getVibeScores = onCall(
   { region: "us-central1", cors: true, invoker: "public" },

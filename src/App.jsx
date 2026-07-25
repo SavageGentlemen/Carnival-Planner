@@ -2916,10 +2916,8 @@ export default function App() {
         </React.Suspense>
       )}
 
-      {/* Carnival Concierge Chatbot Widget */}
-      {user && (
-        <CarnivalConcierge user={user} isPremium={isPremium} activeCarnivalId={activeCarnivalId} scrapedEvents={scrapedEvents} />
-      )}
+      {/* Carnival Concierge Chatbot Widget (Accessible to both guests and signed-in users) */}
+      <CarnivalConcierge user={user} isPremium={isPremium} activeCarnivalId={activeCarnivalId} scrapedEvents={scrapedEvents} />
 
       {/* PREVIEW MODE: Sticky Bottom Sign-Up Banner */}
       {isDemoMode && (
