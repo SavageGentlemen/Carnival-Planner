@@ -98,6 +98,37 @@ def download_audio_track(url, dest_path):
         print(f"Failed to download background music: {e}")
     return False
 
+def publish_to_n8n(video_path, location_filter, webhook_url):
+    if not webhook_url:
+        print("[*] No N8N_WEBHOOK_URL specified. Skipping n8n auto-upload.")
+        return False
+        
+    print(f"[*] Posting compiled Short to n8n Webhook: {webhook_url}...")
+    try:
+        title = f"Top Fetes This Weekend in {location_filter.upper()}! 🌴 #Shorts #Carnival #CaribPulse"
+        description = f"Discover upcoming fetes and book travel on CaribPulse AI at https://carnival-planner.web.app! Island: {location_filter.title()}"
+        tags = f"carnival,fetes,{location_filter},caribbean,socamusic,party"
+        
+        with open(video_path, "rb") as f:
+            files = {"video": (os.path.basename(video_path), f, "video/mp4")}
+            data = {
+                "title": title,
+                "description": description,
+                "tags": tags,
+                "location": location_filter,
+                "platform": "youtube_shorts"
+            }
+            res = requests.post(webhook_url, files=files, data=data, timeout=120)
+            
+        if res.status_code in [200, 201, 202]:
+            print(f"[SUCCESS] Uploaded to n8n Webhook successfully! Response: {res.text}")
+            return True
+        else:
+            print(f"[!] n8n Webhook returned status {res.status_code}: {res.text}")
+    except Exception as e:
+        print(f"[!] Failed to post to n8n Webhook: {e}")
+    return False
+
 # ==========================================
 # COMPILER PIPELINE
 # ==========================================
@@ -269,7 +300,12 @@ def compile_fete_video(location_filter="barbados"):
     print("=" * 60)
     print(f"[SUCCESS] Hype Short compiled successfully: {output_path}")
     print("=" * 60)
+    return output_path
 
 if __name__ == "__main__":
     loc = sys.argv[1] if len(sys.argv) > 1 else "barbados"
-    compile_fete_video(loc)
+    webhook_url = os.environ.get("N8N_WEBHOOK_URL") or (sys.argv[2] if len(sys.argv) > 2 else None)
+    
+    mp4_path = compile_fete_video(loc)
+    if webhook_url:
+        publish_to_n8n(mp4_path, loc, webhook_url)
