@@ -1,0 +1,43 @@
+[
+  {
+    "id": "fete_001",
+    "type": "FETE_DROP",
+    "title": "AMBush Trinidad 2027",
+    "subtitle": "J'Ouvert Morning Experience",
+    "carnival": "Trinidad Carnival 2027",
+    "event_date": "Feb 06, 2027 • 3:00 AM",
+    "price": "$125 USD",
+    "tier": "Tier 1 Early Bird",
+    "ticket_url": "https://caesar-army.com",
+    "details": "Tickets dropping live now! Extremely limited tier 1 allocation.",
+    "status": "pending"
+  },
+  {
+    "id": "fete_002",
+    "type": "FETE_DROP",
+    "title": "Tribe Ignite 2027",
+    "subtitle": "The Ultimate Thursday Fete",
+    "carnival": "Trinidad Carnival 2027",
+    "event_date": "Feb 04, 2027 • 9:00 PM",
+    "price": "$85 USD",
+    "tier": "General Access",
+    "ticket_url": "https://islandetickets.com",
+    "details": "Official ticket sales open online.",
+    "status": "pending"
+  },
+  {
+    "id": "flight_001",
+    "type": "FLIGHT_ALERT",
+    "title": "NYC (JFK) ➔ Port of Spain (POS)",
+    "subtitle": "Non-stop Flights Price Drop",
+    "carnival": "Trinidad Carnival 2027",
+    "route": "JFK ✈ POS",
+    "price": "$389 USD",
+    "original_price": "$650 USD",
+    "savings": "Save $261 (40% OFF)",
+    "airline": "Caribbean Airlines / JetBlue",
+    "travel_dates": "Feb 02 - Feb 10, 2027",
+    "details": "Roundtrip fares dropped below $400 USD. Seats booking fast!",
+    "status": "pending"
+  }
+]

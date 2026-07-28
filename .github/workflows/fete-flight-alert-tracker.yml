@@ -1,0 +1,41 @@
+name: Fete Drop & Flight Alert Tracker (IG Engine)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Runs every 30 minutes
+  workflow_dispatch:
+
+jobs:
+  track-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ig_engine/requirements.txt
+
+      - name: Run Alert Tracker & Publisher
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GOOGLE_SHEET_CSV_URL: ${{ secrets.GOOGLE_SHEET_CSV_URL }}
+          DRY_RUN: ${{ secrets.DRY_RUN || 'true' }}
+        run: |
+          python ig_engine/tracker.py
+
+      - name: Upload Generated Social Graphics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ig-social-graphics
+          path: ig_engine/output/*.png
+          retention-days: 7
