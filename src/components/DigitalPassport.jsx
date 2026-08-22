@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
-import { BookOpen, Star, Loader2 } from 'lucide-react';
+import { BookOpen, Star, Loader2, Sparkles } from 'lucide-react';
+import { HolographicCard } from './threeui';
 
 const RARITY_COLORS = {
-    COMMON: 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700',
-    RARE: 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/30',
-    EPIC: 'border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-900/30',
-    LEGENDARY: 'border-yellow-400 dark:border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
+    COMMON: 'border-gray-500/40 bg-slate-800/60 text-gray-300',
+    RARE: 'border-cyan-400/60 bg-cyan-950/40 text-cyan-300',
+    EPIC: 'border-pink-400/60 bg-pink-950/40 text-pink-300',
+    LEGENDARY: 'border-yellow-400/70 bg-amber-950/40 text-yellow-300'
 };
 
 const getCountryEmoji = (code) => {
@@ -67,32 +68,40 @@ export default function DigitalPassport({ user }) {
     }
 
     return (
-        <div className="p-4 max-w-3xl mx-auto space-y-6">
-            <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-6 text-white shadow-xl">
-                <h2 className="text-2xl font-black mb-2 flex items-center gap-2">
-                    <BookOpen className="w-6 h-6" />
-                    Digital Passport
-                </h2>
-                <p className="text-pink-100 text-sm">
-                    Your collection of earned stamps from carnival events around the world!
-                </p>
+        <div className="p-4 max-w-4xl mx-auto space-y-6 animate-fadeIn">
+            <div className="bg-gradient-to-r from-teal-500 via-cyan-500 to-pink-500 rounded-3xl p-6 md:p-8 text-white shadow-[0_0_40px_rgba(6,182,212,0.3)] relative overflow-hidden border border-white/20">
+                <div className="relative z-10">
+                    <span className="px-3 py-1 bg-black/30 border border-white/20 rounded-full text-[10px] font-extrabold uppercase tracking-widest inline-flex items-center gap-1.5 mb-3">
+                        <Sparkles className="w-3 h-3 text-yellow-300" /> Web3 & Social Passport
+                    </span>
+                    <h2 className="text-2xl md:text-3xl font-black mb-2 flex items-center gap-2 font-heading tracking-wide">
+                        <BookOpen className="w-7 h-7" />
+                        Digital Carnival Passport
+                    </h2>
+                    <p className="text-cyan-100 text-sm max-w-xl font-medium">
+                        Your interactive holographic stamp collection earned at fetes, j'ouverts, and road marches worldwide!
+                    </p>
+                </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-md border border-gray-100 dark:border-gray-700">
+            <div className="bg-slate-900/90 border border-white/10 rounded-3xl p-6 shadow-xl backdrop-blur-xl">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <Star className="w-5 h-5 text-yellow-500" />
-                        Stamp Collection ({stamps.length})
+                    <h3 className="text-lg font-black text-white flex items-center gap-2 font-heading">
+                        <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                        Collected Stamps ({stamps.length})
                     </h3>
+                    <span className="text-xs text-cyan-300 font-bold bg-cyan-950/60 px-3 py-1 rounded-full border border-cyan-400/30">
+                        Holographic Badges
+                    </span>
                 </div>
 
                 {stamps.length === 0 ? (
                     <div className="text-center py-12">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                            <BookOpen className="w-8 h-8 text-gray-400" />
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800 border border-white/10 flex items-center justify-center">
+                            <BookOpen className="w-8 h-8 text-slate-500" />
                         </div>
-                        <p className="text-gray-500 dark:text-gray-400 font-medium">Your passport is empty!</p>
-                        <p className="text-sm text-gray-400">Head over to the Bounty Board to start collecting stamps.</p>
+                        <p className="text-white font-bold">Your passport is empty!</p>
+                        <p className="text-sm text-slate-400 mt-1">Complete quests in the Bounty Board to unlock holographic stamps.</p>
                     </div>
                 ) : (
                     <motion.div 
@@ -100,35 +109,29 @@ export default function DigitalPassport({ user }) {
                         animate="visible"
                         variants={{
                             hidden: { opacity: 0 },
-                            visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+                            visible: { opacity: 1, transition: { staggerChildren: 0.08 } }
                         }}
-                        className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4"
+                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
                     >
                         {stamps.map((stamp) => (
-                            <motion.div
-                                key={stamp.id}
-                                variants={{
-                                    hidden: { opacity: 0, scale: 0.8, y: 20 },
-                                    visible: { opacity: 1, scale: 1, y: 0 }
-                                }}
-                                whileHover={{ scale: 1.05, rotate: [-1, 1, -1, 0] }}
-                                className={`aspect-square rounded-2xl border-2 ${RARITY_COLORS[stamp.rarity]} flex flex-col items-center justify-center p-2 text-center shadow-sm cursor-pointer`}
+                            <HolographicCard 
+                                key={stamp.id} 
+                                tier={stamp.rarity}
+                                maxTilt={18}
+                                scaleOnHover={1.06}
                             >
-                                <span className="text-3xl sm:text-4xl mb-1 filter drop-shadow-sm">
-                                    {getCountryEmoji(stamp.countryCode)}
-                                </span>
-                                <p className="text-[10px] sm:text-xs font-bold text-gray-800 dark:text-gray-200 truncate w-full">
-                                    {stamp.eventTitle}
-                                </p>
-                                <p className={`text-[8px] sm:text-[9px] uppercase font-black tracking-wider mt-1
-                                    ${stamp.rarity === 'LEGENDARY' ? 'text-yellow-600 dark:text-yellow-400' : 
-                                      stamp.rarity === 'EPIC' ? 'text-purple-600 dark:text-purple-400' : 
-                                      stamp.rarity === 'RARE' ? 'text-blue-600 dark:text-blue-400' : 
-                                      'text-gray-500'}
-                                `}>
-                                    {stamp.rarity}
-                                </p>
-                            </motion.div>
+                                <div className={`aspect-square rounded-2xl p-3 flex flex-col items-center justify-center text-center backdrop-blur-md ${RARITY_COLORS[stamp.rarity] || RARITY_COLORS.COMMON}`}>
+                                    <span className="text-3xl sm:text-4xl mb-1 filter drop-shadow-md">
+                                        {getCountryEmoji(stamp.countryCode)}
+                                    </span>
+                                    <p className="text-xs font-black text-white truncate w-full">
+                                        {stamp.eventTitle}
+                                    </p>
+                                    <p className="text-[9px] uppercase font-extrabold tracking-wider mt-1 opacity-90">
+                                        {stamp.rarity}
+                                    </p>
+                                </div>
+                            </HolographicCard>
                         ))}
                     </motion.div>
                 )}

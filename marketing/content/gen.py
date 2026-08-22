@@ -1,0 +1,124 @@
+import json
+
+def make_schema(title, desc, url, faq):
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Article",
+                "headline": title,
+                "description": desc,
+                "url": url,
+                "author": {
+                    "@type": "Organization",
+                    "name": "Carnival Planner"
+                },
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Carnival Planner",
+                    "url": "https://carnival-planner.com"
+                }
+            },
+            {
+                "@type": "FAQPage",
+                "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in faq.items()]
+            }
+        ]
+    }
+
+articles = [
+    {
+        "id": "top-10-carnival-games-backyard-parties",
+        "slug": "top-10-carnival-games-backyard-parties",
+        "title": "Top 10 Carnival Games for Backyard Parties",
+        "island": "party planning",
+        "category": "party planning",
+        "metaDescription": "Transform your backyard into a funfest! Discover the top 10 carnival games for backyard parties, complete with setup tips, prize ideas, and budget-friendly options.",
+        "publishDate": "2026-08-01",
+        "author": "Carnival Planner Team",
+        "readTime": "7 min read",
+        "heroImage": "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
+        "content": '<h1>Top 10 Carnival Games for Backyard Parties</h1><p>Bringing the magic of the carnival to your backyard is easier than you think! Whether you\'re hosting a birthday, a summer barbecue, or just a weekend get-together, having the right games transforms any ordinary gathering into an unforgettable experience.</p><h2>1. Ring Toss</h2><p>A classic for a reason! The ring toss is simple to set up and fun for all ages. You can buy a <a href="https://www.amazon.com/s?k=ring+toss+game+outdoor&tag=vivalmap-20" rel="nofollow sponsored">ready-made ring toss set</a> on Amazon, or make your own with glass bottles and plastic rings. Pro tip: weight the bottles with sand so they don\'t topple over in the wind.</p><h2>2. Bean Bag Toss (Cornhole)</h2><p>Cornhole is a staple of outdoor events. It\'s competitive yet accessible. Enhance the carnival vibe by painting the boards with bright, festive colors. You can find <a href="https://www.amazon.com/s?k=cornhole+boards+outdoor&tag=vivalmap-20" rel="nofollow sponsored">quality cornhole sets</a> that come pre-decorated in carnival themes.</p><h2>3. Duck Pond Match</h2><p>Perfect for younger kids! Fill a small kiddie pool with water and floating rubber ducks. Mark the bottom of each duck with different colors corresponding to <a href="https://www.amazon.com/s?k=carnival+prizes+bulk&tag=vivalmap-20" rel="nofollow sponsored">prize tiers</a>. Kids love the suspense of flipping their duck to see what they\'ve won.</p><h2>4. Balloon Dart Pop</h2><p>Pin inflated balloons to a large corkboard and let participants throw darts to pop them. For an extra surprise, slip small prize tickets inside the balloons before inflating. Always supervise this game closely.</p><h2>5. Can Smash (Knock \'Em Down)</h2><p>Stack empty tin cans in a pyramid and use bean bags to knock them down. It\'s loud, satisfying, and easy to DIY. Spray paint the cans in bright carnival colors. Use our <a href="https://carnival-planner.com">Carnival Planner app</a> to track scores across all your game stations.</p><h2>6. Fishing Game</h2><p>Create a "fishing pond" using a large cardboard box decorated as water. Attach small prizes to clothespins behind the box, and give kids a toy fishing rod with a magnet. A volunteer behind the box clips on prizes as the child "reels in" their catch.</p><h2>7. Hula Hoop Contest</h2><p>Simple, active, and hilarious to watch! Get a set of <a href="https://www.amazon.com/s?k=hula+hoops+kids+adults&tag=vivalmap-20" rel="nofollow sponsored">colorful hula hoops</a> and host a "last one spinning" contest. Create different categories for kids vs. adults.</p><h2>8. Face Painting Station</h2><p>An absolute must for any carnival party. Invest in a quality <a href="https://www.amazon.com/s?k=face+paint+kit+kids&tag=vivalmap-20" rel="nofollow sponsored">face paint kit</a> and print out simple design templates. Even amateur painters can create impressive designs with stencils.</p><h2>9. Sack Race</h2><p>Old-school and absolutely timeless. All you need is burlap sacks or large pillowcases. Mark out a race course in your yard with cones. Run heats for different age groups and have a grand finale with the winners.</p><h2>10. Prize Wheel (Spin to Win)</h2><p>A spinning prize wheel is the ultimate centerpiece. Purchase a <a href="https://www.amazon.com/s?k=prize+wheel+spinning&tag=vivalmap-20" rel="nofollow sponsored">tabletop prize wheel</a> and label segments with different prizes. Place it near the exit so every guest gets one final spin before leaving.</p><h2>Organizing Your Games with Carnival Planner</h2><p>Managing multiple game stations, volunteers, and prize inventory can get overwhelming. That\'s exactly why we built the <a href="https://carnival-planner.com">Carnival Planner</a> app. Use the Budget Tracker to allocate spending, the Squad Hub to coordinate volunteers, and the Event Scheduler to time-block activities.</p><h2>Frequently Asked Questions</h2><dl><dt><strong>How many games do I need for a party of 20 kids?</strong></dt><dd>We recommend at least 5-6 different game stations to prevent long lines and ensure kids can rotate freely.</dd><dt><strong>What are the best prizes for backyard carnival games?</strong></dt><dd>Small toys, stickers, temporary tattoos, and candy. Buy <a href="https://www.amazon.com/s?k=carnival+prizes+bulk&tag=vivalmap-20" rel="nofollow sponsored">prizes in bulk</a> to save money.</dd><dt><strong>What\'s the ideal budget for a backyard carnival?</strong></dt><dd>A basic backyard carnival for 15-25 guests can be done for $50-$150 if you DIY most games. Track everything with our <a href="https://carnival-planner.com">free budget planner</a>.</dd></dl>',
+        "seoData": None
+    },
+    {
+        "id": "ultimate-carnival-party-planning-checklist-2026",
+        "slug": "ultimate-carnival-party-planning-checklist-2026",
+        "title": "Ultimate Carnival Party Planning Checklist 2026",
+        "island": "party planning",
+        "category": "guides & tips",
+        "metaDescription": "Plan the perfect carnival party with our comprehensive 2026 checklist. Step-by-step timeline covering venue, food, games, decorations, and entertainment.",
+        "publishDate": "2026-08-02",
+        "author": "Carnival Planner Team",
+        "readTime": "8 min read",
+        "heroImage": "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1200&q=80",
+        "content": '<h1>Ultimate Carnival Party Planning Checklist 2026</h1><p>Planning a carnival party can feel overwhelming, but with the right checklist and timeline, it becomes a breeze. This comprehensive guide breaks everything down into manageable steps.</p><h2>3 Months Before the Event</h2><ul><li><strong>Set the date and time.</strong> Weekend afternoons (12-5 PM) work best for family events.</li><li><strong>Determine your budget.</strong> Use our <a href="https://carnival-planner.com">budget tracker</a> to set spending limits.</li><li><strong>Book major rentals.</strong> A <a href="https://www.amazon.com/s?k=popcorn+machine+commercial&tag=vivalmap-20" rel="nofollow sponsored">popcorn machine</a>, bounce house, or cotton candy machine.</li><li><strong>Secure your venue and recruit volunteers.</strong></li></ul><h2>1 Month Before</h2><ul><li><strong>Send invitations.</strong> Digital invites for easy RSVP tracking.</li><li><strong>Order <a href="https://www.amazon.com/s?k=carnival+party+decorations&tag=vivalmap-20" rel="nofollow sponsored">carnival decorations</a>.</strong></li><li><strong>Plan the menu and game stations.</strong></li><li><strong>Order <a href="https://www.amazon.com/s?k=carnival+prizes+assortment&tag=vivalmap-20" rel="nofollow sponsored">prizes in bulk</a>.</strong></li></ul><h2>1 Week Before</h2><ul><li>Confirm RSVP numbers and adjust quantities.</li><li>Buy perishable food and drinks.</li><li>Assemble and test game stations.</li><li>Prepare prize bags sorted by tier.</li></ul><h2>Day Before</h2><ul><li>Set up the layout with marked stations.</li><li>Inflate balloons with a <a href="https://www.amazon.com/s?k=balloon+pump+electric&tag=vivalmap-20" rel="nofollow sponsored">balloon pump</a>.</li><li>Brief your volunteers on stations and schedules.</li></ul><h2>Day Of</h2><ul><li>Arrive 2 hours early for final setup.</li><li>Set up welcome station with tickets or wristbands.</li><li>Cue up your carnival music playlist.</li><li>Take photos and have fun!</li></ul><h2>FAQ</h2><dl><dt><strong>How far in advance should I start planning?</strong></dt><dd>For large events (50+ guests), start 3-4 months in advance. Smaller backyard events need 4-6 weeks.</dd><dt><strong>Do I need professional entertainment?</strong></dt><dd>Not required, but a face painter or balloon artist ($100-$300) can elevate the event significantly.</dd><dt><strong>How do I handle rainy weather?</strong></dt><dd>Have a rain contingency plan. Rent pop-up canopies or identify indoor backup spaces.</dd></dl>',
+        "seoData": None
+    },
+    {
+        "id": "diy-carnival-costume-ideas-on-a-budget",
+        "slug": "diy-carnival-costume-ideas-on-a-budget",
+        "title": "DIY Carnival Costume Ideas on a Budget",
+        "island": "party planning",
+        "category": "guides & tips",
+        "metaDescription": "Create stunning carnival costumes without breaking the bank. 8 DIY costume ideas with step-by-step instructions and budget breakdowns under $30 each.",
+        "publishDate": "2026-08-03",
+        "author": "Carnival Planner Team",
+        "readTime": "6 min read",
+        "heroImage": "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?auto=format&fit=crop&w=1200&q=80",
+        "content": '<h1>DIY Carnival Costume Ideas on a Budget</h1><p>You don\'t need to spend hundreds to look spectacular at a carnival. These DIY costume ideas are affordable, fun to make, and guaranteed to turn heads. Each costume can be assembled for under $30.</p><h2>1. The Feathered Festival Queen/King</h2><p>Start with a basic headband and hot-glue <a href="https://www.amazon.com/s?k=craft+feathers+large+colorful&tag=vivalmap-20" rel="nofollow sponsored">large colorful feathers</a> in a fan pattern. Add sequins and rhinestones. Pair with a plain leotard decorated with fabric paint. Cost: ~$20-$25.</p><h2>2. Carnival Ringmaster</h2><p>Find a red blazer at a thrift store and add gold trim. Grab a <a href="https://www.amazon.com/s?k=ringmaster+costume+accessories&tag=vivalmap-20" rel="nofollow sponsored">ringmaster accessory kit</a> for finishing touches. Works for all ages.</p><h2>3. Rainbow Jester</h2><p>Hot-glue multicolored fabric scraps onto a plain outfit. Create a jester hat from felt triangles stuffed with cotton and tipped with bells. The more chaotic, the more carnival-perfect.</p><h2>4. Tropical Parrot</h2><p>Use layers of <a href="https://www.amazon.com/s?k=colored+tissue+paper+sheets&tag=vivalmap-20" rel="nofollow sponsored">colored tissue paper</a> cut into feather shapes on a green base outfit. Create wings from wire hangers covered in fabric. Kids love this one.</p><h2>5. Day of the Dead Masquerader</h2><p>Use <a href="https://www.amazon.com/s?k=face+paint+kit+professional&tag=vivalmap-20" rel="nofollow sponsored">professional face paint</a> for the sugar skull look, add a flower crown from silk flowers and a flowing cape. Dramatic, stunning, and easy.</p><h2>6. Vintage Strongman/Strongwoman</h2><p>A striped tank and shorts, a fake curly mustache, and a DIY barbell from a broomstick with painted Styrofoam balls. Under $15 total!</p><h2>7. Caribbean Butterfly</h2><p>Create oversized butterfly wings from cardboard, paint in vivid sunset colors. Explore costume designs from real carnival bands on <a href="https://carnival-planner.com">Carnival Planner</a> for inspiration.</p><h2>8. LED Glow Carnival Dancer</h2><p>Incorporate <a href="https://www.amazon.com/s?k=led+strip+lights+wearable&tag=vivalmap-20" rel="nofollow sponsored">wearable LED strip lights</a> into your costume for evening carnivals. Wrap around a tutu, headpiece, or arm cuffs for a futuristic look.</p><h2>Essential Supplies</h2><ul><li>Hot glue gun and extra sticks</li><li><a href="https://www.amazon.com/s?k=craft+sequins+rhinestones+set&tag=vivalmap-20" rel="nofollow sponsored">Sequins, rhinestones, and gems</a></li><li>Fabric paint and brushes</li><li>Feathers, tulle, and metallic ribbons</li></ul><h2>FAQ</h2><dl><dt><strong>How long does it take to make a DIY carnival costume?</strong></dt><dd>Most can be assembled in 2-4 hours. Start at least a week before your event.</dd><dt><strong>Can I make these costumes with my kids?</strong></dt><dd>Absolutely! Rainbow Jester, Tropical Parrot, and Strongman are especially kid-friendly.</dd><dt><strong>Where to find authentic Caribbean carnival costume inspiration?</strong></dt><dd>Browse real carnival band sections on <a href="https://carnival-planner.com">Carnival Planner</a>.</dd></dl>',
+        "seoData": None
+    },
+    {
+        "id": "how-to-throw-caribbean-themed-kids-birthday-party",
+        "slug": "how-to-throw-caribbean-themed-kids-birthday-party",
+        "title": "How to Throw a Caribbean-Themed Kids Birthday Party",
+        "island": "party planning",
+        "category": "party planning",
+        "metaDescription": "Plan an unforgettable Caribbean-themed birthday party for kids! Tropical decorations, island-inspired food, steel pan music, limbo games, and themed activities.",
+        "publishDate": "2026-08-04",
+        "author": "Carnival Planner Team",
+        "readTime": "7 min read",
+        "heroImage": "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=1200&q=80",
+        "content": '<h1>How to Throw a Caribbean-Themed Kids Birthday Party</h1><p>Want to give your child a birthday party that stands out? A Caribbean-themed party brings vibrant colors, tropical flavors, island music, and irresistible energy. Here\'s your complete guide from <a href="https://carnival-planner.com">Carnival Planner</a>.</p><h2>Tropical Decorations</h2><p>Color palette: turquoise, coral, lime green, sunshine yellow. Get <a href="https://www.amazon.com/s?k=tropical+party+decorations&tag=vivalmap-20" rel="nofollow sponsored">tropical party decorations</a> including palm trees, hibiscus garlands, and colorful lanterns. Create a "Welcome to the Islands" arch using pool noodles wrapped in green crepe paper.</p><h2>Island-Inspired Food</h2><ul><li><strong>Jerk Chicken Skewers:</strong> Mild jerk seasoning on chicken strips.</li><li><strong>Tropical Fruit Kabobs:</strong> Mango, pineapple, watermelon, and grapes.</li><li><strong>Coconut Rice:</strong> Creamy and fragrant.</li><li><strong>Island Punch:</strong> Tropical juice mix with sparkling water in coconut cups.</li><li><strong>Carnival Cake:</strong> Colorful layer cake with tropical fondant decorations.</li></ul><h2>Games & Activities</h2><h3>Limbo Contest</h3><p>Set up a <a href="https://www.amazon.com/s?k=limbo+game+set+kids&tag=vivalmap-20" rel="nofollow sponsored">limbo stick</a> and play soca music while kids take turns. Crown a limbo champion!</p><h3>Treasure Hunt</h3><p>Hide gold coins around the yard with a pirate-themed map. Caribbean pirate lore makes it extra exciting.</p><h3>DIY Carnival Mask Station</h3><p>Blank masks, feathers, gems, markers, and glitter glue. Each child takes their mask home as a party favor.</p><h2>Music & Atmosphere</h2><p>Create a playlist with kid-friendly soca, classic calypso (Harry Belafonte\'s "Day-O"), and reggae favorites. Stream through a <a href="https://www.amazon.com/s?k=bluetooth+speaker+outdoor+party&tag=vivalmap-20" rel="nofollow sponsored">portable Bluetooth speaker</a>.</p><h2>Party Favors</h2><p>Island-themed goody bags with handmade carnival masks, tropical candy, mini beach balls, and a "passport stamp" from Carnival Planner\'s <a href="https://carnival-planner.com/passport">Soca Passport</a>.</p><h2>FAQ</h2><dl><dt><strong>What age group is this theme best for?</strong></dt><dd>Ages 4-12. Adjust food spiciness and game complexity for the specific range.</dd><dt><strong>How much does it cost?</strong></dt><dd>$100-$250 for 15-20 kids. Use the <a href="https://carnival-planner.com">Carnival Planner budget tracker</a> to stay on top of spending.</dd><dt><strong>Can I host this indoors?</strong></dt><dd>Yes! Emphasize decorations to transform the space. Hang paper palm trees from the ceiling.</dd></dl>',
+        "seoData": None
+    },
+    {
+        "id": "complete-guide-hosting-school-fair-carnival",
+        "slug": "complete-guide-hosting-school-fair-carnival",
+        "title": "The Complete Guide to Hosting a School Fair or Carnival",
+        "island": "party planning",
+        "category": "guides & tips",
+        "metaDescription": "Everything you need to organize a successful school carnival. Committee planning, budgeting, game booths, food vendors, volunteers, and maximizing fundraising revenue.",
+        "publishDate": "2026-08-05",
+        "author": "Carnival Planner Team",
+        "readTime": "9 min read",
+        "heroImage": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1200&q=80",
+        "content": '<h1>The Complete Guide to Hosting a School Fair or Carnival</h1><p>A school carnival is one of the most beloved community events. It brings together students, parents, teachers, and neighbors. This guide walks you through every step, from forming your planning committee to counting the final revenue.</p><h2>Step 1: Form Your Planning Committee (4-6 Months Out)</h2><p>Recruit a core committee of 8-12 volunteers with clear roles: Event Chair, Games Coordinator, Food Lead, Sponsorship, Volunteer Coordinator, Marketing, Setup & Logistics, Treasurer. Use <a href="https://carnival-planner.com">Carnival Planner</a> Squad Hub to coordinate.</p><h2>Step 2: Budget & Fundraising Goals</h2><ul><li><strong>Game supplies and <a href="https://www.amazon.com/s?k=carnival+prizes+bulk+school&tag=vivalmap-20" rel="nofollow sponsored">prizes</a>:</strong> $200-$500</li><li><strong>Decorations:</strong> $100-$300</li><li><strong>Food supplies:</strong> $300-$800</li><li><strong>Entertainment:</strong> $0-$500</li><li><strong>Rentals (bounce houses, dunk tanks):</strong> $200-$1000</li></ul><p>A well-run school carnival for 200-400 attendees can raise $3,000-$10,000 in a single day.</p><h2>Step 3: Design Your Game Booths</h2><p>Aim for 12-20 booths. Classics include ring toss, bean bag throw, can smash, duck pond, basketball shoot, face painting, cake walk, and dunk tank. <a href="https://www.amazon.com/s?k=carnival+game+booth+supplies&tag=vivalmap-20" rel="nofollow sponsored">Carnival game booth kits</a> make setup easier.</p><h2>Step 4: Food Operations</h2><p>Must-have equipment: <a href="https://www.amazon.com/s?k=popcorn+machine+commercial&tag=vivalmap-20" rel="nofollow sponsored">popcorn machine</a>, <a href="https://www.amazon.com/s?k=cotton+candy+machine&tag=vivalmap-20" rel="nofollow sponsored">cotton candy machine</a>, and <a href="https://www.amazon.com/s?k=snow+cone+machine&tag=vivalmap-20" rel="nofollow sponsored">snow cone machine</a>. These create authentic carnival atmosphere and sell at high margins.</p><h2>Step 5: Recruit Volunteers (1 Month Out)</h2><p>Plan for 40-70 volunteers: 2 per game booth per shift, 4-6 for food, 3-4 for setup/teardown, 2-3 for ticket sales, and 2 floaters. Use the <a href="https://carnival-planner.com">Carnival Planner</a> event scheduler for shift assignments.</p><h2>Step 6: Event Day Execution</h2><ul><li>Setup crew arrives 3 hours early</li><li>Games coordinator walks every booth</li><li>Music starts 15 minutes before gates open</li><li>Cash counts every 2 hours</li><li>Announce last call 30 minutes before closing</li></ul><h2>FAQ</h2><dl><dt><strong>What\'s the ideal duration?</strong></dt><dd>4-5 hours is the sweet spot. Saturday 11 AM - 4 PM works well.</dd><dt><strong>How do we handle ticket pricing?</strong></dt><dd>Pre-sell wristbands at a discount ($15-$20 unlimited) and individual tickets at the door ($0.50-$1.00 each).</dd><dt><strong>What about liability and insurance?</strong></dt><dd>Check with your school district. Rental companies typically carry their own liability insurance. Always have a first-aid station.</dd></dl>',
+        "seoData": None
+    }
+]
+
+# Fill in schema data
+faq_data = {
+    0: {"How many games do I need for a party of 20 kids?": "We recommend at least 5-6 different game stations.", "What are the best prizes?": "Small toys, stickers, temporary tattoos, and candy in bulk.", "What\'s the ideal budget?": "$50-$150 if you DIY most games."},
+    1: {"How far in advance should I start planning?": "3-4 months for large events, 4-6 weeks for smaller ones.", "Do I need professional entertainment?": "Not required, but it can elevate the event.", "How do I handle rainy weather?": "Have a rain contingency plan with pop-up canopies."},
+    2: {"How long does it take to make a DIY carnival costume?": "Most can be assembled in 2-4 hours.", "Can I make these with my kids?": "Yes! Several designs are kid-friendly.", "Where to find costume inspiration?": "Browse carnival band sections on Carnival Planner."},
+    3: {"What age group is best?": "Ages 4-12.", "How much does it cost?": "$100-$250 for 15-20 kids.", "Can I host indoors?": "Yes, with emphasis on decorations."},
+    4: {"What\'s the ideal duration?": "4-5 hours, Saturday 11 AM - 4 PM.", "How do we price tickets?": "Pre-sell wristbands + individual tickets at the door.", "What about insurance?": "Check with school district, rental companies carry their own."}
+}
+
+for i, article in enumerate(articles):
+    article["seoData"] = {
+        "schema": make_schema(
+            article["title"],
+            article["metaDescription"],
+            f"https://carnival-planner.com/blog/{article['slug']}",
+            faq_data[i]
+        )
+    }
+
+with open("articles.json", "w", encoding="utf-8") as f:
+    json.dump(articles, f, indent=2, ensure_ascii=False)
+
+print(f"Generated articles.json with {len(articles)} articles successfully.")

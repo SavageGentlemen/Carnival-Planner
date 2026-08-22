@@ -40,6 +40,7 @@
     "react-dom": "^18.2.0",
     "react-helmet": "^6.1.0",
     "react-leaflet": "^4.2.1",
+    "react-router-dom": "^7.18.1",
     "swr": "^2.2.4",
     "tailwind-merge": "^2.2.0",
     "thirdweb": "^5.80.0",

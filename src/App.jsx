@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import {
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -38,6 +39,12 @@ import { createSquad, joinSquadByCode, leaveSquad, removeSquadMember, regenerate
 import { useAffiliate } from './components/AffiliateProvider';
 import AndroidBetaPage from './components/AndroidBetaPage';
 import CarnivalConcierge from './components/CarnivalConcierge';
+import BottomNav from './components/BottomNav';
+import PlanHub from './components/hubs/PlanHub';
+import SquadHub from './components/hubs/SquadHub';
+import PassportHub from './components/hubs/PassportHub';
+import StoreHub from './components/hubs/StoreHub';
+import ProfileHub from './components/hubs/ProfileHub';
 
 
 // ── LAZY-LOADED (code-split — only loaded when user navigates to tab) ──
@@ -64,7 +71,6 @@ const ProfileEditor = React.lazy(() => import('./components/ProfileEditor'));
 const PromoterDashboard = React.lazy(() => import('./components/PromoterDashboard'));
 const BandLeaderDashboard = React.lazy(() => import('./components/BandLeaderDashboard'));
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
-const MarketingDashboard = React.lazy(() => import('./components/MarketingDashboard'));
 const MarketplacePage = React.lazy(() => import('./components/marketplace/MarketplacePage'));
 const SocaVoid = React.lazy(() => import('./components/SocaVoid'));
 const Leaderboard = React.lazy(() => import('./components/Leaderboard'));
@@ -82,6 +88,11 @@ const SquadLeaderboard = React.lazy(() => import('./components/SquadLeaderboard'
 const BountyBoard = React.lazy(() => import('./components/BountyBoard'));
 const EventTicketPage = React.lazy(() => import('./components/EventTicketPage'));
 const SquadVault = React.lazy(() => import('./components/SquadVault'));
+const SeoBlog = React.lazy(() => import('./components/SeoBlog'));
+const Cinematic3DSplash = React.lazy(() => import('./components/Cinematic3DSplash'));
+const SocaPassportPage = React.lazy(() => import('./pages/SocaPassportPage'));
+const MoyMeetsWorldPage = React.lazy(() => import('./pages/MoyMeetsWorldPage'));
+const RoadModeUI = React.lazy(() => import('./components/RoadModeUI'));
 
 // ── SWR FIRESTORE CACHING ──
 import { useFirestoreDoc } from './hooks/useFirestoreSWR';
@@ -117,12 +128,42 @@ const POPULAR_EVENTS = {
   ]
 };
 
+// Hub Navigation Maps
+const TAB_TO_HUB = {
+  Budget: 'plan',
+  Costume: 'plan',
+  Bands: 'plan',
+  Schedule: 'plan',
+  Packing: 'plan',
+  Guides: 'plan',
+  Squad: 'squad',
+  Vault: 'squad',
+  Map: 'squad',
+  Passport: 'passport',
+  Bounties: 'passport',
+  Leaderboard: 'passport',
+  Marketplace: 'store',
+  Profile: 'profile',
+  Media: 'profile',
+  Promoter: 'profile',
+  Info: 'profile',
+};
+
+const HUB_DEFAULT_TAB = {
+  plan: 'Budget',
+  squad: 'Squad',
+  passport: 'Passport',
+  store: 'Marketplace',
+  profile: 'Profile',
+};
+
 export default function App() {
   // --- STATE ---
   const { affiliateRef } = useAffiliate();
   const [user, setUser] = useState(null);
   const [isDemoMode, setIsDemoMode] = useState(false); // NEW: Demo Mode State
   const [viewEventId, setViewEventId] = useState(null); // Ticket purchase page
+  const [userMode, setUserMode] = useState('masquerader'); // 'masquerader' | 'bandleader' | 'promoter'
 
   // Routing State
   const isAndroidBetaPage = window.location.pathname === '/android' || window.location.search.includes('android=true');
@@ -133,12 +174,14 @@ export default function App() {
     return localStorage.getItem('actCvnId') || null;
   });
   const [activeTab, setActiveTab] = useState('Budget');
+  const activeHub = TAB_TO_HUB[activeTab] || 'plan';
+
 
   // UI State
   const [isPremium, setIsPremium] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [roadMode, setRoadMode] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Form Inputs
@@ -244,6 +287,16 @@ export default function App() {
       setTimeout(() => setActiveTab('Marketplace'), 100);
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Open squad join if ?squad= or ?invite= or ?code= param
+    const squadParam = params.get('squad') || params.get('invite') || params.get('code');
+    if (squadParam) {
+      const cleanCode = squadParam.trim().toUpperCase().slice(0, 6);
+      setJoinCode(cleanCode);
+      setShowLanding(false);
+      setActiveTab('Squad');
+      setToastMessage(`📍 Invite code ${cleanCode} loaded! Click 'Join' to join your squad.`);
     }
 
     // Open event ticket page if ?event= param
@@ -1342,11 +1395,35 @@ export default function App() {
 
 
 
+  const getSquadShareUrl = (code) => {
+    const origin = window.location.origin;
+    return `${origin}/?squad=${code || squadShareCode}`;
+  };
+
   const copyShareCode = () => {
     if (squadShareCode) {
-      navigator.clipboard.writeText(squadShareCode);
-      setSquadShareSuccess('Code copied to clipboard!');
+      const shareUrl = getSquadShareUrl(squadShareCode);
+      navigator.clipboard.writeText(shareUrl);
+      setSquadShareSuccess('Squad share link copied to clipboard!');
       setTimeout(() => setSquadShareSuccess(''), 2000);
+    }
+  };
+
+  const shareSquadLink = async () => {
+    if (!squadShareCode) return;
+    const shareUrl = getSquadShareUrl(squadShareCode);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join my Carnival Squad!',
+          text: `Join my squad on Carnival Planner using code ${squadShareCode}:`,
+          url: shareUrl,
+        });
+      } catch (err) {
+        console.log('User cancelled share or error:', err);
+      }
+    } else {
+      copyShareCode();
     }
   };
 
@@ -1409,6 +1486,63 @@ export default function App() {
   const costumeBalance = currentCarnival?.costume ? (currentCarnival.costume.total - currentCarnival.costume.paid) : 0;
   const curatedEvents = currentCarnival ? (POPULAR_EVENTS[activeCarnivalId] || POPULAR_EVENTS.default) : [];
 
+  // ── ROUTER: STANDALONE MOY MEETS WORLD ROUTES & DOMAIN SUPPORT ──
+  const isMoyMeetsWorldRoute = typeof window !== 'undefined' && (
+    window.location.hostname.includes('moymeetsworld') ||
+    window.location.pathname.startsWith('/moymeetsworld') ||
+    window.location.pathname.startsWith('/travel')
+  );
+
+  if (isMoyMeetsWorldRoute) {
+    return (
+      <Routes>
+        <Route path="/moymeetsworld" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="/moymeetsworld/:packageId" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="/travel" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="/travel/:packageId" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="*" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+      </Routes>
+    );
+  }
+
+  // ── ROUTER: STANDALONE SOCA PASSPORT ROUTES ──
+  if (window.location.pathname.startsWith('/passport')) {
+    return (
+      <Routes>
+        <Route path="/passport" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <SocaPassportPage />
+          </React.Suspense>
+        } />
+        <Route path="/passport/:userId" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <SocaPassportPage />
+          </React.Suspense>
+        } />
+      </Routes>
+    );
+  }
+
   // --- VIEW: LEGAL PAGES & CONTACT ---
   if (activeLegalPage) {
     const legalProps = { onBack: () => setActiveLegalPage(null), logo };
@@ -1442,94 +1576,50 @@ export default function App() {
   // --- VIEW: SPLASH SCREEN ---
   if (showLanding && !user) {
     return (
-      <>
-        <React.Suspense fallback={null}><SocaVoid /></React.Suspense>
-        <SplashPage onGetStarted={() => setShowLanding(false)} logo={logo} onLegalPage={setActiveLegalPage} onTryDemo={handleTryDemo} />
-      </>
+      <div className="relative min-h-screen bg-white dark:bg-zinc-950">
+        <React.Suspense fallback={null}>
+          <Cinematic3DSplash />
+        </React.Suspense>
+        <SplashPage
+          onGetStarted={() => setShowLanding(false)}
+          logo={logo}
+          onLegalPage={setActiveLegalPage}
+          onTryDemo={handleTryDemo}
+          onOpenConcierge={(prompt) => {
+            setShowLanding(false);
+            setIsConciergeOpen(true);
+          }}
+        />
+      </div>
     );
   }
 
+
   // --- VIEW: ROAD MODE (PREMIUM) ---
   if (user && roadMode && currentCarnival) {
-    const nextEvent = (currentCarnival.schedule || [])
-      .slice()
-      .sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-      .find(e => new Date(e.datetime) > new Date());
-
     return (
       <>
         <React.Suspense fallback={null}><SocaVoid /></React.Suspense>
-        <div className="min-h-screen bg-transparent text-white p-6 flex flex-col relative z-10">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-2xl font-bold italic">ROAD MODE</h1>
-            <button onClick={() => setRoadMode(false)} className="text-sm bg-gray-800 px-3 py-1 rounded">Exit</button>
-          </div>
-          <div className="flex-1 flex flex-col gap-6">
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 rounded-2xl shadow-lg">
-              <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-1">Up Next</h2>
-              {nextEvent ? (
-                <>
-                  <div className="text-3xl font-black mb-1">{nextEvent.title}</div>
-                  <div className="text-xl opacity-90">{new Date(nextEvent.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                  <div className="mt-2 text-sm bg-white/20 inline-block px-2 py-1 rounded">{nextEvent.note || "No notes"}</div>
-                </>
-              ) : (
-                <div className="text-xl italic opacity-75">No more fetes scheduled! Sleep time?</div>
-              )}
-            </div>
-            <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
-              <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider mb-2">Costume Pickup</h2>
-              {currentCarnival.costume ? (
-                <div>
-                  <div className="text-xl font-bold text-yellow-400">{currentCarnival.costume.band}</div>
-                  <div className="text-gray-400">Section: {currentCarnival.costume.section}</div>
-                  {costumeBalance > 0 && <div className="text-red-400 font-bold mt-1">Balance Due: ${costumeBalance}</div>}
-                </div>
-              ) : (
-                <div className="text-gray-500 italic">No costume details saved.</div>
-              )}
-            </div>
-            {currentSquad?.nostr_pubkey && (
-              <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
-                <div className="flex justify-between items-center mb-2">
-                  <h2 className="text-sm font-bold opacity-75 uppercase tracking-wider">Decentralized Chat Bridge</h2>
-                  <span className="text-xs bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded border border-purple-700/50 font-mono">Nostr</span>
-                </div>
-                <p className="text-xs text-gray-400 mb-3">
-                  External client apps (e.g. Bitchat, Damus) can subscribe to your squad stream using this npub address:
-                </p>
-                <div className="bg-black/40 p-3 rounded-xl border border-gray-700 flex items-center justify-between gap-2 overflow-hidden">
-                  <span className="font-mono text-[10px] text-purple-300 select-all truncate flex-1">
-                    {(() => {
-                      try {
-                        const pk = currentSquad.nostr_pubkey;
-                        return pk.startsWith('npub1') ? pk : nip19.npubEncode(pk);
-                      } catch (e) {
-                        return currentSquad.nostr_pubkey;
-                      }
-                    })()}
-                  </span>
-                  <button
-                    onClick={() => {
-                      try {
-                        const pk = currentSquad.nostr_pubkey;
-                        const npub = pk.startsWith('npub1') ? pk : nip19.npubEncode(pk);
-                        navigator.clipboard.writeText(npub);
-                        setToastMessage({ title: 'Copied!', body: 'Nostr npub copied to clipboard.' });
-                        setTimeout(() => setToastMessage(null), 3000);
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                    className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded transition shrink-0"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <React.Suspense fallback={null}>
+          <RoadModeUI
+            user={user}
+            currentCarnival={currentCarnival}
+            costumeBalance={costumeBalance}
+            currentSquad={currentSquad}
+            squadMembers={squadMembers}
+            connectedPeers={connectedPeers}
+            peerId={peerId}
+            meshMessages={meshMessages}
+            meshChatInput={meshChatInput}
+            setMeshChatInput={setMeshChatInput}
+            broadcastMessage={broadcastMessage}
+            broadcastLocation={broadcastLocation}
+            onExit={() => setRoadMode(false)}
+            onSos={null}
+            setToastMessage={setToastMessage}
+            nip19={nip19}
+          />
+        </React.Suspense>
       </>
     );
   }
@@ -1541,13 +1631,13 @@ export default function App() {
 
   // --- VIEW: MAIN APP ---
   return (
-    <div className={`min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-200 ${isDemoMode ? 'pb-20' : ''}`}>
+    <div className={`min-h-screen flex flex-col bg-[#080c14] text-slate-100 transition-colors duration-200 ${user ? 'has-bottom-nav' : ''} ${isDemoMode ? 'pb-20' : ''}`}>
       {/* SOCA VOID — Animated Background */}
       <React.Suspense fallback={null}><SocaVoid /></React.Suspense>
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed top-4 right-4 z-50 animate-slideIn">
-          <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-4 rounded-xl shadow-2xl max-w-sm">
+          <div className="bg-gradient-to-r from-teal-500 to-cyan-600 text-black font-bold p-4 rounded-xl shadow-2xl max-w-sm border border-white/20">
             <div className="flex items-start gap-3">
               <span className="text-2xl">🎉</span>
               <div>
@@ -1556,7 +1646,7 @@ export default function App() {
                   <p className="text-sm opacity-90">{toastMessage.body}</p>
                 )}
               </div>
-              <button onClick={() => setToastMessage(null)} className="ml-2 text-white/70 hover:text-white">×</button>
+              <button onClick={() => setToastMessage(null)} className="ml-2 text-black/70 hover:text-black font-black">×</button>
             </div>
           </div>
         </div>
@@ -1575,15 +1665,19 @@ export default function App() {
       <InstallPrompt />
 
       {/* HEADER */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm py-4 px-4 flex justify-between items-center sticky top-0 z-20 transition-colors">
-        <div className="flex items-center gap-2">
-          <img src={logo} alt="Logo" className="w-8 h-8" loading="eager" decoding="async" />
-          <h1 className="text-lg font-bold text-gray-800 dark:text-white hidden sm:block">Caribbean Carnival Planner</h1>
+      <header className="bg-[#0b0f17]/90 backdrop-blur-xl border-b border-cyan-500/20 py-3.5 px-4 sm:px-6 flex justify-between items-center sticky top-0 z-20">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowLanding(true)}>
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#00e5cc] to-teal-700 flex items-center justify-center shadow-[0_0_10px_rgba(0,229,204,0.4)]">
+            <span className="text-base">🪶</span>
+          </div>
+          <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-wider hidden sm:block font-heading">
+            CARIBBEAN CARNIVAL
+          </h1>
         </div>
         {user && (
           <div className="flex items-center gap-3">
             {/* Dark Mode Toggle */}
-            <button onClick={toggleDarkMode} className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-yellow-300">
+            <button onClick={toggleDarkMode} className="p-2 rounded-full bg-slate-800 text-yellow-300 border border-white/10 hover:border-cyan-400 transition-all">
               {darkMode ? '☀️' : '🌙'}
             </button>
             {/* Preview/Demo Mode Header Actions */}
@@ -1591,13 +1685,13 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { handleExitDemo(); setShowLanding(false); }}
-                  className="px-4 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-pink-500 to-orange-500 text-white hover:opacity-90 transition-opacity shadow-md"
+                  className="px-4 py-1.5 text-xs font-black rounded-full bg-[#00e5cc] hover:bg-[#24f6df] text-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,229,204,0.3)]"
                 >
                   Sign Up Free
                 </button>
                 <button
                   onClick={handleExitDemo}
-                  className="px-3 py-1 text-xs font-medium rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                  className="px-3 py-1 text-xs font-medium rounded-full text-slate-400 hover:text-white transition-colors"
                 >
                   Exit Preview
                 </button>
@@ -1608,23 +1702,23 @@ export default function App() {
               <button
                 onClick={toggleRoadMode}
                 disabled={isSendingRoadReadyAlert}
-                className="px-3 py-1 text-xs font-bold rounded-full transition bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-200 disabled:opacity-50"
+                className="px-3.5 py-1 text-xs font-black uppercase tracking-wider rounded-full transition bg-cyan-950/80 text-[#00e5cc] border border-cyan-400/40 hover:bg-cyan-900 shadow-[0_0_10px_rgba(0,229,204,0.2)] disabled:opacity-50"
               >
                 {isSendingRoadReadyAlert ? '...' : 'GO ROAD READY'}
               </button>
             )}
             {!isPremium ? (
-              <span className="text-xs text-gray-400 dark:text-gray-500">Free Plan</span>
+              <span className="text-xs text-slate-400 font-medium">Free Plan</span>
             ) : (
-              <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-bold">Premium</span>
+              <span className="px-2.5 py-0.5 text-xs bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full font-bold">Premium</span>
             )}
             {/* Online/Offline Status */}
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
-              {isOnline ? 'Online' : 'Offline Mode'}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30' : 'bg-orange-950/60 text-orange-300 border border-orange-500/30'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-orange-400 animate-pulse'}`}></div>
+              {isOnline ? 'Online' : 'Offline'}
             </div>
 
-            <button onClick={handleSignOut} className="text-sm font-medium text-gray-500 hover:text-red-500 dark:text-gray-400">Sign Out</button>
+            <button onClick={handleSignOut} className="text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-red-400 transition-colors">Sign Out</button>
           </div>
         )}
       </header>
@@ -1642,35 +1736,40 @@ export default function App() {
                 onSuccess={() => setShowEmailAuth(false)}
               />
             ) : (
-              <>
-                <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">Welcome Back</h2>
-                <div className="space-y-3 w-full max-w-sm">
+              <div className="glass-panel p-8 sm:p-10 max-w-md w-full border-cyan-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#00e5cc] to-teal-700 flex items-center justify-center shadow-[0_0_20px_rgba(0,229,204,0.4)] mx-auto mb-4">
+                  <span className="text-2xl">🪶</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black mb-2 text-white font-heading uppercase">Welcome Back</h2>
+                <p className="text-xs sm:text-sm text-slate-300 mb-6 font-medium">Log in to manage your carnival fetes, costumes & squad</p>
+                
+                <div className="space-y-3.5 w-full">
                   <button
                     onClick={handleSignIn}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-white transition-colors"
+                    className="w-full flex items-center justify-center px-6 py-3 bg-slate-900 hover:bg-slate-800 border border-white/20 hover:border-cyan-400/50 rounded-full shadow-sm text-white font-bold text-sm transition-all"
                   >
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 mr-3" alt="G" />
                     Continue with Google
                   </button>
-                  <div className="flex items-center gap-3 text-gray-400 dark:text-gray-500">
-                    <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
-                    <span className="text-sm">or</span>
-                    <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                  <div className="flex items-center gap-3 text-slate-500">
+                    <div className="flex-1 h-px bg-slate-800"></div>
+                    <span className="text-xs font-bold uppercase">or</span>
+                    <div className="flex-1 h-px bg-slate-800"></div>
                   </div>
                   <button
                     onClick={() => setShowEmailAuth(true)}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-pink-500 to-orange-500 rounded-lg shadow-sm hover:opacity-90 text-white font-semibold transition-opacity"
+                    className="w-full flex items-center justify-center px-6 py-3 bg-[#00e5cc] hover:bg-[#24f6df] rounded-full shadow-[0_0_20px_rgba(0,229,204,0.3)] text-black font-extrabold text-sm uppercase tracking-wider transition-all"
                   >
                     Continue with Email
                   </button>
                 </div>
                 <button
                   onClick={() => setShowLanding(true)}
-                  className="mt-6 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  className="mt-6 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-cyan-300 transition-colors"
                 >
-                  Back to home
+                  ← Back to home
                 </button>
-              </>
+              </div>
             )}
           </div>
         ) : showBandLeaderDashboard ? (
@@ -1684,7 +1783,7 @@ export default function App() {
           <div>
             {/* CARNIVAL SELECTOR */}
             <div className="mb-8">
-              <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide">
                 {carnivalOptions.map((c, idx) => {
                   const isActive = activeCarnivalId === c.id;
                   const gradient = gradientClasses[idx % gradientClasses.length];
@@ -1735,9 +1834,9 @@ export default function App() {
                     <div
                       key={c.id}
                       onClick={() => selectCarnival(c.id, `${c.name} - ${monthNames[c.monthIndex]}`)}
-                      className={`snap-center min-w-[200px] cursor-pointer rounded-2xl p-5 shadow-lg relative overflow-hidden transition-all duration-300 ${isActive ? 'ring-4 ring-offset-2 ring-blue-400 scale-105' : 'hover:scale-105 opacity-90'} ${gradient}`}
+                      className={`snap-center min-w-[200px] cursor-pointer rounded-2xl p-5 shadow-lg relative overflow-hidden transition-all duration-300 ${isActive ? 'ring-2 ring-offset-2 ring-[#00e5cc] scale-105 shadow-[0_0_25px_rgba(0,229,204,0.4)]' : 'hover:scale-105 opacity-85 hover:opacity-100'} ${gradient}`}
                     >
-                      <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.12] mix-blend-overlay" />
+                      <img src="/carnival-feathers.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-[0.15] mix-blend-overlay" />
                       <div className="relative z-10 text-white">
                         <h4 className="font-bold text-lg leading-tight mb-1">{c.name}</h4>
                         <p className="text-xs font-medium uppercase tracking-wider opacity-90">{monthNames[c.monthIndex]}</p>
@@ -1747,8 +1846,8 @@ export default function App() {
                           </p>
                         )}
                         {daysUntil !== null && (
-                          <div className="mt-2 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 inline-block">
-                            <span className="text-lg font-black">{daysUntil}</span>
+                          <div className="mt-2 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1 inline-block border border-white/10">
+                            <span className="text-lg font-black text-[#00e5cc]">{daysUntil}</span>
                             <span className="text-xs ml-1 opacity-90">days</span>
                           </div>
                         )}
@@ -1814,26 +1913,30 @@ export default function App() {
                       <PromoAd placement="banner" onUpgradeClick={() => setActiveTab('Info')} />
                     </div>
                   )}
-                  {/* TABS */}
-                  <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto scrollbar-hide">
-                    {[
-                      'Budget', 'Costume', 'Bands', 'Schedule', 'Squad', 'Vault', 'Passport', 'Bounties', 'Leaderboard',
-                      'Packing', 'Map', 'Media', 'Profile', 'Promoter', 'Marketplace', 'Marketing', 'Info'
-                    ].filter(tab => (isPremium || !['Map', 'Media', 'Passport'].includes(tab)) && (isAdmin || tab !== 'Marketing') && (!isDemoMode || !['Promoter', 'Marketing', 'Profile'].includes(tab))).map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => {
-                          console.log('Switching to tab:', tab, 'isPremium:', isPremium);
-                          React.startTransition(() => setActiveTab(tab));
-                        }}
-                        className={`flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                      >
-                        {tab}
-                        {['Map', 'Media', 'Passport'].includes(tab) && <span className="ml-1 text-xs text-yellow-500">★</span>}
-                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
-                      </button>
-                    ))}
-                  </div>
+                  {/* HUB SUB-TABS NAVIGATION */}
+                  {activeHub === 'plan' && (
+                    <PlanHub activeSubTab={activeTab} onSubTabChange={setActiveTab} />
+                  )}
+                  {activeHub === 'squad' && (
+                    <SquadHub activeSubTab={activeTab} onSubTabChange={setActiveTab} isPremium={isPremium} />
+                  )}
+                  {activeHub === 'passport' && (
+                    <PassportHub activeSubTab={activeTab} onSubTabChange={setActiveTab} />
+                  )}
+                  {activeHub === 'store' && (
+                    <StoreHub activeSubTab={activeTab} onSubTabChange={setActiveTab} />
+                  )}
+                  {activeHub === 'profile' && (
+                    <ProfileHub
+                      activeSubTab={activeTab === 'Info' ? 'Settings' : activeTab}
+                      onSubTabChange={(tab) => setActiveTab(tab === 'Settings' ? 'Info' : tab)}
+                      isPremium={isPremium}
+                      isAdmin={isAdmin}
+                      userMode={userMode}
+                      onModeChange={setUserMode}
+                    />
+                  )}
+
 
                   {/* COLLABORATIVE MODE INDICATOR */}
                   {isCollaborative && (
@@ -2649,11 +2752,17 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* TAB: PASSPORT (Premium Upgrade Integration) */}
-                    {activeTab === 'Passport' && isPremium && (
+                    {/* TAB: PASSPORT (Full Soca Passport Suite) */}
+                    {activeTab === 'Passport' && (
                       <div className="animate-fadeIn">
                         <React.Suspense fallback={<LazyFallback />}>
-                          <DigitalPassport user={user} />
+                          <SocaPassportTab
+                            user={user}
+                            isPremium={isPremium}
+                            activeCarnivalId={activeCarnivalId}
+                            activePlanId={activePlanId}
+                            isDemoMode={isDemoMode}
+                          />
                         </React.Suspense>
                       </div>
                     )}
@@ -2740,14 +2849,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* TAB: MARKETING AGENT */}
-                    {activeTab === 'Marketing' && isAdmin && (
-                      <div className="animate-fadeIn">
-                        <React.Suspense fallback={<LazyFallback />}>
-                          <MarketingDashboard />
-                        </React.Suspense>
-                      </div>
-                    )}
+                    {/* TAB: PROMOTER DASHBOARD */}
 
                     {/* TAB: PROMOTER DASHBOARD (Free/Premium) */}
                     {activeTab === 'Promoter' && (
@@ -2758,6 +2860,15 @@ export default function App() {
                             isPremium={isPremium}
                             onExit={() => setActiveTab('Profile')}
                           />
+                        </React.Suspense>
+                      </div>
+                    )}
+
+                    {/* TAB: SEO GUIDES */}
+                    {activeTab === 'Guides' && (
+                      <div className="animate-fadeIn">
+                        <React.Suspense fallback={<LazyFallback />}>
+                          <SeoBlog onOpenConcierge={() => setIsConciergeOpen(true)} />
                         </React.Suspense>
                       </div>
                     )}
@@ -2947,6 +3058,19 @@ export default function App() {
           </div>
         </div>
       )}
-    </div >
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      {user && (
+        <BottomNav
+          activeHub={activeHub}
+          onHubChange={(hubKey) => setActiveTab(HUB_DEFAULT_TAB[hubKey] || 'Budget')}
+          isPremium={isPremium}
+          isAdmin={isAdmin}
+          roadMode={roadMode}
+          onSosPress={toggleRoadMode}
+        />
+      )}
+    </div>
   );
 }
+

@@ -245,7 +245,7 @@ export default function AchievementList({ profile, onBack, walletAddress }) {
                                     </div>
 
                                     {/* Mint Button */}
-                                    {achievement.isUnlocked && walletAddress && (
+                                    {achievement.isUnlocked && (
                                         <div className="mt-2">
                                             {mintedAchievements.includes(achievement.id) || mintResults[achievement.id] ? (
                                                 <div className="flex items-center gap-1.5">

@@ -1,8 +1,8 @@
-name: Fete Drop & Flight Alert Tracker (IG Engine)
+name: 24/7 Automated Social Media Poster (3x Daily)
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # Runs every 30 minutes
+    - cron: '0 9,15,21 * * *' # Runs 3 times a day (9 AM, 3 PM, 9 PM UTC)
   workflow_dispatch:
 
 jobs:
@@ -23,19 +23,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r ig_engine/requirements.txt
 
-      - name: Run Alert Tracker & Publisher
+      - name: Run 24/7 Auto Daily Poster Engine
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          POSTIZ_API_URL: ${{ secrets.POSTIZ_API_URL }}
+          POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
           GOOGLE_SHEET_CSV_URL: ${{ secrets.GOOGLE_SHEET_CSV_URL }}
-          DRY_RUN: ${{ secrets.DRY_RUN || 'true' }}
         run: |
-          python ig_engine/tracker.py
+          python ig_engine/auto_daily_poster.py
 
-      - name: Upload Generated Social Graphics
+      - name: Upload Generated Social Videos & Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ig-social-graphics
-          path: ig_engine/output/*.png
+          name: auto-social-videos
+          path: |
+            ig_engine/output/*.mp4
+            ig_engine/output/*.png
           retention-days: 7

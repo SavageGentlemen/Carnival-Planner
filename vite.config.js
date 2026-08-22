@@ -94,23 +94,24 @@ export default defineConfig({
     }),
   ],
   server: {
-    host: '0.0.0.0',
-    port: 5173,
+    host: true,
+    port: 9090,
     allowedHosts: true,
     watch: {
       usePolling: true,
-    },
-    headers: {
-      // Required for Firebase Auth popup to work correctly
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      'Cross-Origin-Embedder-Policy': 'credentialless'
     }
   },
+  preview: {
+    host: true,
+    port: 9090,
+  },
+
+
   build: {
     outDir: 'dist',
     sourcemap: false,
     cssCodeSplit: true,
-    minify: false,
+    minify: 'esbuild',
     chunkSizeWarningLimit: 2000,
     // Target modern browsers for smaller output
     target: 'es2020',

@@ -2,6 +2,8 @@ import os
 import sys
 import subprocess
 import json
+import io
+from datetime import datetime
 
 # ==========================================
 # BOOTSTRAP DEPS
@@ -15,13 +17,11 @@ def install_and_import(package, import_name=None):
         print(f"[*] Bootstrapping missing library: {package}...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
-install_and_import("gTTS", "gtts")
 install_and_import("pillow", "PIL")
 install_and_import("numpy")
 install_and_import("requests")
 install_and_import("moviepy")
 
-from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import requests
@@ -56,6 +56,110 @@ def get_subclip(audio_clip, t_start, t_end):
     if hasattr(audio_clip, "subclip"):
         return audio_clip.subclip(t_start, t_end)
     return audio_clip
+
+# ==========================================
+# NATURAL VOICE ENGINE (TTS) — 100% FREE
+# ==========================================
+# Priority: edge-tts (Microsoft Neural, free) → Kokoro-82M (local AI) → gTTS (fallback)
+# No API keys needed for any engine!
+
+import asyncio
+
+def speak_edge_tts(text, output_path):
+    """
+    edge-tts — Microsoft Edge Neural voices. FREE, no API key, human-quality.
+    Uses the same Azure Neural voices as paid Azure TTS but via Edge's free endpoint.
+    Requires internet connection.
+    """
+    try:
+        install_and_import("edge-tts", "edge_tts")
+        import edge_tts
+
+        # Caribbean-friendly warm voices (pick one):
+        # en-US-AriaNeural    — Young female, expressive & energetic
+        # en-US-GuyNeural     — Male, warm & friendly
+        # en-GB-SoniaNeural   — British female, warm tone
+        # en-JM-AishaNeural   — Jamaican English female (if available)
+        # en-TT-SamanthaNeural — Trinidad English female (if available)
+        voice = os.environ.get("EDGE_TTS_VOICE", "en-US-AriaNeural")
+
+        async def _generate():
+            communicate = edge_tts.Communicate(text, voice, rate="+5%", pitch="+2Hz")
+            await communicate.save(output_path)
+
+        # Handle event loop — works in both sync scripts and async contexts
+        try:
+            loop = asyncio.get_running_loop()
+            # Already in an async context, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                loop.run_in_executor(pool, lambda: asyncio.run(_generate()))
+        except RuntimeError:
+            # No running loop — normal script execution
+            asyncio.run(_generate())
+
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"  [Voice] edge-tts ({voice}) — natural neural voice ✓")
+            return True
+    except Exception as e:
+        print(f"  [Voice] edge-tts error: {e}")
+    return False
+
+def speak_kokoro(text, output_path):
+    """
+    Kokoro-82M — Free, open-weight local AI TTS. Apache 2.0 license.
+    Runs on CPU, no internet needed. Requires espeak-ng system dependency.
+    """
+    try:
+        install_and_import("kokoro")
+        install_and_import("soundfile")
+        from kokoro import KPipeline
+        import soundfile as sf
+
+        pipeline = KPipeline(lang_code='a')  # American English
+        generator = pipeline(text, voice='af_heart')  # Warm female voice
+
+        # Kokoro yields chunks — concatenate all audio
+        all_audio = []
+        for gs, ps, audio in generator:
+            all_audio.append(audio)
+
+        if all_audio:
+            import numpy as np_audio
+            combined = np_audio.concatenate(all_audio)
+            # Save as WAV first, then we'll use it (MoviePy handles WAV fine)
+            wav_path = output_path.replace('.mp3', '.wav')
+            sf.write(wav_path, combined, 24000)
+            # Rename to expected path (or just use wav)
+            if wav_path != output_path:
+                os.rename(wav_path, output_path)
+            print(f"  [Voice] Kokoro-82M — local AI voice ✓")
+            return True
+    except Exception as e:
+        print(f"  [Voice] Kokoro error (needs espeak-ng installed): {e}")
+    return False
+
+def speak_gtts_fallback(text, output_path):
+    """gTTS — free, always available fallback. Robotic but functional."""
+    try:
+        install_and_import("gTTS", "gtts")
+        from gtts import gTTS
+        tts = gTTS(text=text, lang="en", tld="co.uk")  # UK accent sounds slightly warmer
+        tts.save(output_path)
+        print(f"  [Voice] gTTS fallback ✓")
+        return True
+    except Exception as e:
+        print(f"  [Voice] gTTS error: {e}")
+    return False
+
+def generate_speech(text, output_path):
+    """Try free voice engines in priority order, fall back gracefully."""
+    return (
+        speak_edge_tts(text, output_path) or
+        speak_kokoro(text, output_path) or
+        speak_gtts_fallback(text, output_path)
+    )
+
 
 # ==========================================
 # CONFIGURATION & UTILITIES
@@ -98,30 +202,99 @@ def download_audio_track(url, dest_path):
         print(f"Failed to download background music: {e}")
     return False
 
+# ==========================================
+# MULTI-PLATFORM SOCIAL PUBLISHER
+# ==========================================
 def publish_to_n8n(video_path, location_filter, webhook_url):
+    """
+    Sends video + rich metadata to n8n for multi-platform distribution.
+    n8n workflow should route to: YouTube Shorts, Instagram Reels, TikTok, Facebook.
+    """
     if not webhook_url:
         print("[*] No N8N_WEBHOOK_URL specified. Skipping n8n auto-upload.")
         return False
         
-    print(f"[*] Posting compiled Short to n8n Webhook: {webhook_url}...")
+    print(f"[*] Posting compiled Short to n8n Webhook (multi-platform): {webhook_url}...")
     try:
-        title = f"Top Fetes This Weekend in {location_filter.upper()}! 🌴 #Shorts #Carnival #CaribPulse"
-        description = f"Discover upcoming fetes and book travel on CaribPulse AI at https://carnival-planner.web.app! Island: {location_filter.title()}"
-        tags = f"carnival,fetes,{location_filter},caribbean,socamusic,party"
+        now = datetime.utcnow().strftime("%Y-%m-%d")
+        island_title = location_filter.replace("_", " ").title()
+        
+        # --- Platform-specific content ---
+        yt_title = f"Top Fetes This Weekend in {island_title}! 🌴 #Shorts #Carnival #CaribPulse"
+        yt_description = (
+            f"🌴 Your weekly fete guide for {island_title}!\n\n"
+            f"Discover upcoming fetes, buy tickets, and book travel on CaribPulse AI:\n"
+            f"👉 https://carnival-planner.web.app\n\n"
+            f"#Carnival #Fete #Caribbean #SocaMusic #{island_title.replace(' ', '')} #CaribPulse"
+        )
+        
+        ig_caption = (
+            f"🔥 TOP FETES THIS WEEKEND — {island_title.upper()} 🌴\n\n"
+            f"Swipe through the hottest events dropping this weekend!\n"
+            f"🎟️ Tickets + travel booking → link in bio\n\n"
+            f"#CaribbeanCarnival #Fete #{island_title.replace(' ', '')} "
+            f"#SocaMusic #CarnivalPlanner #CaribPulse #IslandLife "
+            f"#PartyVibes #CarnivalSeason #WestIndies"
+        )
+        
+        tiktok_description = (
+            f"Top fetes this weekend in {island_title} 🌴🔥 "
+            f"Which one yuh hittin? 🎟️ Link in bio for tickets! "
+            f"#carnival #fete #{island_title.lower().replace(' ', '')} "
+            f"#soca #caribbean #caribbeanvibes #fyp #foryou"
+        )
+        
+        fb_message = (
+            f"🌴 WEEKEND FETE GUIDE — {island_title.upper()} 🌴\n\n"
+            f"Here are the TOP fetes happening this weekend!\n"
+            f"🎟️ Buy tickets & book travel: https://carnival-planner.web.app\n\n"
+            f"Drop a 🔥 if you going!\n"
+            f"Tag your crew! 👇"
+        )
+        
+        tags_list = [
+            "carnival", "fete", location_filter.lower(), "caribbean",
+            "socamusic", "party", "caribpulse", "islandlife",
+            "carnivalseason", "westindies", "trini", "soca"
+        ]
         
         with open(video_path, "rb") as f:
             files = {"video": (os.path.basename(video_path), f, "video/mp4")}
             data = {
-                "title": title,
-                "description": description,
-                "tags": tags,
+                # Core metadata
                 "location": location_filter,
-                "platform": "youtube_shorts"
+                "date_generated": now,
+                "source": "caribpulse_ai_auto",
+                
+                # Multi-platform flag — tells n8n to route to ALL platforms
+                "platforms": "youtube,instagram,tiktok,facebook",
+                
+                # YouTube Shorts
+                "youtube_title": yt_title,
+                "youtube_description": yt_description,
+                "youtube_tags": ",".join(tags_list),
+                "youtube_category": "24",          # Entertainment
+                "youtube_privacy": "public",
+                "youtube_shorts": "true",
+                
+                # Instagram Reels
+                "instagram_caption": ig_caption,
+                "instagram_share_to_feed": "true",
+                
+                # TikTok
+                "tiktok_description": tiktok_description,
+                "tiktok_allow_comments": "true",
+                "tiktok_allow_duet": "true",
+                "tiktok_allow_stitch": "true",
+                
+                # Facebook Groups / Page
+                "facebook_message": fb_message,
+                "facebook_type": "video",
             }
             res = requests.post(webhook_url, files=files, data=data, timeout=120)
             
         if res.status_code in [200, 201, 202]:
-            print(f"[SUCCESS] Uploaded to n8n Webhook successfully! Response: {res.text}")
+            print(f"[SUCCESS] Multi-platform payload sent to n8n! Response: {res.text}")
             return True
         else:
             print(f"[!] n8n Webhook returned status {res.status_code}: {res.text}")
@@ -136,6 +309,9 @@ def compile_fete_video(location_filter="barbados"):
     print("=" * 60)
     print(f"CaribPulse AI — Video Compiler ({location_filter.upper()})")
     print("=" * 60)
+    
+    # Detect voice engine — all FREE, no API keys needed
+    print(f"[*] Voice engine: edge-tts (Microsoft Neural) → Kokoro-82M → gTTS fallback")
 
     # 1. Load events
     json_path = os.path.join(os.path.dirname(__file__), "../../events.json")
@@ -184,8 +360,10 @@ def compile_fete_video(location_filter="barbados"):
     draw.text((CENTER_X, 1080), "SWIPE FOR DETAILS", font=font_small, fill=(156, 163, 175), anchor="mm")
 
     intro_file = "intro_speech.mp3"
-    tts_intro = gTTS(text=f"Here is what is hot this weekend in {location_filter}!", lang="en")
-    tts_intro.save(intro_file)
+    generate_speech(
+        f"What's good! Here's your CaribPulse weekend fete guide for {location_filter}. Let's see what's hot!",
+        intro_file
+    )
     temp_files.append(intro_file)
     
     intro_audio = AudioFileClip(intro_file)
@@ -216,10 +394,9 @@ def compile_fete_video(location_filter="barbados"):
         draw.text((CENTER_X, 1080), f"Source: {evt.get('source', 'CCP')}", font=font_small, fill=(107, 114, 128), anchor="mm")
 
         clean_title = title_text.replace("&", "and")
-        speech_text = f"Fete number {idx + 1}, {clean_title}, taking place at {evt.get('venue', 'TBD')} on {evt.get('date', 'TBD')}."
+        speech_text = f"Number {idx + 1}! {clean_title}, going down at {evt.get('venue', 'a venue to be announced')}, {evt.get('date', 'date coming soon')}. You don't want to miss this one!"
         evt_audio_file = f"evt_{idx}_speech.mp3"
-        tts_evt = gTTS(text=speech_text, lang="en")
-        tts_evt.save(evt_audio_file)
+        generate_speech(speech_text, evt_audio_file)
         temp_files.append(evt_audio_file)
         
         evt_audio = AudioFileClip(evt_audio_file)
@@ -239,8 +416,10 @@ def compile_fete_video(location_filter="barbados"):
     draw.text((CENTER_X, 1080), "Chat with our AI Concierge", font=font_small, fill=(156, 163, 175), anchor="mm")
 
     outro_file = "outro_speech.mp3"
-    tts_outro = gTTS(text="Find links to buy tickets and book hotels on our platform now. Let's pump!", lang="en")
-    tts_outro.save(outro_file)
+    generate_speech(
+        "Grab your tickets and book your trip now on Carib Planner! Follow for more weekend fete guides. Link in bio!",
+        outro_file
+    )
     temp_files.append(outro_file)
     
     outro_audio = AudioFileClip(outro_file)
@@ -306,6 +485,13 @@ if __name__ == "__main__":
     loc = sys.argv[1] if len(sys.argv) > 1 else "barbados"
     default_n8n_url = "https://sgx.app.n8n.cloud/webhook/36e6bf2c-0f5a-41ca-b639-eb8f9bcc81ae"
     webhook_url = os.environ.get("N8N_WEBHOOK_URL") or (sys.argv[2] if len(sys.argv) > 2 else default_n8n_url)
+    
+    print("\n[*] CaribPulse AI Video Engine")
+    print(f"   Location:  {loc}")
+    print(f"   Webhook:   {webhook_url}")
+    print(f"   Voice:     edge-tts (Microsoft Neural) -- FREE, no API key")
+    print(f"   Platforms: YouTube, Instagram, TikTok, Facebook")
+    print()
     
     mp4_path = compile_fete_video(loc)
     if webhook_url:

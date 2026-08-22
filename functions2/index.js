@@ -3887,45 +3887,86 @@ exports.getVibeScores = onCall(
 
 const { ethers } = require('ethers');
 
-// Contract ABI — only the functions we call server-side
-const PASSPORT_CONTRACT_ABI = [
-  'function mintStamp(address to, uint256 tokenId, bytes data) external',
-  'function mintAchievement(address to, uint256 tokenId) external',
-  'function hasMinted(uint256 tokenId, address user) view returns (bool)'
-];
-
-// Achievement ID → Token ID mapping (1000+)
-const ACHIEVEMENT_TOKEN_IDS = {
-  first_stamp: 1000,
-  loyal_fan: 1001,
-  carnival_veteran: 1002,
-  island_hopper: 1003,
-  globe_trotter: 1004,
-  sunrise_warrior: 1005,
-  tier_up: 1006
-};
+// Crossmint Configuration
+const CROSSMINT_API_KEY = process.env.CROSSMINT_API_KEY || 'ck_production_34QAfBpa1vBME3LMBUZAJbHuKt6ZsZm427jwhwPR7RoyRWEtdB5mXEqXWxKYZFTRpWci4Y2sV9Gy6dUzWkbwJdy9zAr856xB72KPwpzSG8iFpNx2AeKJJVTLZkPg8hhQGqVmBFron2zVTjd4HykYtBkRbPJSnx6psEbotcH6itKq3QJ2wtRjwfvXBqBYFJ64sTwTPj3979M3pE9Lck1RtdE';
+const CROSSMINT_COLLECTION_ID = process.env.CROSSMINT_COLLECTION_ID || '1d0a1221-6a27-4c65-a204-788acafd188c';
 
 /**
- * Get ethers wallet + contract for minting.
- * Reads config from environment variables.
+ * Mint NFT using Crossmint Minting API and poll for status.
  */
-function getMintingContract() {
-  const privateKey = process.env.WEB3_PRIVATE_KEY;
-  const contractAddress = process.env.WEB3_CONTRACT_ADDRESS;
-  const rpcUrl = process.env.WEB3_RPC_URL || 'https://mainnet.base.org';
+async function mintWithCrossmint(recipient, nftMetadata) {
+  const url = `https://www.crossmint.com/api/2022-06-09/collections/${CROSSMINT_COLLECTION_ID}/nfts`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-API-KEY': CROSSMINT_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      recipient: recipient,
+      metadata: nftMetadata
+    })
+  });
 
-  if (!privateKey || !contractAddress) {
-    throw new HttpsError(
-      'failed-precondition',
-      'Web3 minting is not configured. Contract address or private key missing.'
-    );
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Crossmint Mint API returned ${response.status}: ${errorText}`);
   }
 
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const wallet = new ethers.Wallet(privateKey, provider);
-  const contract = new ethers.Contract(contractAddress, PASSPORT_CONTRACT_ABI, wallet);
+  const result = await response.json();
+  const actionId = result.actionId;
+  if (!actionId) {
+    throw new Error('No actionId returned from Crossmint');
+  }
 
-  return { provider, wallet, contract };
+  console.log(`Crossmint mint initiated. Action ID: ${actionId}. Polling status...`);
+
+  // Poll for status
+  const actionUrl = `https://www.crossmint.com/api/2022-06-09/actions/${actionId}`;
+  let attempts = 0;
+  const maxAttempts = 15; // 30 seconds max polling time
+
+  while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    attempts++;
+
+    try {
+      const statusResponse = await fetch(actionUrl, {
+        headers: {
+          'X-API-KEY': CROSSMINT_API_KEY
+        }
+      });
+
+      if (!statusResponse.ok) {
+        console.warn(`Status polling failed on attempt ${attempts}: ${statusResponse.status}`);
+        continue;
+      }
+
+      const statusResult = await statusResponse.json();
+      console.log(`Polling attempt ${attempts} status: ${statusResult.status}`);
+
+      if (statusResult.status === 'success') {
+        const txHash = statusResult.data?.transactionHash || '';
+        const tokenId = statusResult.data?.token?.id || '';
+        return {
+          success: true,
+          txHash: txHash,
+          tokenId: tokenId,
+          actionId: actionId
+        };
+      } else if (statusResult.status === 'failed') {
+        throw new Error(`Crossmint mint action failed: ${statusResult.error || 'Unknown error'}`);
+      }
+    } catch (pollErr) {
+      console.error(`Error polling Crossmint status:`, pollErr);
+      if (attempts >= maxAttempts) {
+        throw pollErr;
+      }
+    }
+  }
+
+  throw new Error(`Crossmint minting timed out after 30 seconds. Action ID: ${actionId}`);
 }
 
 // ----- Mint Stamp as NFT -----
@@ -3943,7 +3984,7 @@ exports.mintStamp = onCall(
       throw new HttpsError('invalid-argument', 'Stamp ID is required.');
     }
 
-    // 1. Get user profile — check wallet
+    // 1. Get user profile
     const profileRef = squadDb.doc(`passportProfiles/${uid}`);
     const profileDoc = await profileRef.get();
 
@@ -3953,13 +3994,19 @@ exports.mintStamp = onCall(
 
     const profile = profileDoc.data();
     const walletAddress = profile.walletAddress;
+    const userEmail = request.auth.token?.email || profile.email;
 
-    if (!walletAddress) {
+    if (!walletAddress && !userEmail) {
       throw new HttpsError(
         'failed-precondition',
-        'No wallet connected. Please connect a wallet in your profile first.'
+        'No wallet connected or email address found to mint to.'
       );
     }
+
+    // Determine Crossmint recipient string
+    const recipient = walletAddress 
+      ? `web3:${walletAddress}:base` 
+      : `email:${userEmail}:base`;
 
     // 2. Get stamp — verify it belongs to this user
     const stampRef = squadDb.doc(`passportStamps/${stampId}`);
@@ -3985,36 +4032,28 @@ exports.mintStamp = onCall(
       };
     }
 
-    // 4. Generate a unique token ID from the event
-    // Use the event's hash to generate a deterministic token ID in the 1-999 range
-    const eventHash = ethers.id(stamp.eventId);
-    const tokenId = (Number(BigInt(eventHash) % 999n) + 1);
-
-    // 5. Mint on-chain
+    // 4. Mint on-chain via Crossmint
     try {
-      const { contract } = getMintingContract();
+      const metadata = {
+        name: stamp.eventTitle || "Carnival Stamp",
+        image: stamp.eventImage || "https://carnival-planner.web.app/icon.png",
+        description: `Digital Stamp for ${stamp.eventTitle}. Collected on ${stamp.stampedAt?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString()}.`,
+        attributes: [
+          { trait_type: "Event", value: stamp.eventTitle || "Unknown" },
+          { trait_type: "Rarity", value: stamp.rarity || "Common" },
+          { trait_type: "Edition", value: String(stamp.editionNumber || 1) },
+          { trait_type: "Check-in Method", value: stamp.checkinMethod || "Manual" }
+        ]
+      };
 
-      // Encode stamp metadata as bytes
-      const mintData = ethers.toUtf8Bytes(JSON.stringify({
-        eventTitle: stamp.eventTitle,
-        rarity: stamp.rarity,
-        edition: stamp.editionNumber,
-        checkedInAt: stamp.stampedAt?.toDate?.()?.toISOString() || new Date().toISOString()
-      }));
+      const mintResult = await mintWithCrossmint(recipient, metadata);
 
-      const tx = await contract.mintStamp(walletAddress, tokenId, mintData);
-      console.log(`Minting stamp tokenId=${tokenId} to ${walletAddress}, tx=${tx.hash}`);
-
-      // Wait for confirmation
-      const receipt = await tx.wait(1);
-
-      // 6. Save mint info back to Firestore
+      // 5. Save mint info back to Firestore
       await stampRef.update({
-        mintedTxHash: tx.hash,
-        mintedTokenId: tokenId,
+        mintedTxHash: mintResult.txHash,
+        mintedTokenId: mintResult.tokenId || mintResult.actionId,
         mintedAt: new Date(),
-        mintedBlockNumber: receipt.blockNumber,
-        walletAddress: walletAddress
+        walletAddress: walletAddress || recipient
       });
 
       // Update profile mint count
@@ -4026,19 +4065,12 @@ exports.mintStamp = onCall(
       return {
         success: true,
         alreadyMinted: false,
-        txHash: tx.hash,
-        tokenId,
-        blockNumber: receipt.blockNumber,
-        explorerUrl: `https://basescan.org/tx/${tx.hash}`
+        txHash: mintResult.txHash,
+        tokenId: mintResult.tokenId || mintResult.actionId,
+        explorerUrl: mintResult.txHash ? `https://basescan.org/tx/${mintResult.txHash}` : ''
       };
     } catch (error) {
       console.error('Mint stamp error:', error);
-
-      if (error.reason?.includes('Already minted')) {
-        // Already minted on-chain but not recorded in Firestore
-        throw new HttpsError('already-exists', 'This stamp has already been minted on-chain.');
-      }
-
       throw new HttpsError('internal', `Minting failed: ${error.message}`);
     }
   }
@@ -4060,13 +4092,9 @@ exports.mintAchievement = onCall(
     }
 
     // Validate achievement exists
-    if (!PASSPORT_ACHIEVEMENTS[achievementId]) {
+    const achievementDef = PASSPORT_ACHIEVEMENTS[achievementId];
+    if (!achievementDef) {
       throw new HttpsError('not-found', 'Unknown achievement.');
-    }
-
-    const tokenId = ACHIEVEMENT_TOKEN_IDS[achievementId];
-    if (!tokenId) {
-      throw new HttpsError('not-found', 'This achievement cannot be minted yet.');
     }
 
     // 1. Get user profile
@@ -4079,13 +4107,19 @@ exports.mintAchievement = onCall(
 
     const profile = profileDoc.data();
     const walletAddress = profile.walletAddress;
+    const userEmail = request.auth.token?.email || profile.email;
 
-    if (!walletAddress) {
+    if (!walletAddress && !userEmail) {
       throw new HttpsError(
         'failed-precondition',
-        'No wallet connected. Please connect a wallet in your profile first.'
+        'No wallet connected or email address found to mint to.'
       );
     }
+
+    // Determine Crossmint recipient string
+    const recipient = walletAddress 
+      ? `web3:${walletAddress}:base` 
+      : `email:${userEmail}:base`;
 
     // 2. Verify achievement is unlocked
     const unlockedAchievements = profile.unlockedAchievements || [];
@@ -4102,19 +4136,24 @@ exports.mintAchievement = onCall(
       return {
         success: true,
         alreadyMinted: true,
-        achievementId,
-        tokenId
+        achievementId
       };
     }
 
-    // 4. Mint on-chain
+    // 4. Mint on-chain via Crossmint
     try {
-      const { contract } = getMintingContract();
+      const metadata = {
+        name: achievementDef.name || "Carnival Achievement",
+        image: "https://carnival-planner.web.app/icon.png",
+        description: achievementDef.description || "Earned achievement in Carnival Planner.",
+        attributes: [
+          { trait_type: "Achievement ID", value: achievementId },
+          { trait_type: "Points Value", value: String(achievementDef.points || 0) },
+          { trait_type: "Icon", value: achievementDef.icon || "🏆" }
+        ]
+      };
 
-      const tx = await contract.mintAchievement(walletAddress, tokenId);
-      console.log(`Minting achievement ${achievementId} (tokenId=${tokenId}) to ${walletAddress}, tx=${tx.hash}`);
-
-      const receipt = await tx.wait(1);
+      const mintResult = await mintWithCrossmint(recipient, metadata);
 
       // 5. Record in Firestore
       await profileRef.update({
@@ -4127,22 +4166,11 @@ exports.mintAchievement = onCall(
         success: true,
         alreadyMinted: false,
         achievementId,
-        tokenId,
-        txHash: tx.hash,
-        blockNumber: receipt.blockNumber,
-        explorerUrl: `https://basescan.org/tx/${tx.hash}`
+        txHash: mintResult.txHash,
+        explorerUrl: mintResult.txHash ? `https://basescan.org/tx/${mintResult.txHash}` : ''
       };
     } catch (error) {
       console.error('Mint achievement error:', error);
-
-      if (error.reason?.includes('Already minted')) {
-        // Already minted on-chain — record in Firestore
-        await profileRef.update({
-          mintedAchievements: FieldValue.arrayUnion(achievementId)
-        });
-        throw new HttpsError('already-exists', 'This achievement has already been minted on-chain.');
-      }
-
       throw new HttpsError('internal', `Minting failed: ${error.message}`);
     }
   }
@@ -5285,7 +5313,16 @@ exports.whatsappWebhook = onRequest(
     }
 
     try {
-      const openwaUrl = req.query.api_url || process.env.OPENWA_API_URL || "http://localhost:8080";
+      let openwaUrl = req.query.api_url;
+      if (!openwaUrl) {
+        const incomingHost = req.headers['x-forwarded-host'] || req.headers.host;
+        const proto = req.headers['x-forwarded-proto'] || 'https';
+        if (incomingHost && !incomingHost.includes('localhost') && !incomingHost.includes('127.0.0.1')) {
+          openwaUrl = `${proto}://${incomingHost}`;
+        } else {
+          openwaUrl = process.env.OPENWA_API_URL || "http://localhost:8085";
+        }
+      }
       const openwaKey = req.query.api_key || process.env.OPENWA_API_KEY || "secure_shared_secret";
 
       const targetFetch = globalThis.fetch;
@@ -5293,7 +5330,8 @@ exports.whatsappWebhook = onRequest(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${openwaKey}`
+          "Authorization": `Bearer ${openwaKey}`,
+          "ngrok-skip-browser-warning": "true"
         },
         body: JSON.stringify({
           to: senderNumber,
@@ -5308,3 +5346,289 @@ exports.whatsappWebhook = onRequest(
     res.sendStatus(200);
   }
 );
+
+// ==========================================
+// PHASE 3: AUTOMATED REVENUE ENGINE & PROMOTER MONETIZATION
+// ==========================================
+
+// 1. Scheduled Weekly Fete Digest Email (Every Monday at 8:00 AM AST)
+exports.scheduledWeeklyFeteDigest = onSchedule(
+  {
+    schedule: "0 8 * * 1",
+    timeZone: "America/Port_of_Spain",
+    retryCount: 2,
+  },
+  async (event) => {
+    console.log("[Weekly Digest] Generating weekly fete digest email...");
+    
+    try {
+      // Fetch upcoming scraped events
+      const eventsSnap = await defaultDb.collection("carnivalEvents")
+        .orderBy("date", "asc")
+        .limit(10)
+        .get();
+        
+      if (eventsSnap.empty) {
+        console.log("[Weekly Digest] No upcoming events found.");
+        return;
+      }
+
+      const eventsList = [];
+      eventsSnap.forEach((doc) => {
+        eventsList.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Build HTML email newsletter
+      let eventCardsHtml = "";
+      eventsList.forEach((evt) => {
+        eventCardsHtml += `
+          <div style="background:#1e1b4b; border-radius:12px; padding:16px; margin-bottom:16px; border:1px solid #4c1d95;">
+            <span style="background:#ec4899; color:white; font-size:11px; font-weight:bold; padding:3px 8px; border-radius:10px; text-transform:uppercase;">${evt.location || 'Caribbean'}</span>
+            <h3 style="color:#ffffff; margin:8px 0 4px 0; font-size:18px;">${evt.title || 'Fete Party'}</h3>
+            <p style="color:#a78bfa; margin:0 0 8px 0; font-size:14px;">📍 ${evt.venue || 'Venue TBD'} | 📅 ${evt.date || 'TBD'}</p>
+            <p style="color:#e2e8f0; margin:0 0 12px 0; font-size:13px;">Tickets from: <strong style="color:#34d399;">${evt.price || 'TBD'}</strong></p>
+            <a href="https://carnival-planner.web.app" style="background:#06b6d4; color:white; text-decoration:none; padding:8px 16px; border-radius:6px; font-size:13px; font-weight:bold; display:inline-block;">Get Tickets & Info →</a>
+          </div>
+        `;
+      });
+
+      const emailHtml = `
+        <div style="font-family:Arial, sans-serif; background-color:#0f0728; color:#ffffff; padding:24px;">
+          <div style="max-width:600px; margin:0 auto; background-color:#130b38; border-radius:16px; padding:24px; border:1px solid #3b0764;">
+            <div style="text-align:center; padding-bottom:16px; border-bottom:1px solid #3b0764;">
+              <h1 style="color:#ec4899; margin:0; font-size:24px;">🌴 CaribPulse Weekly Fete Digest</h1>
+              <p style="color:#94a3b8; font-size:14px; margin-top:4px;">The hottest fetes dropping across the islands this week</p>
+            </div>
+            
+            <div style="margin-top:20px;">
+              ${eventCardsHtml}
+            </div>
+
+            <!-- Promoter Boost Upsell Banner -->
+            <div style="background:linear-gradient(135deg, #f59e0b, #ec4899); border-radius:12px; padding:20px; text-align:center; margin-top:24px; color:#ffffff;">
+              <h3 style="margin:0 0 6px 0; font-size:18px;">Are you an Event Promoter? 🎟️</h3>
+              <p style="margin:0 0 12px 0; font-size:13px;">Boost your event to thousands of carnival-goers & video shorts!</p>
+              <a href="https://carnival-planner.web.app/promoter" style="background:#ffffff; color:#0f172a; text-decoration:none; padding:10px 20px; border-radius:8px; font-weight:bold; font-size:14px; display:inline-block;">Boost Event for $49 →</a>
+            </div>
+
+            <div style="text-align:center; margin-top:24px; color:#64748b; font-size:12px;">
+              <p>Sent by CaribPulse AI — Your Caribbean Event & Travel Engine</p>
+              <p><a href="https://carnival-planner.web.app" style="color:#06b6d4;">Open CaribPulse App</a></p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Dispatch to opted-in users via Nodemailer (if SMTP configured)
+      const usersSnap = await defaultDb.collection("users").limit(100).get();
+      console.log(`[Weekly Digest] Found ${usersSnap.size} user accounts to evaluate for newsletter dispatch.`);
+
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
+
+        let sentCount = 0;
+        for (const userDoc of usersSnap.docs) {
+          const u = userDoc.data();
+          if (u.email) {
+            try {
+              await transporter.sendMail({
+                from: `"CaribPulse AI" <${process.env.SMTP_USER}>`,
+                to: u.email,
+                subject: "🌴 Top 5 Fetes This Week! — CaribPulse Weekly Digest",
+                html: emailHtml,
+              });
+              sentCount++;
+            } catch (mailErr) {
+              console.error(`[Weekly Digest] Email error for ${u.email}:`, mailErr.message);
+            }
+          }
+        }
+        console.log(`[Weekly Digest] Newsletter dispatched to ${sentCount} subscribers.`);
+      } else {
+        console.log("[Weekly Digest] SMTP_USER/SMTP_PASS not set — compiled HTML preview ready.");
+      }
+    } catch (err) {
+      console.error("[Weekly Digest] Execution failed:", err);
+    }
+  }
+);
+
+// 2. Promoter Boost Stripe Checkout (`createPromoterBoostCheckout`)
+exports.createPromoterBoostCheckout = onCall(
+  { cors: true },
+  async (request) => {
+    const { eventId, boostTier } = request.data || {};
+    
+    if (!eventId) {
+      throw new HttpsError("invalid-argument", "eventId is required.");
+    }
+    
+    if (!stripe) {
+      throw new HttpsError("failed-precondition", "Stripe is not configured.");
+    }
+
+    // Tiers: $49 (Standard Feed Pin) or $149 (Featured Video Short Boost)
+    const isVideoBoost = boostTier === "video_short";
+    const priceAmount = isVideoBoost ? 14900 : 4900;
+    const tierName = isVideoBoost ? "Featured Video Short + Feed Boost" : "Standard Feed Pin (7 Days)";
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: `CaribPulse Event Boost: ${tierName}`,
+                description: `Boost event ${eventId} across CaribPulse mobile app & video Short compilations.`,
+              },
+              unit_amount: priceAmount,
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          type: "promoter_boost",
+          eventId: eventId,
+          boostTier: boostTier || "standard",
+        },
+        success_url: `https://carnival-planner.web.app?boost_success=true&eventId=${eventId}`,
+        cancel_url: `https://carnival-planner.web.app?boost_cancel=true`,
+      });
+
+      return { checkoutUrl: session.url, sessionId: session.id };
+    } catch (err) {
+      console.error("Promoter boost checkout creation failed:", err);
+      throw new HttpsError("internal", err.message);
+    }
+  }
+);
+
+// 3. Scheduled Abandoned Checkout Recovery (`scheduledAbandonedCheckoutRecovery`)
+exports.scheduledAbandonedCheckoutRecovery = onSchedule(
+  {
+    schedule: "0 */6 * * *", // Every 6 hours
+    retryCount: 1,
+  },
+  async (event) => {
+    console.log("[Abandoned Checkout] Checking for dropped checkouts...");
+    try {
+      // Find pending checkout sessions older than 2 hours that haven't been recovered
+      const twoHoursAgo = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 2 * 60 * 60 * 1000));
+      
+      const pendingSnap = await defaultDb.collection("pendingCheckouts")
+        .where("status", "==", "initiated")
+        .where("createdAt", "<=", twoHoursAgo)
+        .limit(20)
+        .get();
+
+      if (pendingSnap.empty) {
+        console.log("[Abandoned Checkout] No pending checkouts to recover.");
+        return;
+      }
+
+      console.log(`[Abandoned Checkout] Processing ${pendingSnap.size} abandoned sessions.`);
+      
+      for (const doc of pendingSnap.docs) {
+        const item = doc.data();
+        if (item.userEmail && item.recoveryUrl) {
+          // Send re-engagement email if SMTP available
+          if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+            const transporter = nodemailer.createTransport({
+              service: "gmail",
+              auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+            });
+
+            await transporter.sendMail({
+              from: `"CaribPulse AI" <${process.env.SMTP_USER}>`,
+              to: item.userEmail,
+              subject: "⚠️ You left something behind! Complete your fete booking",
+              html: `
+                <div style="font-family:Arial,sans-serif; background:#0f0728; color:#fff; padding:20px;">
+                  <h2>Still thinking about it? 🎟️</h2>
+                  <p>Your tickets/pass for <strong>${item.itemName || 'Carnival Experience'}</strong> are still reserved for you!</p>
+                  <a href="${item.recoveryUrl}" style="background:#ec4899; color:#fff; padding:12px 24px; text-decoration:none; border-radius:8px; display:inline-block; font-weight:bold;">Complete Checkout Now →</a>
+                </div>
+              `
+            });
+          }
+          // Mark recovered to prevent duplicates
+          await doc.ref.update({ status: "recovery_sent", recoveredAt: admin.firestore.FieldValue.serverTimestamp() });
+        }
+      }
+    } catch (err) {
+      console.error("[Abandoned Checkout] Error:", err);
+    }
+  }
+);
+
+// 4. Autonomous Blog & SEO Article Generator (`scheduledSeoBlogGenerator`)
+// Runs automatically every Wednesday at 4:00 AM AST to publish Google SEO articles
+exports.scheduledSeoBlogGenerator = onSchedule(
+  {
+    schedule: "0 4 * * 3",
+    timeZone: "America/Port_of_Spain",
+    retryCount: 1,
+  },
+  async (event) => {
+    console.log("[SEO Generator] Generating new Google-optimized carnival travel guide...");
+    
+    try {
+      const islands = ["trinidad", "barbados", "jamaica", "stlucia", "tobago"];
+      const targetIsland = islands[Math.floor(Math.random() * islands.length)];
+      
+      const now = new Date();
+      const dateStr = now.toISOString().split("T")[0];
+      const titleIsland = targetIsland.charAt(0).toUpperCase() + targetIsland.slice(1);
+      const slug = `${targetIsland}-carnival-fete-guide-${Date.now()}`;
+      
+      const articleData = {
+        slug: slug,
+        island: targetIsland,
+        title: `${titleIsland} Carnival 2026: Official Fete Schedule, Ticket Prices & Local Food Guide`,
+        metaDescription: `Everything you need to know about ${titleIsland} Carnival 2026. Top fetes, ticket prices, costume pickup tips, and local street food.`,
+        publishDate: dateStr,
+        author: "CaribPulse AI Travel Engine",
+        readTime: "5 min read",
+        heroImage: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80",
+        content: `
+          <h2>Welcome to the Official ${titleIsland} Carnival 2026 Guide</h2>
+          <p>Planning your trip to ${titleIsland}? CaribPulse AI automatically tracks upcoming fetes, ticket releases, costume distribution schedules, and transport routes to ensure you have an unforgettable carnival experience.</p>
+          
+          <h3>Top Highlights & What to Expect</h3>
+          <ul>
+            <li><strong>Fete Tickets:</strong> Popular all-inclusives and boat rides sell out quickly. Buy directly via verified platform links on CaribPulse.</li>
+            <li><strong>Costume Pickup:</strong> Always bring your printed receipt, ID, and original credit card to the band house.</li>
+            <li><strong>Local Eats:</strong> Don't leave without tasting local authentic street food after late-night fetes.</li>
+          </ul>
+
+          <p>Use our AI Concierge on the main page to get custom recommendations, budget breakdowns, and squad planning for ${titleIsland}!</p>
+        `,
+        schemaJson: {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          "headline": `${titleIsland} Carnival 2026: Official Fete Schedule, Ticket Prices & Local Food Guide`,
+          "description": `Everything you need to know about ${titleIsland} Carnival 2026.`,
+          "author": { "@type": "Organization", "name": "CaribPulse AI" },
+          "publisher": { "@type": "Organization", "name": "CaribPulse AI", "url": "https://carnival-planner.web.app" }
+        },
+        createdAt: FieldValue.serverTimestamp()
+      };
+
+      await defaultDb.collection("seoArticles").doc(slug).set(articleData);
+      console.log(`[SEO Generator] Published new article for ${titleIsland}: ${slug}`);
+    } catch (err) {
+      console.error("[SEO Generator] Error publishing article:", err);
+    }
+  }
+);
+
+

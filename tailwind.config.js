@@ -7,8 +7,20 @@ export default {
   darkMode: 'class', // 👈 Enables manual dark mode toggling
   theme: {
     extend: {
+      colors: {
+        carnival: {
+          dark: '#080c14',
+          card: '#0f172a',
+          surface: '#131c2e',
+          teal: '#00e5cc',
+          cyan: '#06b6d4',
+          gold: '#f59e0b',
+          pink: '#ec4899',
+        },
+      },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        heading: ['"Space Grotesk"', 'sans-serif'],
       },
     },
   },

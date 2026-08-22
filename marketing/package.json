@@ -1,0 +1,17 @@
+{
+  "name": "carnival-planner-marketing",
+  "version": "1.0.0",
+  "description": "Marketing automation pipeline for carnival-planner.com",
+  "type": "module",
+  "scripts": {
+    "scout": "node agents/scout.js",
+    "copywrite": "node agents/copywriter.js",
+    "publish": "node agents/publisher.js",
+    "run": "node orchestrator.js",
+    "dry-run": "node orchestrator.js --dry-run",
+    "serve": "npx serve ."
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  }
+}
