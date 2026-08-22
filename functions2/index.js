@@ -7,6 +7,7 @@ const admin = require("firebase-admin");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const Stripe = require("stripe");
 const nodemailer = require("nodemailer");
+const emailService = require("./emailService");
 const { runScraper } = require("./scraper");
 const { generateVibeScores } = require("./vibeEngine");
 
@@ -96,6 +97,53 @@ async function dispatchWhatsAppAlerts(memberUids, alertTitle, alertBody) {
 
   console.log(`[WhatsApp] Dispatch complete: ${sent} sent, ${skipped} skipped.`);
   return { sent, skipped };
+}
+
+// ----- Free Multi-Channel Emergency Dispatch (Telegram & Discord Webhooks) -----
+async function dispatchTelegramAlert(alertTitle, alertBody, mapUrl) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) {
+    return false;
+  }
+  try {
+    const text = `🚨 *${alertTitle}*\n\n${alertBody}${mapUrl ? `\n\n📍 *Live Location:* ${mapUrl}` : ''}`;
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    await globalThis.fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'Markdown'
+      })
+    });
+    console.log('[Telegram Alert] Emergency broadcast dispatched successfully.');
+    return true;
+  } catch (err) {
+    console.error('[Telegram Alert] Failed to dispatch Telegram alert:', err.message);
+    return false;
+  }
+}
+
+async function dispatchDiscordAlert(alertTitle, alertBody, mapUrl) {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) {
+    return false;
+  }
+  try {
+    const content = `🚨 **${alertTitle}**\n${alertBody}${mapUrl ? `\n📍 **Live Location:** ${mapUrl}` : ''}`;
+    await globalThis.fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    console.log('[Discord Alert] Emergency broadcast dispatched successfully.');
+    return true;
+  } catch (err) {
+    console.error('[Discord Alert] Failed to dispatch Discord alert:', err.message);
+    return false;
+  }
 }
 
 // ----- Premium Status Helper -----
@@ -807,7 +855,7 @@ exports.sendRoadReadyAlert = onCall(
   }
 );
 
-// ----- Callable: sendSafetyAlert (Wearable Safety Check) -----
+// ----- Callable: sendSafetyAlert (Wearable Safety Check & Road Emergency SOS) -----
 exports.sendSafetyAlert = onCall(
   { cors: true, invoker: "public" },
   async (request) => {
@@ -815,7 +863,11 @@ exports.sendSafetyAlert = onCall(
       carnivalId,
       userName,
       heartRate,
-      duration
+      duration,
+      lat,
+      lng,
+      location,
+      alertType = 'health'
     } = request.data || {};
 
     if (!request.auth || !request.auth.uid) {
@@ -839,14 +891,14 @@ exports.sendSafetyAlert = onCall(
       throw new HttpsError('permission-denied', 'Safety alerts require premium subscription.');
     }
 
-    // Cooldown check: max 1 alert per 15 minutes per user
+    // Cooldown check: max 1 alert per 5 minutes per user for emergency SOS, 15m for health
+    const cooldownMs = alertType === 'sos' ? 5 * 60 * 1000 : 15 * 60 * 1000;
     const cooldownRef = squadDb.doc(`safetyCooldowns/${uid}`);
     const cooldownDoc = await cooldownRef.get();
     if (cooldownDoc.exists) {
       const lastAlert = cooldownDoc.data()?.lastAlertAt?.toMillis?.() || cooldownDoc.data()?.lastAlertAt || 0;
-      const fifteenMinMs = 15 * 60 * 1000;
-      if (Date.now() - lastAlert < fifteenMinMs) {
-        return { success: true, notified: 0, message: 'Alert cooldown active. Try again later.' };
+      if (Date.now() - lastAlert < cooldownMs) {
+        return { success: true, notified: 0, message: 'Alert cooldown active. Try again in a few minutes.' };
       }
     }
 
@@ -866,9 +918,16 @@ exports.sendSafetyAlert = onCall(
       }
     });
 
-    if (squadMemberUids.size === 0) {
-      return { success: true, notified: 0, message: 'No squad members to notify.' };
-    }
+    const displayName = userName || 'A squad member';
+    const hrText = heartRate ? ` (${heartRate} bpm for ${duration || '?'} min)` : '';
+    const effectiveLat = lat || location?.lat || location?.latitude;
+    const effectiveLng = lng || location?.lng || location?.longitude;
+    const mapUrl = effectiveLat && effectiveLng ? `https://maps.google.com/?q=${effectiveLat},${effectiveLng}` : null;
+
+    const alertTitle = alertType === 'sos' ? `🚨 ROAD EMERGENCY SOS: ${displayName}!` : `⚠️ Check on ${displayName}!`;
+    const alertBody = alertType === 'sos' 
+      ? `${displayName} triggered an emergency SOS beacon on the carnival road route.${mapUrl ? ' Location pin attached.' : ''}`
+      : `Elevated heart rate detected${hrText}. Make sure they're OK!`;
 
     // Get FCM tokens
     const fcmTokensRef = squadDb.collection('fcmTokens');
@@ -881,22 +940,21 @@ exports.sendSafetyAlert = onCall(
       }
     }
 
-    const displayName = userName || 'A squad member';
-    const hrText = heartRate ? ` (${heartRate} bpm for ${duration || '?'} min)` : '';
     let successCount = 0;
 
     if (tokens.length > 0) {
       // Send HIGH priority safety alert
       const message = {
         notification: {
-          title: `⚠️ Check on ${displayName}!`,
-          body: `Elevated heart rate detected${hrText}. Make sure they're OK!`
+          title: alertTitle,
+          body: alertBody
         },
         data: {
-          type: 'safety_alert',
+          type: alertType === 'sos' ? 'emergency_sos' : 'safety_alert',
           senderUid: uid,
           heartRate: String(heartRate || ''),
-          duration: String(duration || '')
+          duration: String(duration || ''),
+          mapUrl: mapUrl || ''
         },
         android: { priority: 'high' },
         apns: { headers: { 'apns-priority': '10' } },
@@ -916,26 +974,32 @@ exports.sendSafetyAlert = onCall(
       // Set cooldown
       await cooldownRef.set({ lastAlertAt: Date.now() });
 
-      // --- WhatsApp Dispatch (non-blocking) ---
+      // --- Multi-channel dispatch (non-blocking) ---
       const waResult = await dispatchWhatsAppAlerts(
         Array.from(squadMemberUids),
-        `⚠️ Check on ${displayName}!`,
-        `Elevated heart rate detected${hrText}. Make sure they're OK!`
+        alertTitle,
+        alertBody + (mapUrl ? `\n\nLive GPS Pin: ${mapUrl}` : '')
       );
+
+      const telegramSent = await dispatchTelegramAlert(alertTitle, alertBody, mapUrl);
+      const discordSent = await dispatchDiscordAlert(alertTitle, alertBody, mapUrl);
 
       return {
         success: true,
         notified: successCount,
         whatsappSent: waResult.sent,
-        message: `Safety alert sent to ${successCount} squad member(s) via FCM. (${waResult.sent} via WhatsApp)`
+        telegramSent,
+        discordSent,
+        mapUrl,
+        message: `Safety alert dispatched across FCM (${successCount}), WhatsApp (${waResult.sent}), Telegram (${telegramSent ? 'OK' : 'Off'}), and Discord (${discordSent ? 'OK' : 'Off'}).`
       };
     } catch (err) {
-      console.error('Error sending safety alert WhatsApp:', err);
+      console.error('Error in multi-channel safety alert dispatch:', err);
       return {
         success: true,
         notified: successCount,
         whatsappSent: 0,
-        message: `Safety alert sent to ${successCount} squad member(s) via FCM. (WhatsApp dispatch failed: ${err.message})`
+        message: `Safety alert sent to ${successCount} member(s). (Multi-channel dispatch note: ${err.message})`
       };
     }
   }
@@ -3334,93 +3398,10 @@ exports.createMarketplaceCheckout = onCall(
 
 // ----- Email helper for marketplace orders -----
 async function sendOrderEmails(orderData, sellerEmail) {
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
-
-  if (!gmailUser || !gmailPass) {
-    console.log("Gmail credentials not configured — skipping order emails.");
-    return;
-  }
-
-  const transporter = nodemailer.createTransport({
-    host: 'mail.privateemail.com',
-    port: 465,
-    secure: true,
-    auth: { user: gmailUser, pass: gmailPass },
-  });
-
-  const itemEmoji = orderData.category === 'ticket' ? '🎫' : '👗';
-  const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: (orderData.currency || 'usd').toUpperCase() }).format(orderData.amount);
-
-  const emailStyle = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;background:#111827;color:#fff;border-radius:16px;overflow:hidden;">
-      <div style="background:linear-gradient(135deg,#7c3aed,#db2777);padding:24px 24px 16px;">
-        <h1 style="margin:0;font-size:20px;font-weight:800;">🎭 Caribbean Carnival Planner</h1>
-        <p style="margin:4px 0 0;font-size:13px;color:rgba(255,255,255,0.8);">Marketplace</p>
-      </div>
-      <div style="padding:24px;">
-        %%CONTENT%%
-        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #374151;text-align:center;">
-          <p style="font-size:11px;color:#6b7280;margin:0;">Caribbean Carnival Planner &bull; carnival-planner.com</p>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // --- Buyer confirmation email ---
-  if (orderData.buyerEmail) {
-    const buyerContent = `
-      <h2 style="margin:0 0 8px;font-size:18px;">Order Confirmed! ✅</h2>
-      <p style="color:#9ca3af;font-size:14px;margin:0 0 16px;">Your purchase was successful.</p>
-      <div style="background:#1f2937;border-radius:12px;padding:16px;margin-bottom:16px;">
-        <p style="margin:0 0 4px;font-size:16px;font-weight:700;">${itemEmoji} ${orderData.listingTitle}</p>
-        ${orderData.carnival ? `<p style="margin:0 0 4px;font-size:12px;color:#a78bfa;">${orderData.carnival}</p>` : ''}
-        <p style="margin:8px 0 0;font-size:20px;font-weight:900;color:#34d399;">${formattedPrice}</p>
-      </div>
-      <p style="color:#9ca3af;font-size:13px;margin:0;">The seller has been notified. They will contact you to arrange delivery/pickup.</p>
-    `;
-
-    try {
-      await transporter.sendMail({
-        from: `"Caribbean Carnival Planner" <${gmailUser}>`,
-        to: orderData.buyerEmail,
-        subject: `${itemEmoji} Order Confirmed — ${orderData.listingTitle}`,
-        html: emailStyle.replace('%%CONTENT%%', buyerContent),
-      });
-      console.log(`Marketplace email sent to buyer: ${orderData.buyerEmail}`);
-    } catch (err) {
-      console.error('Failed to send buyer email:', err.message);
-    }
-  }
-
-  // --- Seller notification email ---
-  if (sellerEmail) {
-    const sellerPayout = new Intl.NumberFormat('en-US', { style: 'currency', currency: (orderData.currency || 'usd').toUpperCase() }).format(orderData.sellerPayout || orderData.amount);
-
-    const sellerContent = `
-      <h2 style="margin:0 0 8px;font-size:18px;">You Made a Sale! 🎉</h2>
-      <p style="color:#9ca3af;font-size:14px;margin:0 0 16px;">Your listing has been purchased.</p>
-      <div style="background:#1f2937;border-radius:12px;padding:16px;margin-bottom:16px;">
-        <p style="margin:0 0 4px;font-size:16px;font-weight:700;">${itemEmoji} ${orderData.listingTitle}</p>
-        ${orderData.carnival ? `<p style="margin:0 0 4px;font-size:12px;color:#a78bfa;">${orderData.carnival}</p>` : ''}
-        <p style="margin:8px 0 0;font-size:14px;color:#9ca3af;">Sale price: ${formattedPrice}</p>
-        <p style="margin:4px 0 0;font-size:20px;font-weight:900;color:#34d399;">Your payout: ${sellerPayout}</p>
-      </div>
-      <p style="color:#9ca3af;font-size:13px;margin:0;">Buyer email: <strong style="color:#a78bfa;">${orderData.buyerEmail || 'Not provided'}</strong></p>
-      <p style="color:#6b7280;font-size:12px;margin:8px 0 0;">Please coordinate with the buyer for delivery/pickup. Payouts are handled via your Stripe Connect account.</p>
-    `;
-
-    try {
-      await transporter.sendMail({
-        from: `"Caribbean Carnival Planner" <${gmailUser}>`,
-        to: sellerEmail,
-        subject: `🎉 You Made a Sale — ${orderData.listingTitle}`,
-        html: emailStyle.replace('%%CONTENT%%', sellerContent),
-      });
-      console.log(`Marketplace email sent to seller: ${sellerEmail}`);
-    } catch (err) {
-      console.error('Failed to send seller email:', err.message);
-    }
+  try {
+    await emailService.sendOrderConfirmation(orderData, sellerEmail);
+  } catch (err) {
+    console.error("Failed to send order emails:", err.message);
   }
 }
 
@@ -4836,18 +4817,9 @@ exports.verifyPhysicalAttendance = onCall(
 const VAULT_CASHOUT_FEE = 0.019; // 1.9%
 const VAULT_MAX_SIZE = 20000;
 
-// Email transporter (reuse existing nodemailer setup)
+// Email transporter (delegated to centralized emailService)
 function getMailTransporter() {
-  const gmailUser = process.env.GMAIL_USER || 'cpteamgt@gmail.com';
-  const gmailPass = process.env.GMAIL_APP_PASSWORD || '';
-  if (!gmailPass) {
-    console.warn('GMAIL_APP_PASSWORD not set for vault emails');
-    return null;
-  }
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: gmailUser, pass: gmailPass }
-  });
+  return emailService.getTransporter();
 }
 
 // ── createVault ──
@@ -4908,47 +4880,31 @@ exports.createVault = onCall(
     // Send email invites if provided
     const emails = Array.isArray(inviteEmails) ? inviteEmails.filter(e => e && e.includes('@')).slice(0, 10) : [];
     if (emails.length > 0) {
-      const transporter = getMailTransporter();
-      if (transporter) {
-        const joinUrl = `https://carnival-planner.web.app?joinVault=${vaultRef.id}&code=${inviteCode}`;
-        for (const inviteEmail of emails) {
-          // Create pending member doc
-          const memberRef = vaultRef.collection('members').doc();
-          await memberRef.set({
-            userId: null,
-            email: inviteEmail,
-            displayName: inviteEmail.split('@')[0],
-            status: 'invited',
-            role: 'member',
-            totalContributed: 0,
-            failedPaymentCount: 0,
-            invitedAt: FieldValue.serverTimestamp(),
-            joinedAt: null,
-          });
+      for (const inviteEmail of emails) {
+        // Create pending member doc
+        const memberRef = vaultRef.collection('members').doc();
+        await memberRef.set({
+          userId: null,
+          email: inviteEmail,
+          displayName: inviteEmail.split('@')[0],
+          status: 'invited',
+          role: 'member',
+          totalContributed: 0,
+          failedPaymentCount: 0,
+          invitedAt: FieldValue.serverTimestamp(),
+          joinedAt: null,
+        });
 
-          try {
-            await transporter.sendMail({
-              from: '"Carnival Planner" <cpteamgt@gmail.com>',
-              to: inviteEmail,
-              subject: `You're invited to save for carnival — ${name}`,
-              html: `
-                <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
-                  <h2 style="color:#7c3aed;">🏦 Squad Vault Invite</h2>
-                  <p>${displayName} invited you to join <strong>"${name}"</strong> — a savings vault for carnival.</p>
-                  <p>Save ${contributionFrequency} with your crew. No awkward Venmo texts. No missed costume deposits.</p>
-                  <div style="background:#f3e8ff;padding:16px;border-radius:12px;margin:16px 0;">
-                    <p style="margin:0;font-size:14px;"><strong>Contribution:</strong> $${contributionAmount} ${contributionFrequency}</p>
-                    <p style="margin:4px 0 0;font-size:14px;"><strong>Goal:</strong> $${goalAmount}</p>
-                  </div>
-                  <a href="${joinUrl}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Join the Vault</a>
-                  <p style="margin-top:20px;font-size:12px;color:#888;">Squad Vault is a savings club by Carnival-Planner.com. Not a bank. Not lending.</p>
-                </div>
-              `
-            });
-          } catch (emailErr) {
-            console.error(`Failed to send vault invite to ${inviteEmail}:`, emailErr.message);
-          }
-        }
+        await emailService.sendVaultInvitation({
+          vaultName: name,
+          goalAmount,
+          contributionAmount,
+          contributionFrequency,
+          inviterName: displayName,
+          toEmail: inviteEmail,
+          vaultId: vaultRef.id,
+          inviteCode,
+        });
       }
     }
 
@@ -5200,7 +5156,6 @@ exports.inviteToVault = onCall(
     const vault = vaultDoc.data();
     if (vault.adminUserId !== uid) throw new HttpsError('permission-denied', 'Only admin can invite.');
 
-    const transporter = getMailTransporter();
     const displayName = request.auth.token?.name || request.auth.token?.email?.split('@')[0] || 'Someone';
     const inviteCode = vault.inviteCode || '';
     let sent = 0;
@@ -5213,18 +5168,17 @@ exports.inviteToVault = onCall(
         failedPaymentCount: 0, invitedAt: FieldValue.serverTimestamp(), joinedAt: null,
       });
 
-      if (transporter) {
-        try {
-          const joinUrl = `https://carnival-planner.web.app?joinVault=${vaultId}&code=${inviteCode}`;
-          await transporter.sendMail({
-            from: '"Carnival Planner" <cpteamgt@gmail.com>',
-            to: email,
-            subject: `Join "${vault.name}" Squad Vault`,
-            html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;"><h2 style="color:#7c3aed;">🏦 You're Invited!</h2><p>${displayName} wants you to join <strong>"${vault.name}"</strong> — a carnival savings vault.</p><a href="${joinUrl}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Join the Vault</a><p style="font-size:12px;color:#888;margin-top:20px;">Not a bank. Savings club by Carnival-Planner.com.</p></div>`
-          });
-          sent++;
-        } catch (err) { console.error(`Invite email failed for ${email}:`, err.message); }
-      }
+      const res = await emailService.sendVaultInvitation({
+        vaultName: vault.name,
+        goalAmount: vault.goalAmount,
+        contributionAmount: vault.contributionAmount,
+        contributionFrequency: vault.contributionFrequency,
+        inviterName: displayName,
+        toEmail: email,
+        vaultId,
+        inviteCode,
+      });
+      if (res.success) sent++;
     }
 
     return { success: true, sent };
@@ -5419,40 +5373,26 @@ exports.scheduledWeeklyFeteDigest = onSchedule(
         </div>
       `;
 
-      // Dispatch to opted-in users via Nodemailer (if SMTP configured)
+      // Dispatch to opted-in users via centralized email service
       const usersSnap = await defaultDb.collection("users").limit(100).get();
       console.log(`[Weekly Digest] Found ${usersSnap.size} user accounts to evaluate for newsletter dispatch.`);
 
-      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        });
-
-        let sentCount = 0;
-        for (const userDoc of usersSnap.docs) {
-          const u = userDoc.data();
-          if (u.email) {
-            try {
-              await transporter.sendMail({
-                from: `"CaribPulse AI" <${process.env.SMTP_USER}>`,
-                to: u.email,
-                subject: "🌴 Top 5 Fetes This Week! — CaribPulse Weekly Digest",
-                html: emailHtml,
-              });
-              sentCount++;
-            } catch (mailErr) {
-              console.error(`[Weekly Digest] Email error for ${u.email}:`, mailErr.message);
-            }
+      let sentCount = 0;
+      for (const userDoc of usersSnap.docs) {
+        const u = userDoc.data();
+        if (u.email) {
+          try {
+            const res = await emailService.sendWeeklyDigestEmail({
+              to: u.email,
+              emailHtml,
+            });
+            if (res.success) sentCount++;
+          } catch (mailErr) {
+            console.error(`[Weekly Digest] Email error for ${u.email}:`, mailErr.message);
           }
         }
-        console.log(`[Weekly Digest] Newsletter dispatched to ${sentCount} subscribers.`);
-      } else {
-        console.log("[Weekly Digest] SMTP_USER/SMTP_PASS not set — compiled HTML preview ready.");
       }
+      console.log(`[Weekly Digest] Newsletter dispatched to ${sentCount} subscribers.`);
     } catch (err) {
       console.error("[Weekly Digest] Execution failed:", err);
     }
@@ -5540,26 +5480,12 @@ exports.scheduledAbandonedCheckoutRecovery = onSchedule(
       for (const doc of pendingSnap.docs) {
         const item = doc.data();
         if (item.userEmail && item.recoveryUrl) {
-          // Send re-engagement email if SMTP available
-          if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-            const transporter = nodemailer.createTransport({
-              service: "gmail",
-              auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-            });
-
-            await transporter.sendMail({
-              from: `"CaribPulse AI" <${process.env.SMTP_USER}>`,
-              to: item.userEmail,
-              subject: "⚠️ You left something behind! Complete your fete booking",
-              html: `
-                <div style="font-family:Arial,sans-serif; background:#0f0728; color:#fff; padding:20px;">
-                  <h2>Still thinking about it? 🎟️</h2>
-                  <p>Your tickets/pass for <strong>${item.itemName || 'Carnival Experience'}</strong> are still reserved for you!</p>
-                  <a href="${item.recoveryUrl}" style="background:#ec4899; color:#fff; padding:12px 24px; text-decoration:none; border-radius:8px; display:inline-block; font-weight:bold;">Complete Checkout Now →</a>
-                </div>
-              `
-            });
-          }
+          // Send re-engagement email via centralized email service
+          await emailService.sendAbandonedCartEmail({
+            userEmail: item.userEmail,
+            itemName: item.itemName,
+            recoveryUrl: item.recoveryUrl,
+          });
           // Mark recovered to prevent duplicates
           await doc.ref.update({ status: "recovery_sent", recoveredAt: admin.firestore.FieldValue.serverTimestamp() });
         }
@@ -5630,5 +5556,64 @@ exports.scheduledSeoBlogGenerator = onSchedule(
     }
   }
 );
+
+// ==========================================
+// 24/7 DATABASE HYGIENE & QUOTA PURGE BOT
+// ==========================================
+exports.scheduledDatabaseHygiene = onSchedule(
+  {
+    schedule: "0 4 * * *", // Every day at 4:00 AM AST
+    timeZone: "America/Port_of_Spain",
+    retryCount: 2,
+  },
+  async (event) => {
+    console.log("[Database Hygiene Bot] Starting automated database purge & quota cleanup...");
+    let prunedCooldowns = 0;
+    let prunedQuests = 0;
+
+    try {
+      // 1. Purge old safety alert cooldown records (> 7 days old)
+      const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      const cooldownsSnap = await squadDb.collection("safetyCooldowns").get();
+      const batch1 = squadDb.batch();
+      let batch1Count = 0;
+
+      cooldownsSnap.forEach((doc) => {
+        const data = doc.data();
+        const lastAlertAt = data.lastAlertAt?.toMillis?.() || data.lastAlertAt || 0;
+        if (lastAlertAt < sevenDaysAgo) {
+          batch1.delete(doc.ref);
+          batch1Count++;
+          prunedCooldowns++;
+        }
+      });
+
+      if (batch1Count > 0) {
+        await batch1.commit();
+      }
+
+      // 2. Deactivate expired Flash Quests
+      const now = new Date();
+      const expiredQuestsSnap = await defaultDb.collection("flashQuests")
+        .where("active", "==", true)
+        .where("expiresAt", "<", now)
+        .get();
+
+      if (!expiredQuestsSnap.empty) {
+        const batch2 = defaultDb.batch();
+        expiredQuestsSnap.forEach((doc) => {
+          batch2.update(doc.ref, { active: false, status: "expired" });
+          prunedQuests++;
+        });
+        await batch2.commit();
+      }
+
+      console.log(`[Database Hygiene Bot] Cleanup complete: Pruned ${prunedCooldowns} old safety records, deactivated ${prunedQuests} expired quests.`);
+    } catch (err) {
+      console.error("[Database Hygiene Bot] Error executing database cleanup:", err);
+    }
+  }
+);
+
 
 

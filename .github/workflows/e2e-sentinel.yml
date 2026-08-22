@@ -1,0 +1,66 @@
+name: 24/7 E2E Smoke Test Sentinel
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Runs every 6 hours
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    name: Synthetic Health Check (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install --legacy-peer-deps
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Application
+        run: npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Run E2E Smoke Test Sentinel
+        run: |
+          npx vite preview --port 5173 &
+          npx wait-on http://localhost:5173
+          npx playwright test e2e/smoke.spec.js
+        env:
+          PLAYWRIGHT_TEST_BASE_URL: "http://localhost:5173"
+          CI: "true"
+
+      - name: Upload Test Report & Screenshots on Failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failure-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Dispatch Discord/Telegram Failure Webhook Alert
+        if: failure() && env.ALERT_WEBHOOK_URL != ''
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d '{"content": "🚨 **[CRITICAL ALERT]** Caribbean Carnival Planner E2E Smoke Test failed on GitHub Actions! Check the latest workflow logs."}' \
+               $ALERT_WEBHOOK_URL || true

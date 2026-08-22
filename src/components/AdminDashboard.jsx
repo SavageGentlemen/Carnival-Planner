@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Megaphone, MessageSquare, Users, Settings,
-    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target, Box, PiggyBank, Plane
+    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target, Box, PiggyBank, Plane, Bot
 } from 'lucide-react';
 import {
     collection, query, where, getDocs, doc, updateDoc,
@@ -17,6 +17,7 @@ import SponsorshipManager from './SponsorshipManager';
 import AffiliateManager from './AffiliateManager';
 import BandOSApprovals from './BandOSApprovals';
 import MoyAgentDashboard from './travel/MoyAgentDashboard';
+import AutomationManager from './AutomationManager';
 
 export default function AdminDashboard({ user }) {
     const [activeTab, setActiveTab] = useState('Overview');
@@ -39,6 +40,7 @@ export default function AdminDashboard({ user }) {
 
     const tabs = [
         { id: 'Overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'Automations', label: '🤖 Automations', icon: Bot },
         { id: 'Travel', label: '✈️ Moy Travel', icon: Plane },
         { id: 'Ads', label: 'Ad Manager', icon: Megaphone },
         { id: 'Sponsorships', label: 'Sponsorships', icon: Target },
@@ -80,6 +82,7 @@ export default function AdminDashboard({ user }) {
             {/* Content Area */}
             <div className="p-6">
                 {activeTab === 'Overview' && <AdminAnalytics />}
+                {activeTab === 'Automations' && <AutomationManager />}
                 {activeTab === 'Travel' && <MoyAgentDashboard user={user} onClose={() => setActiveTab('Overview')} />}
                 {activeTab === 'Ads' && <AdManager />}
                 {activeTab === 'Sponsorships' && <SponsorshipManager />}

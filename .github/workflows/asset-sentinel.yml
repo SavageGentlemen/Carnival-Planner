@@ -1,0 +1,30 @@
+name: 24/7 Asset & Dead Link Sentinel Bot
+
+on:
+  schedule:
+    - cron: '0 5 * * *' # Daily at 5 AM UTC
+  workflow_dispatch:
+
+jobs:
+  audit-and-repair:
+    name: Scan & Auto-Repair Event Assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Asset Sentinel Bot
+        run: |
+          python scripts/asset_sentinel.py --file events.json
+
+      - name: Commit Asset Repairs (If Any)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 [Bot] Auto-repair broken event flyer & media assets"
+          file_pattern: "events.json"
