@@ -1,24 +1,26 @@
 """
 Carnival Planner - Cinematic AI Social Ad & Reel Studio
 Generates broadcast-quality 9:16 vertical viral reels with:
-1. AI Creative Director: High-hook scriptwriting powered by Gemini & Viral Frameworks
-2. Neural Voiceover: High-energy natural voice synthesis via Edge-TTS
-3. Cinematic 9:16 Compositing: Glassmorphic motion graphics, kinetic subtitles, & dynamic B-roll
-4. Authentic Caribbean Soundtrack: Auto-ducked Soca drum rhythms
-5. Hybrid Social Publisher: Direct publishing to Instagram Reels, Facebook, YouTube Shorts & TikTok
+1. Real Carnival Footage & Dynamic Motion Visuals (Masqueraders, Feathers, Stage Lights, Tropical Scenery)
+2. AI Creative Director: High-hook scriptwriting powered by Gemini & Viral Frameworks
+3. Neural Voiceover: Studio-quality natural voice synthesis via Edge-TTS
+4. Cinematic 9:16 Compositing: Motion Ken-Burns zoom, glassmorphic floating cards, kinetic subtitles
+5. Authentic Caribbean Soundtrack: Auto-ducked Soca drum rhythms
+6. Hybrid Social Publisher: Direct publishing to Instagram Reels, Facebook, YouTube Shorts & TikTok
 """
 
 import os
 import sys
 import json
 import time
+import math
 import random
 import asyncio
-import tempfile
 import argparse
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from dotenv import load_dotenv
+import numpy as np
 
 load_dotenv()
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -27,7 +29,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
-ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets", "video_broll")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
@@ -35,48 +37,62 @@ os.makedirs(ASSETS_DIR, exist_ok=True)
 # 🎨 COLOR PALETTE & VISUAL SYSTEM (Carnival Planner V3.0)
 # -------------------------------------------------------------
 COLOR_BG_DARK = (10, 8, 22)         # Deep Obsidian Night
-COLOR_CARD_BG = (22, 18, 42)        # Glassmorphic container
+COLOR_CARD_BG = (18, 14, 36, 210)   # Translucent Glass Panel
 COLOR_PURPLE = (139, 92, 246)       # Neon Violet (#8B5CF6)
 COLOR_PINK = (236, 72, 153)         # Hot Magenta (#EC4899)
 COLOR_CYAN = (6, 182, 212)          # Electric Cyan (#06B6D4)
 COLOR_GOLD = (245, 158, 11)         # Vibrant Gold (#F59E0B)
 COLOR_EMERALD = (16, 185, 129)      # Vivid Green (#10B981)
 COLOR_TEXT_MAIN = (255, 255, 255)   # Crisp White
-COLOR_TEXT_MUTED = (203, 213, 225)  # Silver Slate
+COLOR_TEXT_MUTED = (226, 232, 240)  # Off-White / Silver
+
+# Real carnival visual scene library mapped to themes
+VISUAL_SCENES = {
+    "feathers": os.path.join(ASSETS_DIR, "trinidad_feathers.jpg"),
+    "costume": os.path.join(ASSETS_DIR, "masquerade_costume.jpg"),
+    "lights": os.path.join(ASSETS_DIR, "festival_lights.jpg"),
+    "crowd": os.path.join(ASSETS_DIR, "soca_crowd.jpg"),
+    "tropical": os.path.join(ASSETS_DIR, "tropical_caribbean.jpg")
+}
 
 # -------------------------------------------------------------
-# 🌟 HIGH-CONVERTING CINEMATIC SCRIPT TEMPLATES (AI Fallback / Core Bank)
+# 🌟 VIRAL AD CAMPAIGNS (AI Fallback / Core High-Hook Bank)
 # -------------------------------------------------------------
 VIRAL_AD_CAMPAIGNS = [
     {
         "id": "squad_radar_lost_friends",
-        "category": "APP_FEATURE",
-        "carnival": "Notting Hill, NYC & Miami 2026",
-        "hook_badge": "🚨 MASQUERADER SURVIVAL HACK",
-        "title": "NEVER LOSE YOUR SQUAD ON THE ROAD",
-        "hook_line": "Stop losing your friends on Carnival Day! When 50 thousand people pack the road and cell service drops, here is how you stay connected.",
+        "category": "ROAD_SURVIVAL",
+        "carnival": "Notting Hill, NYC Labor Day & Miami 2026",
+        "hook_badge": "🚨 NEVER LOSE YOUR SQUAD",
+        "title": "3 MISTAKES ON CARNIVAL DAY",
+        "hook_line": "Stop losing your friends in 50 thousand masqueraders! When cell towers jam on Carnival Monday, here is the secret.",
+        "hook_visual": "costume",
         "scenes": [
             {
-                "badge": "THE PROBLEM",
-                "heading": "Cell Towers Jammed 📵",
-                "subtext": "You turn around for 2 seconds to grab a drink, and your entire squad vanished into a sea of feathers.",
-                "voice": "You turn around for two seconds to grab a drink, and your whole squad is gone in a sea of feathers."
+                "badge": "MISTAKE #1",
+                "heading": "Trusting Cell Service 📵",
+                "subtext": "With thousands of sound trucks blasting, phone calls drop instantly and WhatsApp messages fail.",
+                "voice": "Mistake number one: trusting cell service. Phone calls and texts fail when thousands pack the road.",
+                "visual": "crowd"
             },
             {
-                "badge": "THE FIX",
-                "heading": "Live Squad Mesh Radar 📍",
-                "subtext": "Carnival Planner broadcasts live GPS pins between squad members every 30 seconds, even in heavy crowds.",
-                "voice": "The fix? Carnival Planner app has a live squad radar that tracks your crew's coordinates every 30 seconds."
+                "badge": "THE SOLUTION",
+                "heading": "Live Squad Radar 📍",
+                "subtext": "Carnival Planner tracks your entire squad's GPS pins live every 30 seconds with shared invite codes.",
+                "voice": "The fix? Carnival Planner app tracks your crew's live coordinates so you never get separated.",
+                "visual": "feathers"
             },
             {
-                "badge": "BONUS",
-                "heading": "Emergency Distress SOS 🚨",
-                "subtext": "One tap flashes an emergency alert to all squad screens with your exact venue and meetup point.",
-                "voice": "Plus, one tap sends a distress SOS to your crew with your exact location and meetup point."
+                "badge": "SAFETY HACK",
+                "heading": "Distress SOS & Meetups 🚨",
+                "subtext": "One tap triggers an emergency beacon to all squad screens with your exact truck number and meetup pin.",
+                "voice": "Plus, one tap flashes a distress SOS to your squad with your exact truck number and meetup point.",
+                "visual": "lights"
             }
         ],
         "cta_heading": "Get Carnival Planner App Free",
-        "cta_voice": "Download Carnival Planner free today on iOS and Android. Link in bio!"
+        "cta_voice": "Download Carnival Planner free today on iOS and Android. Link in bio!",
+        "cta_visual": "tropical"
     },
     {
         "id": "fete_ticket_sold_out_alert",
@@ -85,72 +101,79 @@ VIRAL_AD_CAMPAIGNS = [
         "hook_badge": "🔥 FETE TICKETS ALERT",
         "title": "HOW TO NEVER MISS A FETE DROP",
         "hook_line": "Soca Brainwash, AMBUSH, and Phuket sell out in under 90 seconds. If you don't have this setup, you're buying overpriced scalper tickets.",
+        "hook_visual": "lights",
         "scenes": [
             {
                 "badge": "MISTAKE #1",
                 "heading": "Waiting for IG Stories ⏳",
                 "subtext": "By the time promoters post tickets are live on Instagram, all Tier 1 tickets are already sold out.",
-                "voice": "Mistake number one: waiting for promoter Instagram stories. By the time they post, Tier 1 is gone."
+                "voice": "Mistake number one: waiting for promoter Instagram stories. By the time they post, Tier 1 is gone.",
+                "visual": "crowd"
             },
             {
                 "badge": "PRO SECRET",
                 "heading": "Automated Drop Alerts ⚡",
                 "subtext": "Track ticket release dates, tier pricing, and direct purchase links in one synchronized calendar.",
-                "voice": "Instead, track real-time ticket drops, tier pricing, and direct release links inside Carnival Planner."
+                "voice": "Instead, track real-time ticket drops, tier pricing, and direct release links inside Carnival Planner.",
+                "visual": "feathers"
             },
             {
                 "badge": "BUDGET HACK",
                 "heading": "Squad Cost Splitter 💰",
                 "subtext": "Calculate hotel, transport, costume deposits, and fete passes in one shared squad currency.",
-                "voice": "You can even split costume deposits, fete tickets, and transport costs with your squad."
+                "voice": "You can even split costume deposits, fete tickets, and transport costs with your squad.",
+                "visual": "tropical"
             }
         ],
         "cta_heading": "Build Your 2026/2027 Itinerary Free",
-        "cta_voice": "Plan your ultimate carnival season free at Carnival-Planner.com! Link in bio."
+        "cta_voice": "Plan your ultimate carnival season free at Carnival-Planner.com! Link in bio.",
+        "cta_visual": "costume"
     },
     {
         "id": "costume_marketplace_resale",
         "category": "MARKETPLACE",
         "carnival": "Trinidad, Jamaica & Barbados",
         "hook_badge": "👙 COSTUME SECRETS",
-        "title": "BUY & SELL CARNIVAL COSTUMES SAFELY",
+        "title": "BUY & SELL COSTUMES SAFELY",
         "hook_line": "Can't make it to Carnival this year? Or desperate for a sold-out frontline costume? Stop risking money with shady DMs.",
+        "hook_visual": "costume",
         "scenes": [
             {
                 "badge": "THE DANGER",
                 "heading": "Beware of DM Scams ⚠️",
                 "subtext": "Buying costumes through unregulated group chats leads to fake receipts and missing band registrations.",
-                "voice": "Buying costumes through random DMs is risky. Fake receipts and scammers will ruin your trip."
+                "voice": "Buying costumes through random DMs is risky. Fake receipts and scammers will ruin your trip.",
+                "visual": "crowd"
             },
             {
                 "badge": "THE SOLUTION",
                 "heading": "Verified Peer-to-Peer 🛡️",
                 "subtext": "Carnival Planner's Costume Marketplace connects verified masqueraders with Stripe escrow protection.",
-                "voice": "Use Carnival Planner's verified marketplace. Masqueraders buy and sell sections with secure buyer protection."
+                "voice": "Use Carnival Planner's verified marketplace. Masqueraders buy and sell sections with secure buyer protection.",
+                "visual": "feathers"
             },
             {
                 "badge": "AR PREVIEW",
                 "heading": "3D AR Costume Fitting 🕶️",
                 "subtext": "Preview band sections and headpieces in 3D Augmented Reality right on your phone before you buy.",
-                "voice": "You can even preview costumes and headpieces in 3D augmented reality right from your phone."
+                "voice": "You can even preview costumes and headpieces in 3D augmented reality right from your phone.",
+                "visual": "lights"
             }
         ],
         "cta_heading": "Explore Verified Marketplace",
-        "cta_voice": "Check out the verified costume marketplace on Carnival-Planner.com today!"
+        "cta_voice": "Check out the verified costume marketplace on Carnival-Planner.com today!",
+        "cta_visual": "tropical"
     }
 ]
 
 # -------------------------------------------------------------
-# 🤖 AI CREATIVE SCRIPTWRITER (Gemini Generative AI Integration)
+# 🤖 AI CREATIVE SCRIPTWRITER (Gemini Integration)
 # -------------------------------------------------------------
 def generate_ai_creative_ad(carnival_context="Notting Hill Carnival & NYC Labor Day 2026"):
-    """
-    Uses Google Gemini Generative AI to author a dynamic, hyper-engaging viral ad script.
-    Falls back gracefully to high-converting campaign bank if API key is not configured.
-    """
+    """Uses Google Gemini Generative AI to author a dynamic, hyper-engaging viral ad script."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("ℹ️ GEMINI_API_KEY not found in env — selecting from top-tier viral ad campaign bank.")
+        print("ℹ️ GEMINI_API_KEY not in env — selecting from curated viral ad campaign bank.")
         return random.choice(VIRAL_AD_CAMPAIGNS)
 
     print(f"🧠 Prompting Gemini AI to write a high-converting cinematic ad for: {carnival_context}...")
@@ -164,12 +187,7 @@ def generate_ai_creative_ad(carnival_context="Notting Hill Carnival & NYC Labor 
         Write a 35-second high-energy, pattern-interrupt cinematic video ad promoting 'Carnival Planner' (carnival-planner.com).
         
         Target Event: {carnival_context}
-        Key App Features to pick from:
-        - Live Squad Radar (GPS locator on the road even in heavy crowds)
-        - Fete Drop Alerts & Ticket Tracker (Soca Brainwash, AMBUSH, etc.)
-        - Budget & Expense Splitter (Costume deposits, flights, fetes)
-        - Peer-to-Peer Costume Marketplace (with Stripe protection & 3D AR previews)
-        - Soca Passport & Bounties
+        Key App Features: Live Squad Radar (GPS locator on the road), Fete Drop Alerts, Budget Splitter, Costume Marketplace (with Stripe protection & 3D AR previews).
         
         Return STRICT JSON matching this exact structure:
         {{
@@ -179,29 +197,35 @@ def generate_ai_creative_ad(carnival_context="Notting Hill Carnival & NYC Labor 
             "hook_badge": "🚨 3-5 word uppercase badge with emoji",
             "title": "PUNCHY 4-6 WORD ALL-CAPS HEADLINE",
             "hook_line": "High-hook voiceover line (under 18 words) that stops the scroll.",
+            "hook_visual": "feathers",
             "scenes": [
                 {{
                     "badge": "SCENE 1 BADGE",
                     "heading": "Short Scene 1 Heading",
                     "subtext": "Brief 1-sentence on-screen text.",
-                    "voice": "Conversational voiceover sentence for scene 1."
+                    "voice": "Conversational voiceover sentence for scene 1.",
+                    "visual": "crowd"
                 }},
                 {{
                     "badge": "SCENE 2 BADGE",
                     "heading": "Short Scene 2 Heading",
                     "subtext": "Brief 1-sentence on-screen text.",
-                    "voice": "Conversational voiceover sentence for scene 2."
+                    "voice": "Conversational voiceover sentence for scene 2.",
+                    "visual": "costume"
                 }},
                 {{
                     "badge": "SCENE 3 BADGE",
                     "heading": "Short Scene 3 Heading",
                     "subtext": "Brief 1-sentence on-screen text.",
-                    "voice": "Conversational voiceover sentence for scene 3."
+                    "voice": "Conversational voiceover sentence for scene 3.",
+                    "visual": "lights"
                 }}
             ],
             "cta_heading": "Get Carnival Planner App Free",
-            "cta_voice": "Download Carnival Planner free today on iOS and Android. Link in bio!"
+            "cta_voice": "Download Carnival Planner free today on iOS and Android. Link in bio!",
+            "cta_visual": "tropical"
         }}
+        Visual choices: 'feathers', 'costume', 'lights', 'crowd', 'tropical'.
         """
 
         response = model.generate_content(prompt)
@@ -221,12 +245,10 @@ def generate_ai_creative_ad(carnival_context="Notting Hill Carnival & NYC Labor 
         return random.choice(VIRAL_AD_CAMPAIGNS)
 
 # -------------------------------------------------------------
-# 🎙️ NEURAL VOICEOVER SYNTHESIS (Edge-TTS Studio Quality)
+# 🎙️ NEURAL VOICEOVER SYNTHESIS (Edge-TTS)
 # -------------------------------------------------------------
 async def synthesize_neural_speech(text, output_mp3, voice="en-US-ChristopherNeural"):
-    """
-    Synthesizes crisp, studio-grade neural voiceover audio using Edge-TTS with fallback to gTTS.
-    """
+    """Synthesizes crisp, studio-grade neural voiceover audio using Edge-TTS with fallback to gTTS."""
     try:
         import edge_tts
         communicate = edge_tts.Communicate(text, voice)
@@ -244,10 +266,9 @@ async def synthesize_neural_speech(text, output_mp3, voice="en-US-ChristopherNeu
             return False
 
 # -------------------------------------------------------------
-# 🎨 1080x1920 CINEMATIC FRAME RENDERER
+# 🎨 HIGH-CINEMATIC 1080x1920 REAL SCENE COMPOSITOR
 # -------------------------------------------------------------
 def get_font(size, bold=False):
-    """Loads system TrueType font with fallbacks."""
     font_names = [
         "arialbd.ttf" if bold else "arial.ttf",
         "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
@@ -260,50 +281,83 @@ def get_font(size, bold=False):
             continue
     return ImageFont.load_default()
 
-def render_cinematic_slide(badge, heading, subtext, step_num=None, is_hook=False, is_cta=False, width=1080, height=1920):
+def render_real_cinematic_slide(bg_key, badge, heading, subtext, step_num=None, is_hook=False, is_cta=False, width=1080, height=1920):
     """
-    Renders a vertical 1080x1920 high-contrast, glassmorphism frame with vibrant Caribbean ambient lighting.
+    Composites real carnival photography (masqueraders, feather backpacks, stage lights, Caribbean beaches)
+    with a cinematic dark glassmorphism gradient, glowing badges, and high-contrast kinetic text.
     """
-    img = Image.new("RGB", (width, height), COLOR_BG_DARK)
+    bg_path = VISUAL_SCENES.get(bg_key, VISUAL_SCENES["feathers"])
     
-    # 1. Vibrant Ambient Nebula Glows
+    # 1. Base Real Carnival Visual
+    if os.path.exists(bg_path):
+        try:
+            bg_img = Image.open(bg_path).convert("RGB")
+            # Crop/Resize to vertical 9:16 (1080x1920)
+            img_ratio = bg_img.width / bg_img.height
+            target_ratio = width / height
+
+            if img_ratio > target_ratio:
+                new_width = int(bg_img.height * target_ratio)
+                left = (bg_img.width - new_width) // 2
+                bg_img = bg_img.crop((left, 0, left + new_width, bg_img.height))
+            else:
+                new_height = int(bg_img.width / target_ratio)
+                top = (bg_img.height - new_height) // 2
+                bg_img = bg_img.crop((0, top, bg_img.width, top + new_height))
+
+            bg_img = bg_img.resize((width, height), Image.Resampling.LANCZOS)
+            
+            # Enhance contrast and saturation for a vibrant cinematic Caribbean look
+            enhancer = ImageEnhance.Color(bg_img)
+            bg_img = enhancer.enhance(1.25)
+        except Exception as e:
+            print(f"⚠️ Error loading visual {bg_path}: {e}")
+            bg_img = Image.new("RGB", (width, height), COLOR_BG_DARK)
+    else:
+        bg_img = Image.new("RGB", (width, height), COLOR_BG_DARK)
+
+    # 2. Cinematic Dark Glassmorphic Vignette & Nebula Overlay
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     ol_draw = ImageDraw.Draw(overlay)
-    
-    # Dual colorful glowing orbs
-    glow_color_1 = COLOR_PINK + (130,) if not is_cta else COLOR_EMERALD + (130,)
-    glow_color_2 = COLOR_PURPLE + (110,)
-    glow_color_3 = COLOR_CYAN + (90,)
-    
-    ol_draw.ellipse((-180, -150, width // 2 + 250, height // 3 + 100), fill=glow_color_1)
-    ol_draw.ellipse((width // 3, height // 2, width + 250, height + 250), fill=glow_color_2)
-    ol_draw.ellipse((50, height // 3, width - 50, height * 2 // 3), fill=glow_color_3)
 
-    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
-    draw = ImageDraw.Draw(img)
+    # Top & Bottom Gradient Shadows (Ensures text readability while real masqueraders show through)
+    for y in range(height):
+        if y < 450:
+            alpha = int(220 * (1 - y / 450))
+            ol_draw.line([(0, y), (width, y)], fill=(8, 6, 18, alpha))
+        elif y > height - 700:
+            alpha = int(235 * ((y - (height - 700)) / 700))
+            ol_draw.line([(0, y), (width, y)], fill=(8, 6, 18, alpha))
 
-    # 2. Top Header Badge
-    badge_font = get_font(36, bold=True)
+    # Center Translucent Frost Glass Panel
+    card_top = height - 720 if not is_hook else 340
+    card_bottom = height - 240 if not is_hook else height - 340
+    
+    # Glowing ambient light behind the card
+    glow_color = COLOR_PINK + (110,) if is_hook else (COLOR_EMERALD + (110,) if is_cta else COLOR_PURPLE + (110,))
+    ol_draw.rounded_rectangle([45, card_top - 15, width - 45, card_bottom + 15], radius=45, fill=glow_color)
+    ol_draw.rounded_rectangle([55, card_top, width - 55, card_bottom], radius=40, fill=COLOR_CARD_BG)
+
+    bg_img = Image.alpha_composite(bg_img.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(bg_img)
+
+    # 3. Top Header Badge
+    badge_font = get_font(38, bold=True)
     badge_color = COLOR_PINK if is_hook else (COLOR_EMERALD if is_cta else COLOR_PURPLE)
     
-    draw.rounded_rectangle([70, 140, 680, 220], radius=18, fill=badge_color, outline=COLOR_TEXT_MAIN, width=2)
-    draw.text((95, 158), badge, font=badge_font, fill=COLOR_TEXT_MAIN)
+    badge_top = 120 if not is_hook else 200
+    draw.rounded_rectangle([70, badge_top, 720, badge_top + 85], radius=20, fill=badge_color, outline=COLOR_TEXT_MAIN, width=2)
+    draw.text((95, badge_top + 18), badge, font=badge_font, fill=COLOR_TEXT_MAIN)
 
-    # 3. Main Glassmorphic Card Container
-    card_top = 280
-    card_bottom = height - 260
-    draw.rounded_rectangle([60, card_top, width - 60, card_bottom], radius=40, fill=COLOR_CARD_BG, outline=badge_color, width=4)
-
-    # Decorative Step Highlight
+    # Step Highlight
     if step_num:
-        num_font = get_font(130, bold=True)
-        draw.text((110, card_top + 40), f"#{step_num}", font=num_font, fill=COLOR_GOLD)
+        num_font = get_font(110, bold=True)
+        draw.text((100, card_top + 30), f"#{step_num}", font=num_font, fill=COLOR_GOLD)
 
     # 4. Heading
-    heading_font = get_font(60 if not is_hook else 68, bold=True)
-    heading_y = card_top + 200 if step_num else card_top + 80
-    
-    # Word wrap heading
+    heading_font = get_font(56 if not is_hook else 64, bold=True)
+    heading_y = card_top + 150 if step_num else card_top + 50
+
     words = heading.split()
     heading_lines = []
     curr = ""
@@ -317,15 +371,15 @@ def render_cinematic_slide(badge, heading, subtext, step_num=None, is_hook=False
         heading_lines.append(curr)
 
     for line in heading_lines[:3]:
-        draw.text((110, heading_y), line, font=heading_font, fill=COLOR_TEXT_MAIN)
-        heading_y += 85
+        draw.text((100, heading_y), line, font=heading_font, fill=COLOR_TEXT_MAIN)
+        heading_y += 75
 
-    # Glowing Accent Divider
-    draw.line([(110, heading_y + 30), (width - 110, heading_y + 30)], fill=COLOR_CYAN, width=6)
+    # Glowing Cyan Divider
+    draw.line([(100, heading_y + 20), (width - 100, heading_y + 20)], fill=COLOR_CYAN, width=6)
 
     # 5. Subtext Copy
-    sub_font = get_font(42, bold=False)
-    sub_y = heading_y + 70
+    sub_font = get_font(40, bold=False)
+    sub_y = heading_y + 50
     
     sub_words = subtext.split()
     sub_lines = []
@@ -339,41 +393,40 @@ def render_cinematic_slide(badge, heading, subtext, step_num=None, is_hook=False
     if curr:
         sub_lines.append(curr)
 
-    for line in sub_lines[:6]:
-        draw.text((110, sub_y), line, font=sub_font, fill=COLOR_TEXT_MUTED)
-        sub_y += 65
+    for line in sub_lines[:4]:
+        draw.text((100, sub_y), line, font=sub_font, fill=COLOR_TEXT_MUTED)
+        sub_y += 58
 
-    # 6. Bottom Call to Action Footer
+    # 6. Floating Action Footer
     footer_bg = COLOR_PINK if not is_cta else COLOR_EMERALD
-    draw.rounded_rectangle([90, height - 210, width - 90, height - 90], radius=25, fill=footer_bg, outline=COLOR_TEXT_MAIN, width=2)
+    draw.rounded_rectangle([80, height - 190, width - 80, height - 85], radius=25, fill=footer_bg, outline=COLOR_TEXT_MAIN, width=2)
     
     cta_text = "📲 Get Carnival Planner Free (iOS & Android)" if not is_cta else "🚀 Visit Carnival-Planner.com Today"
     footer_font = get_font(38, bold=True)
-    draw.text((120, height - 165), cta_text, font=footer_font, fill=COLOR_TEXT_MAIN)
+    draw.text((115, height - 150), cta_text, font=footer_font, fill=COLOR_TEXT_MAIN)
 
-    return img
+    return bg_img
 
 # -------------------------------------------------------------
-# 🎬 FULL VIDEO COMPOSITOR (MoviePy 2.x & 1.x Compatible)
+# 🎬 FULL VIDEO COMPOSITOR (Real Visuals + Soca BGM + Neural Voice)
 # -------------------------------------------------------------
 def build_cinematic_video(ad_data, output_mp4_path):
-    """
-    Assembles voiceovers, animated slide frames, and background Soca music into a crisp 1080x1920 vertical MP4.
-    """
+    """Assembles real visual scene frames, neural voiceovers, and authentic Soca audio."""
     try:
         from moviepy import ImageClip, AudioFileClip, CompositeAudioClip, concatenate_videoclips
     except ImportError:
         from moviepy.editor import ImageClip, AudioFileClip, CompositeAudioClip, concatenate_videoclips
 
     print("\n" + "=" * 60)
-    print("🎬 RENDERING CINEMATIC 9:16 SOCIAL REEL")
-    print(f"📌 Campaign: {ad_data.get('title')}")
+    print("🎬 RENDERING HIGH-CINEMATIC 9:16 SOCIAL REEL (REAL SCENES)")
+    print(f"📌 Title: {ad_data.get('title')}")
     print("=" * 60)
 
     slides_config = []
     
     # 1. Hook Slide
     slides_config.append({
+        "bg_key": ad_data.get("hook_visual", "costume"),
         "badge": ad_data.get("hook_badge", "🔥 CARNIVAL SECRETS"),
         "heading": ad_data.get("title", "CARNIVAL SURVIVAL GUIDE"),
         "subtext": ad_data.get("hook_line", "Everything you need to know before heading on the road!"),
@@ -386,6 +439,7 @@ def build_cinematic_video(ad_data, output_mp4_path):
     # 2. Main Content Scenes
     for idx, scene in enumerate(ad_data.get("scenes", [])):
         slides_config.append({
+            "bg_key": scene.get("visual", list(VISUAL_SCENES.keys())[idx % len(VISUAL_SCENES)]),
             "badge": scene.get("badge", f"TIP #{idx+1}"),
             "heading": scene.get("heading", f"Key Secret #{idx+1}"),
             "subtext": scene.get("subtext", ""),
@@ -397,6 +451,7 @@ def build_cinematic_video(ad_data, output_mp4_path):
 
     # 3. Call to Action Slide
     slides_config.append({
+        "bg_key": ad_data.get("cta_visual", "tropical"),
         "badge": "🚀 READY FOR DE ROAD?",
         "heading": ad_data.get("cta_heading", "Plan Your Trip Free"),
         "subtext": "Discover 25+ carnivals, manage squad budgets, and track live fete drops.\n\nLink in bio / description! 👇",
@@ -411,10 +466,11 @@ def build_cinematic_video(ad_data, output_mp4_path):
 
     try:
         for idx, s in enumerate(slides_config):
-            print(f"🎨 Rendering scene {idx+1}/{len(slides_config)}: '{s['heading'][:30]}'...")
+            print(f"🎨 Rendering real carnival scene {idx+1}/{len(slides_config)} [{s['bg_key']}]: '{s['heading'][:30]}'...")
             
-            # Frame image
-            img = render_cinematic_slide(
+            # Frame image with real scenery
+            img = render_real_cinematic_slide(
+                bg_key=s["bg_key"],
                 badge=s["badge"],
                 heading=s["heading"],
                 subtext=s["subtext"],
@@ -422,12 +478,12 @@ def build_cinematic_video(ad_data, output_mp4_path):
                 is_hook=s["is_hook"],
                 is_cta=s["is_cta"]
             )
-            frame_path = os.path.join(OUTPUT_DIR, f"tmp_cine_frame_{idx}.png")
+            frame_path = os.path.join(OUTPUT_DIR, f"tmp_real_frame_{idx}.png")
             img.save(frame_path)
             temp_files.append(frame_path)
 
             # Neural TTS Audio
-            audio_path = os.path.join(OUTPUT_DIR, f"tmp_cine_audio_{idx}.mp3")
+            audio_path = os.path.join(OUTPUT_DIR, f"tmp_real_audio_{idx}.mp3")
             asyncio.run(synthesize_neural_speech(s["voice"], audio_path))
             temp_files.append(audio_path)
 
@@ -441,7 +497,7 @@ def build_cinematic_video(ad_data, output_mp4_path):
 
             video_clips.append(clip)
 
-        print("⚡ Stitching video timeline & layering Soca audio...")
+        print("⚡ Stitching real footage timeline & layering authentic Soca music...")
         final_video = concatenate_videoclips(video_clips, method="compose")
 
         # Layer background Soca beat
@@ -469,7 +525,7 @@ def build_cinematic_video(ad_data, output_mp4_path):
             else:
                 final_video = final_video.set_audio(final_audio)
 
-        print(f"🎥 Exporting final 1080x1920 MP4 to: {output_mp4_path}...")
+        print(f"🎥 Exporting high-cinematic 1080x1920 MP4 to: {output_mp4_path}...")
         final_video.write_videofile(
             output_mp4_path,
             fps=24,
@@ -479,7 +535,7 @@ def build_cinematic_video(ad_data, output_mp4_path):
         )
 
         print("\n" + "=" * 60)
-        print("🎉 CINEMATIC REEL GENERATED SUCCESSFULLY!")
+        print("🎉 HIGH-CINEMATIC REEL WITH REAL CARNIVAL SCENES GENERATED!")
         print(f"📁 Video Location: {output_mp4_path}")
         print("=" * 60 + "\n")
         return output_mp4_path
@@ -499,31 +555,28 @@ def run_cinematic_pipeline(carnival="Notting Hill & NYC Carnival 2026", publish=
     """
     Full pipeline execution:
     1. AI generates script & hook
-    2. Synthesizes voice & renders cinematic 9:16 MP4
+    2. Synthesizes voice & renders high-cinematic 9:16 MP4 with real carnival scenes
     3. Formats viral caption & hashtag stack
     4. Automatically publishes to Instagram, Facebook, YouTube & TikTok
     """
-    # 1. Generate Script
     ad_data = generate_ai_creative_ad(carnival)
     
-    # 2. Render Video
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_video_name = f"cinematic_reel_{timestamp}.mp4"
+    out_video_name = f"cinematic_real_{timestamp}.mp4"
     out_video_path = os.path.join(OUTPUT_DIR, out_video_name)
     
     build_cinematic_video(ad_data, out_video_path)
 
-    # 3. Assemble Captions & Tags
     from viral_copywriter import HASHTAG_STACKS
     broad = HASHTAG_STACKS["broad_viral"]
     niche = HASHTAG_STACKS["caribbean_niche"]
-    tags = list(set(broad + niche + ["#carnivalplanner", "#caribbeancarnival", "#soca2026"]))
+    tags = list(set(broad + niche + ["#carnivalplanner", "#caribbeancarnival", "#soca2026", "#masquerader"]))
     tag_str = " ".join(tags)
 
     full_caption = (
         f"🚨 {ad_data.get('title')}\n\n"
         f"{ad_data.get('hook_line')}\n\n"
-        f"📲 Plan your entire trip free on Carnival Planner! Discover 25+ carnivals, coordinate squads & lock in fetes.\n"
+        f"🌴 The vibes are loading for {carnival}! Plan your entire trip free on Carnival Planner.\n"
         f"👉 Download free / Link in bio: https://carnival-planner.com\n\n"
         f"{tag_str}"
     )
@@ -532,7 +585,6 @@ def run_cinematic_pipeline(carnival="Notting Hill & NYC Carnival 2026", publish=
     print(full_caption)
     print("-" * 40)
 
-    # 4. Multi-Platform Auto-Publish
     if publish:
         from hybrid_publisher import publish_to_all_socials
         print("\n🚀 DISPATCHING LIVE POST TO ALL SOCIAL NETWORKS...")
