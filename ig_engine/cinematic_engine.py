@@ -434,13 +434,13 @@ def generate_ai_creative_ad(carnival_context="Notting Hill Carnival & NYC Labor 
     return chosen
 
 # -------------------------------------------------------------
-# 🎙️ NEURAL VOICEOVER SYNTHESIS (Edge-TTS)
+# 🎙️ NEURAL VOICEOVER SYNTHESIS (Female Voice @ 1.5x Speed)
 # -------------------------------------------------------------
-async def synthesize_neural_speech(text, output_mp3, voice="en-US-ChristopherNeural"):
-    """Synthesizes crisp, studio-grade neural voiceover audio using Edge-TTS with fallback to gTTS."""
+async def synthesize_neural_speech(text, output_mp3, voice="en-US-AvaNeural", rate="+50%"):
+    """Synthesizes crisp, high-energy female neural voiceover audio at 1.5x speed."""
     try:
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice)
+        communicate = edge_tts.Communicate(text, voice, rate=rate)
         await communicate.save(output_mp3)
         return True
     except Exception as e:
