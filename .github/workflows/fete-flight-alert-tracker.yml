@@ -25,6 +25,7 @@ jobs:
 
       - name: Run 24/7 Auto Daily Poster Engine
         env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}

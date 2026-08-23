@@ -92,3 +92,8 @@ _IGNORE_session/
 open-wa-session.postman_collection.json
 open-wa-session.sw_col.json
 
+# Marketing & Video Output
+ig_engine/output/
+marketing/output/
+*TEMP_MPY*
+
