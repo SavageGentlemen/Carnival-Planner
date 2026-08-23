@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Megaphone, MessageSquare, Users, Settings,
-    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target, Box, PiggyBank, Plane, Bot
+    Loader2, Check, X, Plus, Trash2, Shield, AlertTriangle, Target, Box, PiggyBank, Plane, Bot, Ticket
 } from 'lucide-react';
 import {
     collection, query, where, getDocs, doc, updateDoc,
@@ -16,6 +16,7 @@ import { SupportAdmin } from './ContactSupport';
 import SponsorshipManager from './SponsorshipManager';
 import AffiliateManager from './AffiliateManager';
 import BandOSApprovals from './BandOSApprovals';
+import PromoterAdminHub from './PromoterAdminHub';
 import MoyAgentDashboard from './travel/MoyAgentDashboard';
 import AutomationManager from './AutomationManager';
 
@@ -40,12 +41,13 @@ export default function AdminDashboard({ user }) {
 
     const tabs = [
         { id: 'Overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'BandOS', label: '👑 BandOS Hub', icon: Box },
+        { id: 'Promoters', label: '🎟️ Promoter Hub', icon: Ticket },
         { id: 'Automations', label: '🤖 Automations', icon: Bot },
         { id: 'Travel', label: '✈️ Moy Travel', icon: Plane },
         { id: 'Ads', label: 'Ad Manager', icon: Megaphone },
         { id: 'Sponsorships', label: 'Sponsorships', icon: Target },
         { id: 'Affiliates', label: 'Affiliates', icon: Users },
-        { id: 'BandOS', label: 'BandOS Approvals', icon: Box },
         { id: 'Vaults', label: 'Vaults', icon: PiggyBank },
         { id: 'Support', label: 'Support', icon: MessageSquare },
         { id: 'Settings', label: 'Admins', icon: Settings },
@@ -82,12 +84,13 @@ export default function AdminDashboard({ user }) {
             {/* Content Area */}
             <div className="p-6">
                 {activeTab === 'Overview' && <AdminAnalytics />}
+                {activeTab === 'BandOS' && <BandOSApprovals user={user} />}
+                {activeTab === 'Promoters' && <PromoterAdminHub />}
                 {activeTab === 'Automations' && <AutomationManager />}
                 {activeTab === 'Travel' && <MoyAgentDashboard user={user} onClose={() => setActiveTab('Overview')} />}
                 {activeTab === 'Ads' && <AdManager />}
                 {activeTab === 'Sponsorships' && <SponsorshipManager />}
                 {activeTab === 'Affiliates' && <AffiliateManager />}
-                {activeTab === 'BandOS' && <BandOSApprovals user={user} />}
                 {activeTab === 'Vaults' && <VaultAdmin />}
                 {activeTab === 'Support' && <SupportAdmin />}
                 {activeTab === 'Settings' && <AdminManagement user={user} isSuperAdmin={isSuperAdmin} />}

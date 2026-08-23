@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     LayoutDashboard, Plus, Settings, Users, ArrowUpRight, Copy, Check, MoreVertical,
     Loader2, DollarSign, Image as ImageIcon, Shirt, Box, PackageOpen, ScanLine, AlertCircle,
-    BookOpen
+    BookOpen, Award
 } from 'lucide-react';
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -11,6 +11,7 @@ import CostumeBuilder from './bandos/CostumeBuilder';
 import TimeSlotManager from './bandos/TimeSlotManager';
 import BandCRM from './bandos/BandCRM';
 import BandFinancials from './bandos/BandFinancials';
+import BandAmbassadors from './bandos/BandAmbassadors';
 import { supabase } from '../supabaseClient';
 
 export default function BandLeaderDashboard({ user, onExit, onClose }) {
@@ -302,6 +303,12 @@ export default function BandLeaderDashboard({ user, onExit, onClose }) {
                         onClick={() => setActiveTab('roster')}
                     />
                     <NavButton
+                        active={activeTab === 'ambassadors'}
+                        label="Section Leaders & Reps"
+                        icon={<Award className="w-4 h-4" />}
+                        onClick={() => setActiveTab('ambassadors')}
+                    />
+                    <NavButton
                         active={activeTab === 'logistics'}
                         label="Logistics & Slots"
                         icon={<Box className="w-4 h-4" />}
@@ -396,6 +403,13 @@ export default function BandLeaderDashboard({ user, onExit, onClose }) {
                 {activeTab === 'roster' && (
                     <div className="h-full">
                         <BandCRM bandId={(user && user.uid) ? user.uid : 'demo-band'} />
+                    </div>
+                )}
+
+                {/* AMBASSADORS TAB */}
+                {activeTab === 'ambassadors' && (
+                    <div className="h-full">
+                        <BandAmbassadors bandId={(user && user.uid) ? user.uid : 'demo-band'} />
                     </div>
                 )}
 
