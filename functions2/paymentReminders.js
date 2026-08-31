@@ -9,8 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 exports.sendPaymentReminders = onSchedule(
   {
     schedule: "every day 09:00",
-    timeZone: "UTC",
-    secrets: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]
+    timeZone: "UTC"
   },
   async (event) => {
     try {

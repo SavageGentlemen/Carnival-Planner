@@ -16,7 +16,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 exports.createBandDepositCheckout = onCall(
-  { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] },
+  { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY"] },
   async (request) => {
     const { bandId, sectionId, buyerName, buyerEmail, buyerPhone, selectedVariants, affiliateCode } = request.data || {};
 
@@ -118,7 +118,7 @@ exports.createBandDepositCheckout = onCall(
 );
 
 exports.handleBandCheckoutWebhook = onRequest(
-  { secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] },
+  { secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] },
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -242,7 +242,7 @@ exports.handleBandCheckoutWebhook = onRequest(
 );
 
 exports.createBalancePaymentCheckout = onCall(
-  { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] },
+  { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY"] },
   async (request) => {
     const { orderId, scheduleId, buyerEmail } = request.data || {};
 
