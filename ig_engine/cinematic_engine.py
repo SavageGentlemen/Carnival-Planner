@@ -12,6 +12,10 @@ Generates broadcast-quality 9:16 vertical viral reels with:
 
 import os
 import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import json
 import time
 import math

@@ -1486,22 +1486,88 @@ export default function App() {
   const costumeBalance = currentCarnival?.costume ? (currentCarnival.costume.total - currentCarnival.costume.paid) : 0;
   const curatedEvents = currentCarnival ? (POPULAR_EVENTS[activeCarnivalId] || POPULAR_EVENTS.default) : [];
 
+  // Public BandOS Storefront & Directory Routes
+  if (window.location.pathname.startsWith('/band/') || window.location.pathname === '/bands' || window.location.pathname.startsWith('/bands/')) {
+    const BandStorefront = React.lazy(() => import('./components/bandos/public/BandStorefront'));
+    const MasqueraderPortal = React.lazy(() => import('./components/bandos/public/MasqueraderPortal'));
+    const OrderConfirmation = React.lazy(() => import('./components/bandos/public/OrderConfirmation'));
+    const BandDirectory = React.lazy(() => import('./components/bandos/public/BandDirectory'));
+    
+    return (
+      <div className="min-h-screen bg-[#080c14]">
+        <Routes>
+          <Route path="/bands" element={
+            <React.Suspense fallback={<LazyFallback />}>
+              <BandDirectory />
+            </React.Suspense>
+          } />
+          <Route path="/band/:slug" element={
+            <React.Suspense fallback={<LazyFallback />}>
+              <BandStorefront />
+            </React.Suspense>
+          } />
+          <Route path="/band/:slug/order/:orderId" element={
+            <React.Suspense fallback={<LazyFallback />}>
+              <MasqueraderPortal />
+            </React.Suspense>
+          } />
+          <Route path="/band/:slug/confirmation" element={
+            <React.Suspense fallback={<LazyFallback />}>
+              <OrderConfirmation />
+            </React.Suspense>
+          } />
+        </Routes>
+      </div>
+    );
+  }
+
   // ── ROUTER: STANDALONE MOY MEETS WORLD ROUTES & DOMAIN SUPPORT ──
   const isMoyMeetsWorldRoute = typeof window !== 'undefined' && (
     window.location.hostname.includes('moymeetsworld') ||
+    window.location.hostname.includes('moysworld') ||
+    window.location.hostname.includes('moys.world') ||
+    window.location.search.includes('portal=moy') ||
+    window.location.search.includes('agent=moy') ||
     window.location.pathname.startsWith('/moymeetsworld') ||
+    window.location.pathname.startsWith('/moysworld') ||
+    window.location.pathname.startsWith('/moy') ||
     window.location.pathname.startsWith('/travel')
   );
 
   if (isMoyMeetsWorldRoute) {
     return (
       <Routes>
+        <Route path="/" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
         <Route path="/moymeetsworld" element={
           <React.Suspense fallback={<LazyFallback />}>
             <MoyMeetsWorldPage user={user} />
           </React.Suspense>
         } />
         <Route path="/moymeetsworld/:packageId" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="/moysworld" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="/moysworld/:packageId" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="/moy" element={
+          <React.Suspense fallback={<LazyFallback />}>
+            <MoyMeetsWorldPage user={user} />
+          </React.Suspense>
+        } />
+        <Route path="/moy/:packageId" element={
           <React.Suspense fallback={<LazyFallback />}>
             <MoyMeetsWorldPage user={user} />
           </React.Suspense>

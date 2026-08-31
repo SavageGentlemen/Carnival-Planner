@@ -1,62 +1,79 @@
-# 🏝️ Fete Drop & Flight Alert Tracker (Headless IG Engine)
+# 🏝️ Carnival Planner - Automated AI Social Video Engine & Multi-Platform Publisher
 
-A 100% free, headless Instagram engine built for **Caribbean Carnival Planner** that automatically tracks sold-out fete ticket drops and flight price drops, generates vibrant social media graphics, and publishes directly to Instagram.
-
----
-
-## 🛠️ The Tech Stack
-
-| Component | Technology | Purpose |
-| :--- | :--- | :--- |
-| **The Brain** | Google Sheets / `sample_alerts.json` | Stores pending fete drops, dates, ticket tiers, and flight routes. |
-| **The Server** | GitHub Actions | Runs the Python tracker script on a scheduled cron timer ($0/mo). |
-| **The Creative** | Python `Pillow` (PIL) | Auto-generates branded 1080x1080 (Feed) and 1080x1920 (Story) graphics. |
-| **The Publisher** | Instagram Graph API | Automatically posts images and formatted captions to Instagram. |
+An autonomous, full-stack AI content engine built for **Carnival Planner** that creates broadcast-quality 9:16 vertical video reels, 2D motion graphics, and viral captions, and auto-publishes across **Instagram Reels**, **YouTube Shorts**, **Facebook**, **TikTok**, and **Pinterest**.
 
 ---
 
-## 🚀 Quick Start (Local Testing / Dry-Run)
+## 🛠️ Complete Architecture
 
-### 1. Install Dependencies
-```bash
-cd ig_engine
-pip install -r requirements.txt
+```mermaid
+flowchart LR
+    A["Scheduler / Trigger\n(auto_daily_poster / daemon)"] --> B["Script & Copywriter\n(viral_copywriter / AI Director)"]
+    B --> C{"MoneyPrinterTurbo\n(Port 8090)"}
+    C -->|AI Video Sidecar| D["Pexels HD B-roll + Neural TTS + Subtitles"]
+    C -->|Fallback| E["Local High-Performance Studio Canvas"]
+    D --> F["Local 9:16 MP4 File"]
+    E --> F
+    F --> G["Public CDN Auto-Uploader\n(Catbox.moe / Public Storage)"]
+    G --> H["Hybrid Multi-Platform Dispatcher\n(hybrid_publisher)"]
+    H --> I["Make.com General Social Webhook\n(Instagram Reels, Facebook, Pinterest)"]
+    H --> J["Make.com YouTube Webhook\n(YouTube Shorts)"]
+    H --> K["Native Meta Graph API & YouTube Data API"]
+    H --> L["Deduplication Logger\n(posted_history.json)"]
 ```
 
-### 2. Run Dry-Run Preview
-Generate graphics locally without publishing to Instagram:
+---
+
+## 🚀 Key Features
+
+1. **MoneyPrinterTurbo AI Video Sidecar**:
+   - Integrates with local FastAPI container on port `8090`.
+   - Automatic query of Pexels stock footage and 2D animation clips.
+   - Synchronized Azure / Edge TTS voiceovers (`en-US-ChristopherNeural`, `en-US-AvaNeural`).
+   - Kinetic, word-by-word subtitles and background Soca music.
+
+2. **2D Animated & Motion Graphics Engine** (`generate_2d_animated_reel.py`):
+   - Generates high-energy 2D anime street aesthetics, neon soundwaves, and sound system visuals.
+   - Tailored pattern interrupts for high scroll-stopping retention.
+
+3. **VIP Product & Feature Drop Studio** (`generate_product_drop_reel.py`):
+   - Generates product showcases, Soca Passport rewards, and squad feature announcements with gold pricing cards and direct checkout links.
+
+4. **Multi-Platform Webhook Dispatcher** (`hybrid_publisher.py`):
+   - Automatically uploads local video/graphics to public CDN (`catbox.moe`) with candidate path resolution.
+   - Dispatches parallel HTTP payloads to Make.com / Ayrshare webhooks for instant live posting across Instagram, YouTube, TikTok, Facebook, and Pinterest.
+
+5. **24/7 Scheduling Daemon & Zero Duplicate Engine** (`scheduler_daemon.py` / `auto_daily_poster.py`):
+   - Schedules 3 posts daily (09:00 AM, 03:00 PM, 09:00 PM).
+   - Tracks `posted_history.json` to guarantee no repeated themes or duplicate titles.
+
+---
+
+## 💻 CLI Commands
+
+### 1. Test MoneyPrinter Health Check
 ```bash
-python tracker.py --dry-run
+python3 ig_engine/moneyprinter_client.py
 ```
-Output graphics are created in `ig_engine/output/`:
-- `fete_001_feed.png` (1080x1080 Feed graphic)
-- `fete_001_story.png` (1080x1920 Story graphic)
-- `flight_001_feed.png` (1080x1080 Flight Alert graphic)
 
----
+### 2. Generate and Broadcast 2D Animated Reel
+```bash
+python3 ig_engine/generate_2d_animated_reel.py
+# For dry-run simulation:
+python3 ig_engine/generate_2d_animated_reel.py --dry-run
+```
 
-## 📊 Google Sheets Setup (The Brain)
+### 3. Generate and Broadcast VIP Feature / Drop Reel
+```bash
+python3 ig_engine/generate_product_drop_reel.py
+```
 
-1. Create a Google Sheet with the following column headers:
-   `id, type, title, subtitle, carnival, price, tier, travel_dates, airline, details, event_date`
-2. File -> Share -> **Publish to web** -> Choose format **CSV**.
-3. Copy the CSV URL and add it to your environment variables or GitHub Secrets as `GOOGLE_SHEET_CSV_URL`.
+### 4. Run Autonomous Daily Post (Zero-Duplicate Verified)
+```bash
+python3 ig_engine/auto_daily_poster.py
+```
 
----
-
-## 🔑 Environment Variables & GitHub Secrets
-
-For live Instagram posting via GitHub Actions, add these secrets to your repository (`Settings -> Secrets and variables -> Actions`):
-
-| Secret Name | Description |
-| :--- | :--- |
-| `IG_USER_ID` | Instagram Business Account ID from Meta Graph API |
-| `IG_ACCESS_TOKEN` | Long-lived Meta Graph API Access Token |
-| `GOOGLE_SHEET_CSV_URL` | Public CSV export URL of your Google Sheet tracker |
-| `DRY_RUN` | Set to `false` for live Instagram posting (`true` for dry-run) |
-
----
-
-## 🤖 GitHub Actions Workflow
-
-The workflow at `.github/workflows/fete-flight-alert-tracker.yml` runs every 30 minutes automatically. You can also trigger it manually from the **Actions** tab on GitHub.
+### 5. Launch Background Daemon (3x Daily Scheduler)
+```bash
+python3 ig_engine/scheduler_daemon.py
+```

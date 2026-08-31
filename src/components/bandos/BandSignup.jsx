@@ -1,19 +1,53 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
-import { ShieldCheck, Building, Mail, FileText, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { bandOSService } from '../../services/bandOSService';
+import { ShieldCheck, Building, Mail, FileText, CheckCircle, Loader2, AlertCircle, Phone, Link as LinkIcon, Instagram, Facebook } from 'lucide-react';
 
 export default function BandSignup({ user, onComplete }) {
   const [formData, setFormData] = useState({
     businessName: '',
     taxId: '',
     supportEmail: '',
-    logoUrl: ''
+    logoUrl: '',
+    slug: '',
+    carnival_city: 'Trinidad',
+    tagline: '',
+    primary_color: '#ec4899',
+    hero_image_url: '',
+    contact_phone: '',
+    instagram_handle: '',
+    facebook_url: ''
   });
   const [status, setStatus] = useState('idle'); // idle, submitting, success, error
   const [errorMessage, setErrorMessage] = useState('');
+  const [slugStatus, setSlugStatus] = useState('idle'); // idle, checking, available, unavailable
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'businessName' && !formData.slug) {
+      const autoSlug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      setFormData(prev => ({ ...prev, [name]: value, slug: autoSlug }));
+      setSlugStatus('idle');
+    } else if (name === 'slug') {
+      const cleanSlug = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      setFormData(prev => ({ ...prev, slug: cleanSlug }));
+      setSlugStatus('idle');
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const checkSlug = async () => {
+    if (!formData.slug) return;
+    setSlugStatus('checking');
+    try {
+      const isAvailable = await bandOSService.checkSlugAvailability(formData.slug);
+      setSlugStatus(isAvailable ? 'available' : 'unavailable');
+    } catch (e) {
+      setSlugStatus('idle');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,6 +64,14 @@ export default function BandSignup({ user, onComplete }) {
             tax_id: formData.taxId,
             support_email: formData.supportEmail,
             logo_url: formData.logoUrl,
+            slug: formData.slug,
+            carnival_city: formData.carnival_city,
+            tagline: formData.tagline,
+            primary_color: formData.primary_color,
+            hero_image_url: formData.hero_image_url,
+            contact_phone: formData.contact_phone,
+            instagram_handle: formData.instagram_handle,
+            facebook_url: formData.facebook_url,
             status: 'pending'
           }
         ]);
@@ -144,6 +186,133 @@ export default function BandSignup({ user, onComplete }) {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
             placeholder="https://..."
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Hero Image URL (Optional)</label>
+          <input 
+            name="hero_image_url"
+            value={formData.hero_image_url}
+            onChange={handleChange}
+            type="url" 
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
+            placeholder="https://..."
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Slug (URL)</label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <LinkIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input 
+                  required
+                  name="slug"
+                  value={formData.slug}
+                  onChange={handleChange}
+                  type="text" 
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                  placeholder="e.g. tribe-carnival"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={checkSlug}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                {slugStatus === 'checking' ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Check'}
+              </button>
+            </div>
+            {slugStatus === 'available' && <p className="text-green-600 text-sm mt-1 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Available</p>}
+            {slugStatus === 'unavailable' && <p className="text-red-600 text-sm mt-1 flex items-center gap-1"><AlertCircle className="w-4 h-4" /> Unavailable</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Carnival City</label>
+            <select
+              name="carnival_city"
+              value={formData.carnival_city}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none h-[42px]"
+            >
+              {['Trinidad', 'Jamaica', 'Miami', 'Barbados', 'Notting Hill', 'Toronto', 'Grenada', 'Antigua', 'St. Lucia', 'Atlanta', 'Other'].map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Tagline (Optional)</label>
+            <input 
+              name="tagline"
+              value={formData.tagline}
+              onChange={handleChange}
+              type="text" 
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="Play Mas. Live Bold."
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Primary Color</label>
+            <div className="flex gap-2 items-center">
+              <input 
+                name="primary_color"
+                value={formData.primary_color}
+                onChange={handleChange}
+                type="color" 
+                className="h-10 w-16 p-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 cursor-pointer"
+              />
+              <span className="text-gray-500 dark:text-gray-400 font-mono text-sm">{formData.primary_color}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Contact Phone</label>
+            <div className="relative">
+              <Phone className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input 
+                name="contact_phone"
+                value={formData.contact_phone}
+                onChange={handleChange}
+                type="text" 
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="(555) 123-4567"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Instagram Handle</label>
+            <div className="relative">
+              <Instagram className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input 
+                name="instagram_handle"
+                value={formData.instagram_handle}
+                onChange={handleChange}
+                type="text" 
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="@yourbandname"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Facebook URL</label>
+            <div className="relative">
+              <Facebook className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input 
+                name="facebook_url"
+                value={formData.facebook_url}
+                onChange={handleChange}
+                type="url" 
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="https://facebook.com/..."
+              />
+            </div>
+          </div>
         </div>
 
         <button 

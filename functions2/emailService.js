@@ -268,11 +268,120 @@ async function sendAbandonedCartEmail({ userEmail, itemName, recoveryUrl }) {
 /**
  * 4. Weekly Digest Newsletter
  */
-async function sendWeeklyDigestEmail({ to, emailHtml, subject = "🌴 Top 5 Fetes This Week! — CaribPulse Weekly Digest" }) {
+/**
+ * 5. BandOS Masquerader Registration Confirmation
+ */
+async function sendBandRegistrationConfirmation({ to, bandName, sectionTitle, buyerName, depositPaid, totalAmount, orderId, orderQrCode, portalUrl, primaryColor = "#ec4899" }) {
+  const content = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#ffffff;">🎉 You're Registered with ${bandName || "The Band"}!</h2>
+    <p style="color:#d1d5db;font-size:14px;line-height:1.5;margin:0 0 16px;">
+      Hey <strong>${buyerName || "Masquerader"}</strong>, your costume spot for <strong>"${sectionTitle || "Costume Section"}"</strong> is officially locked in!
+    </p>
+
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:12px;padding:18px;margin-bottom:20px;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#e5e7eb;">
+        <tr>
+          <td style="padding:6px 0;color:#9ca3af;">Order Reference:</td>
+          <td style="padding:6px 0;font-weight:bold;color:#ffffff;text-align:right;font-family:monospace;">${orderId}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#9ca3af;">Section:</td>
+          <td style="padding:6px 0;font-weight:bold;color:#a78bfa;text-align:right;">${sectionTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#9ca3af;">Deposit Paid:</td>
+          <td style="padding:6px 0;font-weight:bold;color:#34d399;text-align:right;">$${Number(depositPaid || 0).toFixed(2)}</td>
+        </tr>
+        ${totalAmount ? `
+        <tr>
+          <td style="padding:6px 0;color:#9ca3af;">Total Balance:</td>
+          <td style="padding:6px 0;font-weight:bold;color:#ffffff;text-align:right;">$${Number(totalAmount || 0).toFixed(2)}</td>
+        </tr>
+        ` : ""}
+      </table>
+    </div>
+
+    ${orderQrCode ? `
+    <div style="background:#111827;border:2px dashed #4b5563;border-radius:12px;padding:16px;text-align:center;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-size:12px;color:#9ca3af;text-transform:uppercase;font-weight:bold;letter-spacing:1px;">Your Mas Camp Pickup QR Identifier</p>
+      <p style="margin:0;font-size:22px;font-weight:900;letter-spacing:3px;color:#ec4899;font-family:monospace;">${orderQrCode}</p>
+      <p style="margin:6px 0 0;font-size:11px;color:#6b7280;">Present this QR or code at costume distribution week.</p>
+    </div>
+    ` : ""}
+
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${portalUrl}" style="background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:15px;box-shadow:0 4px 12px rgba(236,72,153,0.3);">Access Masquerader Portal →</a>
+    </div>
+
+    <p style="margin:16px 0 0;font-size:12px;color:#6b7280;text-align:center;">Manage your sizing, track installment balances, and choose mas camp pickup slots anytime.</p>
+  `;
+
   return sendMail({
     to,
-    subject,
-    html: emailHtml,
+    subject: `🎉 Registration Confirmed: ${sectionTitle} — ${bandName}`,
+    html: wrapInBrandedTemplate(bandName || "BandOS", "Registration Confirmation", content),
+  });
+}
+
+/**
+ * 6. BandOS Payment Installment Reminder
+ */
+async function sendBandPaymentReminderEmail({ to, bandName, sectionTitle, buyerName, installmentLabel, amountDue, dueDate, portalUrl, isOverdue = false }) {
+  const content = `
+    <h2 style="margin:0 0 8px;font-size:18px;color:${isOverdue ? "#f87171" : "#ffffff"};">
+      ${isOverdue ? "⚠️ Overdue Payment Notice" : "⏳ Upcoming Costume Installment"}
+    </h2>
+    <p style="color:#d1d5db;font-size:14px;line-height:1.5;margin:0 0 16px;">
+      Hey <strong>${buyerName || "Masquerader"}</strong>, this is a reminder for your <strong>"${sectionTitle || "Costume"}"</strong> balance with <strong>${bandName || "The Band"}</strong>.
+    </p>
+
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:12px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 6px;font-size:14px;color:#9ca3af;">Installment: <strong style="color:#ffffff;">${installmentLabel || "Scheduled Payment"}</strong></p>
+      <p style="margin:0 0 6px;font-size:14px;color:#9ca3af;">Due Date: <strong style="color:${isOverdue ? "#f87171" : "#fbbf24"};">${dueDate || "Soon"}</strong></p>
+      <p style="margin:8px 0 0;font-size:22px;font-weight:900;color:#34d399;">Amount Due: $${Number(amountDue || 0).toFixed(2)}</p>
+    </div>
+
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${portalUrl}" style="background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:15px;">Pay Installment Online →</a>
+    </div>
+
+    <p style="margin:16px 0 0;font-size:12px;color:#6b7280;text-align:center;">Secure checkout powered by Stripe. Your spot on the road remains secured once current.</p>
+  `;
+
+  return sendMail({
+    to,
+    subject: `${isOverdue ? "⚠️ Overdue Notice" : "⏳ Payment Reminder"}: $${Number(amountDue || 0).toFixed(2)} for ${sectionTitle} (${bandName})`,
+    html: wrapInBrandedTemplate(bandName || "BandOS", "Payment Notice", content),
+  });
+}
+
+/**
+ * 7. BandOS Mas Camp Distribution Ready Alert
+ */
+async function sendDistributionReadyEmail({ to, bandName, sectionTitle, buyerName, orderId, distributionSlot, masCampLocation, portalUrl, qrCodeUrl }) {
+  const content = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#34d399;">👗 Your Costume is Ready for Pickup!</h2>
+    <p style="color:#d1d5db;font-size:14px;line-height:1.5;margin:0 0 16px;">
+      Hey <strong>${buyerName || "Masquerader"}</strong>, the workshop team has completed your costume for <strong>"${sectionTitle}"</strong>!
+    </p>
+
+    <div style="background:#1f2937;border:1px solid #374151;border-radius:12px;padding:16px;margin-bottom:20px;">
+      ${distributionSlot ? `<p style="margin:0 0 6px;font-size:14px;color:#e5e7eb;"><strong>Scheduled Window:</strong> ${distributionSlot}</p>` : ""}
+      ${masCampLocation ? `<p style="margin:0 0 6px;font-size:14px;color:#e5e7eb;"><strong>Pickup Location:</strong> ${masCampLocation}</p>` : ""}
+      <p style="margin:0;font-size:13px;color:#9ca3af;">Order Ref: <strong style="color:#ffffff;font-family:monospace;">${orderId}</strong></p>
+    </div>
+
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${portalUrl}" style="background:linear-gradient(135deg,#34d399,#059669);color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:15px;">View Pickup Pass & QR Code →</a>
+    </div>
+
+    <p style="margin:16px 0 0;font-size:12px;color:#6b7280;text-align:center;">Remember to bring photo ID or assign an authorized squad proxy in your portal.</p>
+  `;
+
+  return sendMail({
+    to,
+    subject: `👗 Costume Ready for Pickup! — ${sectionTitle} (${bandName})`,
+    html: wrapInBrandedTemplate(bandName || "BandOS", "Distribution Ready", content),
   });
 }
 
@@ -282,6 +391,9 @@ module.exports = {
   sendVaultInvitation,
   sendAbandonedCartEmail,
   sendWeeklyDigestEmail,
+  sendBandRegistrationConfirmation,
+  sendBandPaymentReminderEmail,
+  sendDistributionReadyEmail,
   wrapInBrandedTemplate,
   getTransporter,
 };

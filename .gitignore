@@ -96,4 +96,7 @@ open-wa-session.sw_col.json
 ig_engine/output/
 marketing/output/
 *TEMP_MPY*
+__pycache__/
+*.pyc
+.DS_Store
 

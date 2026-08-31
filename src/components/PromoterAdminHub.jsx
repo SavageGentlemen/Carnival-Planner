@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Ticket, 
   DollarSign, 
@@ -13,102 +13,46 @@ import {
   ExternalLink,
   ShieldCheck
 } from 'lucide-react';
+import { supabase } from '../supabaseClient';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export default function PromoterAdminHub() {
   const [activeSubTab, setActiveSubTab] = useState('revenue'); // revenue, promoters, migrations, reps
+  const [promotersList, setPromotersList] = useState([]);
+  const [migrationFeed, setMigrationFeed] = useState([]);
+  const [topReps, setTopReps] = useState([]);
+  const [platformStats, setPlatformStats] = useState({
+    totalPlatformFeeRevenue: 0,
+    totalGrossTicketVolume: 0,
+    totalTicketsSold: 0,
+    totalAudienceMigrated: 0,
+    activePromoters: 0,
+    activeEvents: 0
+  });
 
-  // Mock platform-wide event organizer metrics
-  const platformStats = {
-    totalPlatformFeeRevenue: 4850.00, // $1.00 + 3.0%
-    totalGrossTicketVolume: 92400.00,
-    totalTicketsSold: 2350,
-    totalAudienceMigrated: 3420,
-    activePromoters: 6,
-    activeEvents: 8
-  };
-
-  const promotersList = [
-    {
-      id: 'p1',
-      name: 'Avant-Garde Presents',
-      handle: '@avantgarde.events',
-      city: 'New York / Brooklyn',
-      activeEvents: 3,
-      ticketsSold: 850,
-      grossSales: 34000.00,
-      platformFeeRevenue: 1870.00,
-      status: 'VERIFIED'
-    },
-    {
-      id: 'p2',
-      name: "Caesar's Army (A.M.BUSH)",
-      handle: '@caesarsarmy',
-      city: 'Port of Spain, Trinidad',
-      activeEvents: 2,
-      ticketsSold: 920,
-      grossSales: 41400.00,
-      platformFeeRevenue: 2162.00,
-      status: 'VERIFIED'
-    },
-    {
-      id: 'p3',
-      name: 'Soca Brainwash Promotions',
-      handle: '@socabrainwash',
-      city: 'Miami & Trinidad',
-      activeEvents: 1,
-      ticketsSold: 380,
-      grossSales: 13300.00,
-      platformFeeRevenue: 779.00,
-      status: 'VERIFIED'
-    },
-    {
-      id: 'p4',
-      name: 'Sunset Groove Sessions',
-      handle: '@sunsetgrooves',
-      city: 'Miami, FL',
-      activeEvents: 2,
-      ticketsSold: 200,
-      grossSales: 3700.00,
-      platformFeeRevenue: 311.00,
-      status: 'PENDING_STRIPE'
-    }
-  ];
-
-  const migrationFeed = [
-    {
-      id: 'm1',
-      promoter: "Caesar's Army",
-      source: 'EVENTBRITE',
-      contacts: 1250,
-      phones: 1180,
-      vips: 94,
-      date: '2 hours ago'
-    },
-    {
-      id: 'm2',
-      promoter: 'Avant-Garde Presents',
-      source: 'POSH',
-      contacts: 450,
-      phones: 418,
-      vips: 38,
-      date: '5 hours ago'
-    },
-    {
-      id: 'm3',
-      promoter: 'Soca Brainwash Promotions',
-      source: 'SHOTGUN',
-      contacts: 620,
-      phones: 580,
-      vips: 52,
-      date: 'Yesterday'
-    }
-  ];
-
-  const topReps = [
-    { name: 'Alex Rivera', promoter: 'Avant-Garde Presents', code: 'alex', ticketsSold: 84, volume: 2940.00, commission: 252.00 },
-    { name: 'Sarah Jenkins', promoter: "Caesar's Army", code: 'sarah', ticketsSold: 68, volume: 3060.00, commission: 204.00 },
-    { name: 'Mike Kowalski', promoter: 'Soca Brainwash', code: 'mike', ticketsSold: 42, volume: 1470.00, commission: 126.00 }
-  ];
+  useEffect(() => {
+    const fetchPromoterPlatformData = async () => {
+      try {
+        if (supabase) {
+          const { data: events } = await supabase.from('events').select('*');
+          const totalEvents = events?.length || 0;
+          
+          setPlatformStats({
+            totalPlatformFeeRevenue: 0,
+            totalGrossTicketVolume: 0,
+            totalTicketsSold: 0,
+            totalAudienceMigrated: 0,
+            activePromoters: 0,
+            activeEvents: totalEvents
+          });
+        }
+      } catch (e) {
+        console.warn('Error fetching promoter stats:', e);
+      }
+    };
+    fetchPromoterPlatformData();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -216,39 +160,45 @@ export default function PromoterAdminHub() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
-                <tr>
-                  <th className="p-3.5 font-bold">Promoter</th>
-                  <th className="p-3.5 font-bold">Location</th>
-                  <th className="p-3.5 font-bold">Active Events</th>
-                  <th className="p-3.5 font-bold">Tickets Sold</th>
-                  <th className="p-3.5 font-bold">Gross Sales</th>
-                  <th className="p-3.5 font-bold">Platform Fee Take</th>
-                  <th className="p-3.5 font-bold">Stripe Payout Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {promotersList.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="p-3.5">
-                      <div className="font-bold text-gray-900 dark:text-white">{p.name}</div>
-                      <div className="text-purple-600 dark:text-purple-400 text-[11px] font-mono">{p.handle}</div>
-                    </td>
-                    <td className="p-3.5 text-gray-500">{p.city}</td>
-                    <td className="p-3.5">{p.activeEvents} events</td>
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">{p.ticketsSold}</td>
-                    <td className="p-3.5 font-bold text-green-600 dark:text-green-400">{"$" + p.grossSales.toLocaleString()}</td>
-                    <td className="p-3.5 font-black text-pink-600 dark:text-pink-400">{"$" + p.platformFeeRevenue.toLocaleString()}</td>
-                    <td className="p-3.5">
-                      <span className={"px-2 py-0.5 rounded text-[11px] font-bold " + (p.status === 'VERIFIED' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400")}>
-                        {p.status === 'VERIFIED' ? 'Connected & Verified' : 'Pending Connect'}
-                      </span>
-                    </td>
+            {promotersList.length === 0 ? (
+              <div className="p-12 text-center text-gray-400 text-xs">
+                No promoter organizations registered yet.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="p-3.5 font-bold">Promoter</th>
+                    <th className="p-3.5 font-bold">Location</th>
+                    <th className="p-3.5 font-bold">Active Events</th>
+                    <th className="p-3.5 font-bold">Tickets Sold</th>
+                    <th className="p-3.5 font-bold">Gross Sales</th>
+                    <th className="p-3.5 font-bold">Platform Fee Take</th>
+                    <th className="p-3.5 font-bold">Stripe Payout Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {promotersList.map(p => (
+                    <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="p-3.5">
+                        <div className="font-bold text-gray-900 dark:text-white">{p.name}</div>
+                        <div className="text-purple-600 dark:text-purple-400 text-[11px] font-mono">{p.handle}</div>
+                      </td>
+                      <td className="p-3.5 text-gray-500">{p.city}</td>
+                      <td className="p-3.5">{p.activeEvents} events</td>
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">{p.ticketsSold}</td>
+                      <td className="p-3.5 font-bold text-green-600 dark:text-green-400">{"$" + p.grossSales.toLocaleString()}</td>
+                      <td className="p-3.5 font-black text-pink-600 dark:text-pink-400">{"$" + p.platformFeeRevenue.toLocaleString()}</td>
+                      <td className="p-3.5">
+                        <span className={"px-2 py-0.5 rounded text-[11px] font-bold " + (p.status === 'VERIFIED' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400")}>
+                          {p.status === 'VERIFIED' ? 'Connected & Verified' : 'Pending Connect'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
@@ -262,34 +212,40 @@ export default function PromoterAdminHub() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
-                <tr>
-                  <th className="p-3.5 font-bold">Promoter</th>
-                  <th className="p-3.5 font-bold">Platform Source</th>
-                  <th className="p-3.5 font-bold">Contacts Ingested</th>
-                  <th className="p-3.5 font-bold">SMS Ready (E.164)</th>
-                  <th className="p-3.5 font-bold">VIP Spenders</th>
-                  <th className="p-3.5 font-bold">Activity Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {migrationFeed.map(m => (
-                  <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">{m.promoter}</td>
-                    <td className="p-3.5">
-                      <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-[11px] font-bold">
-                        {m.source}
-                      </span>
-                    </td>
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">{m.contacts} contacts</td>
-                    <td className="p-3.5 text-green-600 dark:text-green-400 font-medium">{m.phones} phones</td>
-                    <td className="p-3.5 text-amber-500 font-bold">{m.vips} VIPs</td>
-                    <td className="p-3.5 text-gray-400">{m.date}</td>
+            {migrationFeed.length === 0 ? (
+              <div className="p-12 text-center text-gray-400 text-xs">
+                No attendee migration streams active currently.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="p-3.5 font-bold">Promoter</th>
+                    <th className="p-3.5 font-bold">Platform Source</th>
+                    <th className="p-3.5 font-bold">Contacts Ingested</th>
+                    <th className="p-3.5 font-bold">SMS Ready (E.164)</th>
+                    <th className="p-3.5 font-bold">VIP Spenders</th>
+                    <th className="p-3.5 font-bold">Activity Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {migrationFeed.map(m => (
+                    <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">{m.promoter}</td>
+                      <td className="p-3.5">
+                        <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded text-[11px] font-bold">
+                          {m.source}
+                        </span>
+                      </td>
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">{m.contacts} contacts</td>
+                      <td className="p-3.5 text-green-600 dark:text-green-400 font-medium">{m.phones} phones</td>
+                      <td className="p-3.5 text-amber-500 font-bold">{m.vips} VIPs</td>
+                      <td className="p-3.5 text-gray-400">{m.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
@@ -303,36 +259,42 @@ export default function PromoterAdminHub() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
-                <tr>
-                  <th className="p-3.5 font-bold">Ambassador Rep</th>
-                  <th className="p-3.5 font-bold">Promoter Organization</th>
-                  <th className="p-3.5 font-bold">Tracking Code</th>
-                  <th className="p-3.5 font-bold">Tickets Sold</th>
-                  <th className="p-3.5 font-bold">Sales Volume</th>
-                  <th className="p-3.5 font-bold">Earned Commission</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {topReps.map((r, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">
-                      <span className="text-amber-500 mr-1.5">#{idx + 1}</span> {r.name}
-                    </td>
-                    <td className="p-3.5 text-gray-600 dark:text-gray-300">{r.promoter}</td>
-                    <td className="p-3.5">
-                      <code className="bg-gray-100 dark:bg-gray-900 px-2 py-0.5 rounded text-purple-600 dark:text-purple-400 font-mono">
-                        ?rep={r.code}
-                      </code>
-                    </td>
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">{r.ticketsSold}</td>
-                    <td className="p-3.5 font-bold text-green-600 dark:text-green-400">{"$" + r.volume.toFixed(2)}</td>
-                    <td className="p-3.5 font-bold text-amber-500">{"$" + r.commission.toFixed(2)}</td>
+            {topReps.length === 0 ? (
+              <div className="p-12 text-center text-gray-400 text-xs">
+                No street team sales recorded yet.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="p-3.5 font-bold">Ambassador Rep</th>
+                    <th className="p-3.5 font-bold">Promoter Organization</th>
+                    <th className="p-3.5 font-bold">Tracking Code</th>
+                    <th className="p-3.5 font-bold">Tickets Sold</th>
+                    <th className="p-3.5 font-bold">Sales Volume</th>
+                    <th className="p-3.5 font-bold">Earned Commission</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {topReps.map((r, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">
+                        <span className="text-amber-500 mr-1.5">#{idx + 1}</span> {r.name}
+                      </td>
+                      <td className="p-3.5 text-gray-600 dark:text-gray-300">{r.promoter}</td>
+                      <td className="p-3.5">
+                        <code className="bg-gray-100 dark:bg-gray-900 px-2 py-0.5 rounded text-purple-600 dark:text-purple-400 font-mono">
+                          ?rep={r.code}
+                        </code>
+                      </td>
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">{r.ticketsSold}</td>
+                      <td className="p-3.5 font-bold text-green-600 dark:text-green-400">{"$" + r.volume.toFixed(2)}</td>
+                      <td className="p-3.5 font-bold text-amber-500">{"$" + r.commission.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}

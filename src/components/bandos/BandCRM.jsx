@@ -228,6 +228,20 @@ export default function BandCRM({ bandId }) {
     document.body.removeChild(link);
   };
 
+  const handleToggleDistributionStatus = async (orderId, currentStatus) => {
+    const nextStatus = currentStatus === 'Distributed' ? 'Pending' : 'Distributed';
+    // Optimistic UI update
+    setOrders(orders.map(o => o.id === orderId ? { ...o, distribution_status: nextStatus } : o));
+    try {
+      await bandOSService.updateOrderStatus(orderId, {
+        distribution_status: nextStatus,
+        distributed_at: nextStatus === 'Distributed' ? new Date().toISOString() : null
+      });
+    } catch (err) {
+      console.error('Failed to update distribution status:', err);
+    }
+  };
+
   const handleBroadcast = async (e) => {
     e.preventDefault();
     if (selectedIds.size === 0) return alert("Select at least one masquerader");
@@ -301,7 +315,7 @@ export default function BandCRM({ bandId }) {
         </div>
 
         {/* Filter / Search Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
           <div className="relative sm:col-span-2">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input 
@@ -322,11 +336,20 @@ export default function BandCRM({ bandId }) {
             {sectionsList.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
 
+          <select
+            value={repFilter}
+            onChange={(e) => setRepFilter(e.target.value)}
+            className="p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-700 dark:text-gray-300"
+          >
+            <option value="ALL">All Reps ({repsList.length})</option>
+            {repsList.map(r => <option key={r} value={r}>@{r}</option>)}
+          </select>
+
           <button
             onClick={() => setVipFilter(!vipFilter)}
             className={"px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border " + (vipFilter ? "bg-amber-100 dark:bg-amber-900/40 border-amber-300 text-amber-800 dark:text-amber-300" : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400")}
           >
-            <Crown className="w-3.5 h-3.5" /> Frontline VIPs
+            <Crown className="w-3.5 h-3.5" /> VIPs
           </button>
         </div>
       </div>
@@ -353,71 +376,94 @@ export default function BandCRM({ bandId }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredOrders.map((order) => {
-              const isSelected = selectedIds.has(order.id);
-              const name = order.buyer_name || order.buyerName || 'Masquerader';
-              const email = order.buyer_email || order.buyerEmail || '';
-              const phone = order.buyer_phone || order.phone || '';
-              const section = order.band_costume_sections?.title || order.listingTitle || 'Costume';
-              const rep = order.referred_by || order.rep_code || order.section_leader || '';
-              const variants = order.selected_variants || {};
+            {filteredOrders.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-12 text-center text-gray-400 text-xs">
+                  No masquerader registrations found. Masqueraders will appear here automatically when they book sections via your storefront, or you can import customer lists using "Migrate Customer List".
+                </td>
+              </tr>
+            ) : (
+              filteredOrders.map((order) => {
+                const isSelected = selectedIds.has(order.id);
+                const name = order.buyer_name || order.buyerName || 'Masquerader';
+                const email = order.buyer_email || order.buyerEmail || '';
+                const phone = order.buyer_phone || order.phone || '';
+                const section = order.band_costume_sections?.title || order.listingTitle || 'Costume';
+                const rep = order.referred_by || order.rep_code || order.section_leader || '';
+                const variants = order.selected_variants || {};
 
-              return (
-                <tr key={order.id} className={"hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors " + (isSelected ? "bg-purple-50/50 dark:bg-purple-900/20" : "")}>
-                  <td className="p-3">
-                    <input 
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelect(order.id)}
-                      className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
-                    />
-                  </td>
-                  <td className="p-3">
-                    <div className="font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                      {name}
-                      {order.is_vip && (
-                        <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-bold">
-                          VIP
-                        </span>
+                return (
+                  <tr key={order.id} className={"hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors " + (isSelected ? "bg-purple-50/50 dark:bg-purple-900/20" : "")}>
+                    <td className="p-3">
+                      <input 
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(order.id)}
+                        className="rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+                      />
+                    </td>
+                    <td className="p-3">
+                      <div className="font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                        {name}
+                        {order.is_vip && (
+                          <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                            VIP
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-gray-500 text-[11px]">{email}</div>
+                    </td>
+                    <td className="p-3">
+                      <div className="font-semibold text-purple-600 dark:text-purple-400">{section}</div>
+                      <div className="text-gray-500 text-[11px] flex gap-2 mt-0.5">
+                        {variants.bra_size && <span>Bra: {variants.bra_size}</span>}
+                        {variants.belt_size && <span>Belt: {variants.belt_size}</span>}
+                        {variants.bottom_option && <span>Bottom: {variants.bottom_option}</span>}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      {phone ? (
+                        <span className="text-green-600 dark:text-green-400 font-medium">{phone}</span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
                       )}
-                    </div>
-                    <div className="text-gray-500 text-[11px]">{email}</div>
-                  </td>
-                  <td className="p-3">
-                    <div className="font-semibold text-purple-600 dark:text-purple-400">{section}</div>
-                    <div className="text-gray-500 text-[11px] flex gap-2 mt-0.5">
-                      {variants.bra_size && <span>Bra: {variants.bra_size}</span>}
-                      {variants.belt_size && <span>Belt: {variants.belt_size}</span>}
-                      {variants.bottom_option && <span>Bottom: {variants.bottom_option}</span>}
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    {phone ? (
-                      <span className="text-green-600 dark:text-green-400 font-medium">{phone}</span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="p-3 font-bold text-gray-900 dark:text-white">
-                    {"$" + (order.amount_paid || 0).toFixed(2)}
-                  </td>
-                  <td className="p-3">
-                    {rep ? (
-                      <span className="bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded font-semibold text-[11px]">
-                        @{rep}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">Direct</span>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <span className={"px-2 py-1 rounded text-[11px] font-bold " + (order.distribution_status === 'Distributed' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400")}>
-                      {order.distribution_status || 'Pending'}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+                    </td>
+                    <td className="p-3 font-bold text-gray-900 dark:text-white">
+                      {"$" + (order.amount_paid || 0).toFixed(2)}
+                    </td>
+                    <td className="p-3">
+                      {rep ? (
+                        <span className="bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded font-semibold text-[11px]">
+                          @{rep}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Direct</span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDistributionStatus(order.id, order.distribution_status)}
+                        className={"px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all hover:scale-105 shadow-sm " + (order.distribution_status === 'Distributed' ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-300 dark:border-green-800" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-800 hover:bg-green-50")}
+                        title="Click to toggle pickup status"
+                      >
+                        {order.distribution_status === 'Distributed' ? (
+                          <>
+                            <CheckCircle2 className="w-3 h-3 text-green-600 dark:text-green-400" />
+                            Distributed
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                            Pending Pickup
+                          </>
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
@@ -440,81 +486,82 @@ export default function BandCRM({ bandId }) {
               </button>
             </div>
 
-            {/* Quick Test Samples */}
             <div className="bg-purple-50 dark:bg-purple-900/20 p-3.5 rounded-xl border border-purple-200 dark:border-purple-800 mb-4">
               <div className="text-xs font-bold text-purple-900 dark:text-purple-200 mb-2">
                 1-Click Preset Test Files:
               </div>
               <div className="flex gap-2 flex-wrap">
                 <button
+                  type="button"
                   onClick={() => {
                     setImportCsvText(SAMPLE_PLAYMAS_CSV);
-                    handleParseMigrationCSV(SAMPLE_PLAYMAS_CSV, 'PlayMas.today');
+                    handleParseCSV(SAMPLE_PLAYMAS_CSV);
                   }}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm"
+                  className="bg-white dark:bg-gray-800 hover:bg-gray-50 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
                 >
-                  Load PlayMas Sample (5 Masqueraders + Sizes)
+                  PlayMas 2026 Sample ({5} rows)
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setImportCsvText(SAMPLE_SHOPIFY_CSV);
-                    handleParseMigrationCSV(SAMPLE_SHOPIFY_CSV, 'Shopify Carnival');
+                    handleParseCSV(SAMPLE_SHOPIFY_CSV);
                   }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm"
+                  className="bg-white dark:bg-gray-800 hover:bg-gray-50 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
                 >
-                  Load Shopify Sample (3 Masqueraders)
+                  Shopify Costume Export ({3} rows)
                 </button>
               </div>
             </div>
 
-            {/* Textarea */}
             <div className="mb-4">
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                Paste CSV or Drop File
+                Paste CSV or Drop File Content
               </label>
               <textarea
-                rows={5}
+                rows={6}
                 value={importCsvText}
                 onChange={(e) => {
                   setImportCsvText(e.target.value);
-                  handleParseMigrationCSV(e.target.value, 'Custom CSV');
+                  handleParseCSV(e.target.value);
                 }}
-                placeholder="Masquerader Name, Email, Phone, Section, Bra Size, Belt Size..."
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs font-mono text-gray-900 dark:text-white"
+                placeholder="Paste CSV text with column headers..."
+                className="w-full p-3 font-mono text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl"
               />
             </div>
 
-            {/* Live Parse Preview */}
             {parsedPreview && (
-              <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-gray-900 dark:text-white">
-                    Extraction Summary ({parsedPreview.records.length} masqueraders)
-                  </span>
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">
-                    {parsedPreview.validPhones} SMS-Ready Phones
-                  </span>
+              <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mb-4 space-y-2">
+                <div className="flex justify-between items-center text-xs font-bold text-gray-900 dark:text-white">
+                  <span>Detected Records: {parsedPreview.validCount} valid / {parsedPreview.totalRows} rows</span>
+                  {parsedPreview.vipCount > 0 && (
+                    <span className="text-amber-600 flex items-center gap-1">
+                      <Crown className="w-3.5 h-3.5" /> {parsedPreview.vipCount} Frontline VIPs
+                    </span>
+                  )}
                 </div>
-                <div className="text-xs text-gray-500 space-y-1">
-                  <div>Auto-mapped attributes: Bra sizes, Belt measurements, Feather upgrades, and Section Leaders.</div>
+                <div className="text-[11px] text-gray-500">
+                  {parsedPreview.phoneValidCount} masqueraders have valid normalized international/Caribbean phone numbers ready for SMS blasts.
                 </div>
               </div>
             )}
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowImportModal(false)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-xs font-bold"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
-                onClick={handleCommitMigration}
-                disabled={!parsedPreview || isImporting}
-                className="bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5"
+                type="button"
+                disabled={!parsedPreview || parsedPreview.validCount === 0 || isImporting}
+                onClick={handleExecuteImport}
+                className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold px-5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-md"
               >
-                {isImporting ? 'Importing...' : 'Save to Masquerader Roster'}
+                {isImporting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Import {parsedPreview?.validCount || 0} Masqueraders
               </button>
             </div>
 
@@ -525,26 +572,63 @@ export default function BandCRM({ bandId }) {
       {/* Broadcast Modal */}
       {showBroadcast && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-pink-500" />
               Distribution & Mass Broadcast
             </h3>
             <p className="text-xs text-gray-500 mb-4">
               Dispatching to <strong>{selectedIds.size} selected masqueraders</strong> via in-app push and SMS notifications.
             </p>
 
+            <div className="mb-4">
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                1-Click Quick Templates:
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMessage("Hey masquerader! Your costume is ready for pickup at Mas Camp. Please select your preferred distribution pickup window here: https://carnival-planner.web.app/band/pickup")}
+                  className="text-left p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-pink-500 text-[11px] font-medium text-gray-700 dark:text-gray-300 truncate"
+                >
+                  📅 Mas Camp Pickup Slots
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMessage("Important reminder: The next installment for your carnival costume is due in 3 days. Please visit your masquerader portal to complete your balance.")}
+                  className="text-left p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-pink-500 text-[11px] font-medium text-gray-700 dark:text-gray-300 truncate"
+                >
+                  ⚠️ Balance Due Reminder
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMessage("Road Ready Alert! Breakfast & hydration trucks open at 8:00 AM on Carnival Monday. Line-up begins at Assembly Point Alpha.")}
+                  className="text-left p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-pink-500 text-[11px] font-medium text-gray-700 dark:text-gray-300 truncate"
+                >
+                  🎉 Road Day Line-up
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMessage("Please log in to verify your sizing measurements (bra/belt/bottom) before costume production lock-in this Friday!")}
+                  className="text-left p-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-pink-500 text-[11px] font-medium text-gray-700 dark:text-gray-300 truncate"
+                >
+                  👗 Fitting & Sizing Check
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleBroadcast} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                  Message (e.g. Mas Camp Pickup Slots, Fitting Reminders)
+                  Message Content
                 </label>
                 <textarea
                   rows={4}
                   required
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Hey masquerader! Your costume for section Solstice is ready for pickup at Mas Camp. Book your time slot: {{link}}"
-                  className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs text-gray-900 dark:text-white"
+                  placeholder="Type or select a template above..."
+                  className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs text-gray-900 dark:text-white focus:outline-none focus:border-pink-500"
                 />
               </div>
 
@@ -552,9 +636,10 @@ export default function BandCRM({ bandId }) {
                 <button
                   type="submit"
                   disabled={sending}
-                  className="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-colors shadow-md"
+                  className="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-colors shadow-md flex items-center justify-center gap-2"
                 >
-                  {sending ? 'Dispatching...' : 'Send Broadcast'}
+                  {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+                  {sending ? 'Dispatching...' : `Send to ${selectedIds.size} Masqueraders`}
                 </button>
                 <button
                   type="button"

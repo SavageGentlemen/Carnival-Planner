@@ -30,79 +30,37 @@ export default function BandOSApprovals({ user }) {
   const [activeFilter, setActiveFilter] = useState('pending');
   const [confirmModal, setConfirmModal] = useState({ open: false, id: null, action: null, name: '' });
 
-  // Mock global bands metrics for platform owner view
-  const globalBands = [
-    {
-      id: 'band_tribe',
-      name: 'Tribe Carnival',
-      contactName: 'Dean Ackin',
-      carnivalCity: 'Port of Spain, Trinidad',
-      masqueradersCount: 1450,
-      activeSections: 12,
-      distributedPercent: 88,
-      grossCostumeGMV: 1812500.00,
-      depositVolume: 580000.00,
-      platformFeeRevenue: 15950.00, // 2.5% + $1
-      stripeConnected: true,
-      status: 'approved'
-    },
-    {
-      id: 'band_yuma',
-      name: 'YUMA Vibe',
-      contactName: 'Tanya Gomez',
-      carnivalCity: 'Port of Spain, Trinidad',
-      masqueradersCount: 820,
-      activeSections: 8,
-      distributedPercent: 74,
-      grossCostumeGMV: 984000.00,
-      depositVolume: 328000.00,
-      platformFeeRevenue: 9020.00,
-      stripeConnected: true,
-      status: 'approved'
-    },
-    {
-      id: 'band_lost_tribe',
-      name: 'The Lost Tribe',
-      contactName: 'Valmiki Maharaj',
-      carnivalCity: 'Port of Spain, Trinidad',
-      masqueradersCount: 650,
-      activeSections: 7,
-      distributedPercent: 92,
-      grossCostumeGMV: 845000.00,
-      depositVolume: 260000.00,
-      platformFeeRevenue: 7150.00,
-      stripeConnected: true,
-      status: 'approved'
-    }
-  ];
-
-  const topAmbassadors = [
-    { name: 'Jordan Vance', band: 'Tribe Carnival', section: 'Solstice Frontline', sales: 48, volume: 60000.00, commission: 1680.00 },
-    { name: 'Kendra Thomas', band: 'YUMA Vibe', section: 'Solaris Backline', sales: 36, volume: 27000.00, commission: 900.00 },
-    { name: 'Samantha Cole', band: 'The Lost Tribe', section: 'Anima Frontline', sales: 29, volume: 37700.00, commission: 1015.00 },
-  ];
+  const [liveOrders, setLiveOrders] = useState([]);
 
   useEffect(() => {
-    const fetchProfiles = async () => {
+    const fetchProfilesAndOrders = async () => {
       try {
         if (supabase) {
-          const { data, error } = await supabase
+          const { data: profiles, error: pError } = await supabase
             .from('band_profiles')
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (!error && data) {
-            setAllRequests(data);
+          if (!pError && profiles) {
+            setAllRequests(profiles);
+          }
+
+          const { data: orders, error: oError } = await supabase
+            .from('band_orders')
+            .select('*, band_profiles(business_name), band_costume_sections(title)');
+
+          if (!oError && orders) {
+            setLiveOrders(orders);
           }
         }
       } catch (err) {
-        console.warn("Notice: Fetching band profiles:", err.message);
+        console.warn("Notice: Fetching platform data:", err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProfiles();
+    fetchProfilesAndOrders();
   }, []);
 
   const filteredRequests = allRequests.filter(c => {
@@ -145,9 +103,36 @@ export default function BandOSApprovals({ user }) {
     }
   };
 
-  const totalNetworkMasqueraders = globalBands.reduce((s, b) => s + b.masqueradersCount, 0);
-  const totalNetworkGMV = globalBands.reduce((s, b) => s + b.grossCostumeGMV, 0);
-  const totalPlatformTake = globalBands.reduce((s, b) => s + b.platformFeeRevenue, 0);
+  // Build live aggregated bands from real DB
+  const approvedBands = allRequests.filter(b => b.status === 'approved');
+  const globalBands = approvedBands.map(b => {
+    const bandOrders = liveOrders.filter(o => o.band_id === b.id);
+    const masqueradersCount = bandOrders.length;
+    const distributedCount = bandOrders.filter(o => o.distribution_status === 'Distributed').length;
+    const distributedPercent = masqueradersCount > 0 ? Math.round((distributedCount / masqueradersCount) * 100) : 0;
+    const depositVolume = bandOrders.reduce((s, o) => s + (parseFloat(o.amount_paid) || 0), 0);
+    const grossCostumeGMV = bandOrders.reduce((s, o) => s + (parseFloat(o.total_amount) || parseFloat(o.amount_paid) || 0), 0);
+    const platformFeeRevenue = bandOrders.reduce((s, o) => s + ((parseFloat(o.amount_paid) || 0) * 0.025 + 1.00), 0);
+
+    return {
+      id: b.id,
+      name: b.business_name || 'Carnival Band',
+      contactName: b.contact_name || b.name || 'Band Leader',
+      carnivalCity: b.carnival_city || 'Caribbean',
+      masqueradersCount,
+      activeSections: 0,
+      distributedPercent,
+      grossCostumeGMV,
+      depositVolume,
+      platformFeeRevenue,
+      stripeConnected: !!b.stripe_account_id,
+      status: b.status
+    };
+  });
+
+  const totalNetworkMasqueraders = liveOrders.length;
+  const totalNetworkGMV = liveOrders.reduce((s, o) => s + (parseFloat(o.total_amount) || parseFloat(o.amount_paid) || 0), 0);
+  const totalPlatformTake = liveOrders.reduce((s, o) => s + ((parseFloat(o.amount_paid) || 0) * 0.025 + 1.00), 0);
 
   return (
     <div className="space-y-6">
@@ -217,84 +202,94 @@ export default function BandOSApprovals({ user }) {
             </div>
           </div>
 
-          {/* 3 Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 4 Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-500 uppercase">Active Bands</span>
-                <Shirt className="w-5 h-5 text-purple-500" />
-              </div>
-              <p className="text-3xl font-black text-gray-900 dark:text-white">{globalBands.length}</p>
-              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 font-medium">All using BandOS CRM & Inventory</p>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Gross Platform GMV</span>
+              <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{"$" + totalNetworkGMV.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <span className="text-[10px] text-emerald-500 font-bold mt-1 inline-block">Real-time costume booking volume</span>
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-500 uppercase">Total Masqueraders</span>
-                <Users className="w-5 h-5 text-blue-500" />
-              </div>
-              <p className="text-3xl font-black text-gray-900 dark:text-white">{totalNetworkMasqueraders.toLocaleString()}</p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">Registered & fitted</p>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Platform Take (2.5% + $1)</span>
+              <p className="text-2xl font-black text-pink-600 dark:text-pink-400 mt-1">{"$" + totalPlatformTake.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <span className="text-[10px] text-purple-500 font-bold mt-1 inline-block">Direct net SaaS revenue</span>
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-500 uppercase">Distribution Progress</span>
-                <PackageOpen className="w-5 h-5 text-teal-500" />
-              </div>
-              <p className="text-3xl font-black text-teal-500">84.6%</p>
-              <p className="text-xs text-gray-500 mt-1">Costumes cleared via QR Scanner</p>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Masqueraders</span>
+              <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{totalNetworkMasqueraders}</p>
+              <span className="text-[10px] text-blue-500 font-bold mt-1 inline-block">Across all verified bands</span>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Active Bands</span>
+              <p className="text-2xl font-black text-amber-500 mt-1">{approvedBands.length}</p>
+              <span className="text-[10px] text-gray-400 font-bold mt-1 inline-block">Approved band leaders</span>
             </div>
           </div>
 
         </div>
       )}
 
-      {/* SUB-TAB 2: GLOBAL BANDS DIRECTORY */}
+      {/* SUB-TAB 2: ACTIVE BANDS TABLE */}
       {activeSubTab === 'bands' && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 className="font-bold text-gray-900 dark:text-white text-base">Active Band Directory ({globalBands.length})</h3>
-            <span className="text-xs text-gray-500">Live inventory & distribution monitor</span>
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white text-base">Active BandOS Bands</h3>
+              <p className="text-xs text-gray-500">Live operational status and revenue performance per band.</p>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
-                <tr>
-                  <th className="p-3.5 font-bold">Carnival Band</th>
-                  <th className="p-3.5 font-bold">Location</th>
-                  <th className="p-3.5 font-bold">Masqueraders</th>
-                  <th className="p-3.5 font-bold">Active Sections</th>
-                  <th className="p-3.5 font-bold">Costume GMV</th>
-                  <th className="p-3.5 font-bold">Platform Take</th>
-                  <th className="p-3.5 font-bold">Distribution Progress</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {globalBands.map(b => (
-                  <tr key={b.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="p-3.5">
-                      <div className="font-bold text-gray-900 dark:text-white">{b.name}</div>
-                      <div className="text-gray-400 text-[11px]">{b.contactName}</div>
-                    </td>
-                    <td className="p-3.5 text-gray-500">{b.carnivalCity}</td>
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">{b.masqueradersCount}</td>
-                    <td className="p-3.5 text-purple-600 dark:text-purple-400 font-semibold">{b.activeSections} sections</td>
-                    <td className="p-3.5 font-bold text-green-600 dark:text-green-400">{"$" + b.grossCostumeGMV.toLocaleString()}</td>
-                    <td className="p-3.5 font-black text-pink-600 dark:text-pink-400">{"$" + b.platformFeeRevenue.toLocaleString()}</td>
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                          <div className="bg-teal-500 h-full rounded-full" style={{ width: b.distributedPercent + '%' }}></div>
-                        </div>
-                        <span className="font-bold text-teal-600 dark:text-teal-400">{b.distributedPercent}%</span>
-                      </div>
-                    </td>
+            {globalBands.length === 0 ? (
+              <div className="p-12 text-center text-gray-400 text-xs">
+                No active bands currently approved. Applications will appear in the Application Queue.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="p-3.5 font-bold">Band Profile</th>
+                    <th className="p-3.5 font-bold">Location</th>
+                    <th className="p-3.5 font-bold">Masqueraders</th>
+                    <th className="p-3.5 font-bold">Costume GMV</th>
+                    <th className="p-3.5 font-bold">Deposit Volume</th>
+                    <th className="p-3.5 font-bold">Platform Fee</th>
+                    <th className="p-3.5 font-bold">Fulfillment</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {globalBands.map(b => (
+                    <tr key={b.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-pink-100 dark:bg-pink-950/40 text-pink-600 flex items-center justify-center font-black">
+                          {b.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div>{b.name}</div>
+                          <div className="text-[10px] text-gray-400 font-normal">{b.contactName}</div>
+                        </div>
+                      </td>
+                      <td className="p-3.5 text-gray-600 dark:text-gray-300">{b.carnivalCity}</td>
+                      <td className="p-3.5 font-bold text-purple-600 dark:text-purple-400">{b.masqueradersCount}</td>
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">{"$" + b.grossCostumeGMV.toLocaleString()}</td>
+                      <td className="p-3.5 font-bold text-emerald-600 dark:text-emerald-400">{"$" + b.depositVolume.toLocaleString()}</td>
+                      <td className="p-3.5 font-black text-pink-600 dark:text-pink-400">{"$" + b.platformFeeRevenue.toLocaleString()}</td>
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                            <div className="bg-teal-500 h-full rounded-full" style={{ width: b.distributedPercent + '%' }}></div>
+                          </div>
+                          <span className="font-bold text-teal-600 dark:text-teal-400">{b.distributedPercent}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
@@ -308,33 +303,39 @@ export default function BandOSApprovals({ user }) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
-                <tr>
-                  <th className="p-3.5 font-bold">Section Leader</th>
-                  <th className="p-3.5 font-bold">Band & Section</th>
-                  <th className="p-3.5 font-bold">Costumes Sold</th>
-                  <th className="p-3.5 font-bold">Volume Driven</th>
-                  <th className="p-3.5 font-bold">Earned Commission</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {topAmbassadors.map((rep, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">
-                      <span className="text-amber-500 mr-1.5">#{idx + 1}</span> {rep.name}
-                    </td>
-                    <td className="p-3.5">
-                      <div className="font-semibold text-purple-600 dark:text-purple-400">{rep.band}</div>
-                      <div className="text-gray-400 text-[11px]">{rep.section}</div>
-                    </td>
-                    <td className="p-3.5 font-bold text-gray-900 dark:text-white">{rep.sales} costumes</td>
-                    <td className="p-3.5 font-bold text-green-600 dark:text-green-400">{"$" + rep.volume.toLocaleString()}</td>
-                    <td className="p-3.5 font-bold text-amber-500">{"$" + rep.commission.toFixed(2)}</td>
+            {topAmbassadors.length === 0 ? (
+              <div className="p-12 text-center text-gray-400 text-xs">
+                No section leader referral registrations recorded yet.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="p-3.5 font-bold">Section Leader</th>
+                    <th className="p-3.5 font-bold">Band & Section</th>
+                    <th className="p-3.5 font-bold">Costumes Sold</th>
+                    <th className="p-3.5 font-bold">Volume Driven</th>
+                    <th className="p-3.5 font-bold">Earned Commission</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {topAmbassadors.map((rep, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">
+                        <span className="text-amber-500 mr-1.5">#{idx + 1}</span> {rep.name}
+                      </td>
+                      <td className="p-3.5">
+                        <div className="font-semibold text-purple-600 dark:text-purple-400">{rep.band}</div>
+                        <div className="text-gray-400 text-[11px]">{rep.section}</div>
+                      </td>
+                      <td className="p-3.5 font-bold text-gray-900 dark:text-white">{rep.sales} costumes</td>
+                      <td className="p-3.5 font-bold text-green-600 dark:text-green-400">{"$" + rep.volume.toLocaleString()}</td>
+                      <td className="p-3.5 font-bold text-amber-500">{"$" + rep.commission.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}

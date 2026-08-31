@@ -15,7 +15,8 @@ export default function CostumeBuilder({ bandId }) {
     description: '',
     base_price: '',
     deposit_amount: '',
-    image_url: ''
+    image_url: '',
+    capacity_limit: ''
   });
 
   useEffect(() => {
@@ -41,11 +42,12 @@ export default function CostumeBuilder({ bandId }) {
         ...newSection,
         band_id: bandId,
         base_price: parseFloat(newSection.base_price),
-        deposit_amount: parseFloat(newSection.deposit_amount)
+        deposit_amount: parseFloat(newSection.deposit_amount),
+        capacity_limit: newSection.capacity_limit ? parseInt(newSection.capacity_limit) : null
       });
       setSections([created, ...sections]);
       setIsCreating(false);
-      setNewSection({ title: '', description: '', base_price: '', deposit_amount: '', image_url: '' });
+      setNewSection({ title: '', description: '', base_price: '', deposit_amount: '', image_url: '', capacity_limit: '' });
       setEditingSectionId(created.id);
     } catch (err) {
       console.error(err);
@@ -95,7 +97,7 @@ export default function CostumeBuilder({ bandId }) {
               </button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Section Title</label>
                 <input required value={newSection.title} onChange={e => setNewSection({...newSection, title: e.target.value})} type="text" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white" placeholder="e.g. Frontline Goddess" />
@@ -105,10 +107,14 @@ export default function CostumeBuilder({ bandId }) {
                 <input value={newSection.image_url} onChange={e => setNewSection({...newSection, image_url: e.target.value})} type="url" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white" placeholder="https://..." />
               </div>
               <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Capacity Limit</label>
+                <input value={newSection.capacity_limit} onChange={e => setNewSection({...newSection, capacity_limit: e.target.value})} type="number" min="1" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white" placeholder="Leave empty for unlimited" />
+              </div>
+              <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Base Price ($)</label>
                 <input required value={newSection.base_price} onChange={e => setNewSection({...newSection, base_price: e.target.value})} type="number" min="0" step="0.01" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white" placeholder="1200.00" />
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Required Deposit ($)</label>
                 <input required value={newSection.deposit_amount} onChange={e => setNewSection({...newSection, deposit_amount: e.target.value})} type="number" min="0" step="0.01" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white" placeholder="300.00" />
               </div>
@@ -142,10 +148,29 @@ export default function CostumeBuilder({ bandId }) {
                     <ImageIcon className="w-6 h-6 text-gray-400 m-auto mt-5" />
                   )}
                 </div>
-                <div>
-                  <h4 className="font-bold text-gray-900 dark:text-white line-clamp-1">{section.title}</h4>
-                  <p className="text-xs text-gray-500 mt-1">Base: ${section.base_price}</p>
-                  <p className="text-xs text-green-600 dark:text-green-400">Dep: ${section.deposit_amount}</p>
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-bold text-gray-900 dark:text-white line-clamp-1">{section.title}</h4>
+                    {section.is_sold_out && <span className="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Sold Out</span>}
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <p className="text-xs text-gray-500">Base: ${section.base_price}</p>
+                    <p className="text-xs text-green-600 dark:text-green-400">Dep: ${section.deposit_amount}</p>
+                  </div>
+                  {section.capacity_limit && (
+                    <div className="mt-2">
+                      <div className="flex justify-between text-[10px] mb-0.5">
+                        <span className="text-gray-500">{section.registration_count || 0} / {section.capacity_limit}</span>
+                        {!section.is_sold_out && <span className="text-purple-600 font-bold">{section.capacity_limit - (section.registration_count || 0)} spots remaining</span>}
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${section.is_sold_out ? 'bg-red-500' : 'bg-purple-500'}`} 
+                          style={{ width: `${Math.min(100, ((section.registration_count || 0) / section.capacity_limit) * 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
