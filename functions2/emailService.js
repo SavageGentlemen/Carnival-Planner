@@ -268,6 +268,24 @@ async function sendAbandonedCartEmail({ userEmail, itemName, recoveryUrl }) {
 /**
  * 4. Weekly Digest Newsletter
  */
+async function sendWeeklyDigestEmail({ to, subscriberName, topFetis = [], bandUpdates = [] }) {
+  const content = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#ffffff;">🌴 Carnival Weekly Radar</h2>
+    <p style="color:#d1d5db;font-size:14px;line-height:1.5;margin:0 0 16px;">
+      Hey <strong>${subscriberName || "Carnival Lover"}</strong>, here are this week's top fetes, band releases, and carnival travel deals.
+    </p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="https://carnival-planner.web.app" style="background:linear-gradient(135deg,#ec4899,#8b5cf6);color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;font-size:15px;">Open Carnival Planner →</a>
+    </div>
+  `;
+
+  return sendMail({
+    to,
+    subject: `🌴 Your Weekly Carnival Digest & New Fete Drops`,
+    html: wrapInBrandedTemplate("Carnival Planner", "Weekly Radar", content),
+  });
+}
+
 /**
  * 5. BandOS Masquerader Registration Confirmation
  */
