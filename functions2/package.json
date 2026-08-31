@@ -19,7 +19,8 @@
     "nodemailer": "^6.9.16",
     "cheerio": "^1.0.0",
     "@google/generative-ai": "^0.24.1",
-    "ethers": "^6.13.0"
+    "ethers": "^6.13.0",
+    "@supabase/supabase-js": "^2.49.1"
   },
   "devDependencies": {
     "dotenv": "^17.2.3",
