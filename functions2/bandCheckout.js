@@ -3,17 +3,17 @@ const Stripe = require("stripe");
 const { createClient } = require("@supabase/supabase-js");
 const { sendBandRegistrationConfirmation } = require("./emailService");
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
-
-let stripe = null;
-if (stripeSecretKey) {
-  stripe = new Stripe(stripeSecretKey, { apiVersion: "2024-04-10" });
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY || null;
+  if (!key) return null;
+  return new Stripe(key, { apiVersion: "2024-04-10" });
 }
 
-const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const url = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
+  return createClient(url, key);
+}
 
 exports.createBandDepositCheckout = onCall(
   { cors: true, invoker: "public", secrets: ["STRIPE_SECRET_KEY"] },
@@ -24,10 +24,12 @@ exports.createBandDepositCheckout = onCall(
       throw new HttpsError("invalid-argument", "Missing required fields");
     }
 
+    const stripe = getStripe();
     if (!stripe) {
       throw new HttpsError("failed-precondition", "Stripe is not configured.");
     }
 
+    const supabase = getSupabase();
     try {
       // 1. Get band profile for Stripe account ID
       const { data: bandData, error: bandError } = await supabase
@@ -125,6 +127,8 @@ exports.handleBandCheckoutWebhook = onRequest(
       return;
     }
 
+    const stripe = getStripe();
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
     if (!stripe || !webhookSecret) {
       res.status(500).send("Stripe not configured");
       return;
@@ -141,6 +145,7 @@ exports.handleBandCheckoutWebhook = onRequest(
       return;
     }
 
+    const supabase = getSupabase();
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const meta = session.metadata || {};
@@ -250,6 +255,12 @@ exports.createBalancePaymentCheckout = onCall(
       throw new HttpsError("invalid-argument", "Missing required fields");
     }
 
+    const stripe = getStripe();
+    if (!stripe) {
+      throw new HttpsError("failed-precondition", "Stripe is not configured.");
+    }
+
+    const supabase = getSupabase();
     try {
       // Validate order ownership
       const { data: orderData, error: orderError } = await supabase

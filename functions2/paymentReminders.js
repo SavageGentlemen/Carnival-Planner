@@ -2,9 +2,11 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { createClient } = require("@supabase/supabase-js");
 const { sendBandPaymentReminderEmail } = require("./emailService");
 
-const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const url = process.env.SUPABASE_URL || "https://placeholder.supabase.co";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key";
+  return createClient(url, key);
+}
 
 exports.sendPaymentReminders = onSchedule(
   {
@@ -13,6 +15,7 @@ exports.sendPaymentReminders = onSchedule(
   },
   async (event) => {
     try {
+      const supabase = getSupabase();
       const now = new Date();
       
       // Calculate date 3 days from now
