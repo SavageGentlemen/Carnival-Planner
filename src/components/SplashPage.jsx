@@ -26,14 +26,61 @@ import { db } from '../firebase';
 import { supabase } from '../supabaseClient';
 import { LiquidButton, HolographicCard, CostumeStage3D } from './threeui';
 
+const TOP_5_FETES = [
+  {
+    num: 1,
+    title: "Soca Brainwash 2026",
+    venue: "Queen's Park Savannah, Trinidad 🇹🇹",
+    time: "Sat 11:00 AM",
+    badge: "🔥 #1 FETE THIS WEEKEND",
+    image: "/images/carnival/trinidad.jpg",
+    details: "Sat 11:00 AM • ⭐ 9.9 Vibe • Mega Fete"
+  },
+  {
+    num: 2,
+    title: "Caesar's Army A.M.BUSH",
+    venue: "St. Ann's J'ouvert, Trinidad 🇹🇹",
+    time: "Sat 3:00 AM",
+    badge: "⚡ J'OUVERT MORNING PUMP",
+    image: "/images/carnival/hero_banner.jpg",
+    details: "Sat 3:00 AM • ⚡ Critical Scarcity • Paint & Mud"
+  },
+  {
+    num: 3,
+    title: "Sunrise Breakfast Party",
+    venue: "Hope Gardens, Kingston 🇯🇲",
+    time: "Sun 6:00 AM",
+    badge: "🍹 BREAKFAST FETE",
+    image: "/images/carnival/costume_gold.jpg",
+    details: "Sun 6:00 AM • 🍹 Ultra All-Inclusive • Live Bands"
+  },
+  {
+    num: 4,
+    title: "Tribe Ignite Concert",
+    venue: "Hasely Crawford Stadium, Trinidad 🇹🇹",
+    time: "Fri 9:00 PM",
+    badge: "🥁 LIVE STADIUM SHOW",
+    image: "/images/carnival/costume_teal.jpg",
+    details: "Fri 9:00 PM • 🎟️ Advance Tier • Soca Royalty"
+  },
+  {
+    num: 5,
+    title: "Scorch D'Pan & Cooler",
+    venue: "Kensington Oval, Barbados 🇧🇧",
+    time: "Sun 2:00 PM",
+    badge: "🌴 CROP OVER SPECIAL",
+    image: "/images/carnival/barbados.jpg",
+    details: "Sun 2:00 PM • 🧊 Cooler Fete • Crop Over Vibe"
+  }
+];
+
 export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcierge, onLegalPage }) {
   const navigate = useNavigate();
   const [quickQuery, setQuickQuery] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [videoUrl, setVideoUrl] = useState('/videos/carnival_fete_preview.mp4');
-  const [videoTitle, setVideoTitle] = useState('Top 5 Fetes This Weekend');
-  const [videoSubtitle, setVideoSubtitle] = useState('Trinidad & Barbados Carnival Edition');
+  const [videoUrl, setVideoUrl] = useState('/videos/top_5_fetes_short.mp4');
+  const [activeFeteIndex, setActiveFeteIndex] = useState(0);
   const [costumeSlide, setCostumeSlide] = useState(0);
   const [costumeViewMode, setCostumeViewMode] = useState('photo'); // 'photo' | '3d'
   const videoRef = useRef(null);
@@ -125,8 +172,31 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
     setIsMuted(!isMuted);
   };
 
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      const idx = Math.min(4, Math.floor(videoRef.current.currentTime / 3));
+      setActiveFeteIndex(idx);
+    }
+  };
+
+  const handleSelectFete = (idx, e) => {
+    e?.stopPropagation();
+    setActiveFeteIndex(idx);
+    if (videoRef.current) {
+      videoRef.current.currentTime = idx * 3;
+      if (!isPlaying) {
+        videoRef.current.play().catch(() => {});
+        setIsPlaying(true);
+      }
+    }
+  };
+
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent("Yo! Check out Caribbean Carnival Planner — it has 330+ fetes, costume pickup spots, and an AI Concierge for Trinidad, Barbados & Jamaica Carnival: https://carnival-planner.web.app");
+    const text = encodeURIComponent(
+      "🔥 Top 5 Carnival Fetes This Weekend on Caribbean Carnival Planner:\n\n" +
+      TOP_5_FETES.map(f => `#${f.num} ${f.title}\n📍 ${f.venue} (${f.time})`).join('\n\n') +
+      "\n\nPlan your squad itinerary: https://carnival-planner.web.app"
+    );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
@@ -805,21 +875,51 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
               </span>
             </div>
 
-            {/* Video Player */}
+            {/* Video Player with Synchronized Top 5 Fetes Reel */}
             <div
               className="relative rounded-xl overflow-hidden bg-slate-950 border border-cyan-500/20 h-56 mb-3 group cursor-pointer"
               onClick={handlePlayPause}
             >
+              {/* Top 5 Stories Progress Bars */}
+              <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex gap-1.5">
+                {TOP_5_FETES.map((fete, idx) => (
+                  <button
+                    key={fete.num}
+                    type="button"
+                    onClick={(e) => handleSelectFete(idx, e)}
+                    className="h-1 flex-1 rounded-full overflow-hidden bg-white/30 transition-all hover:h-1.5"
+                  >
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        idx === activeFeteIndex
+                          ? 'bg-[#00e5cc] w-full shadow-[0_0_8px_#00e5cc]'
+                          : idx < activeFeteIndex
+                            ? 'bg-white w-full'
+                            : 'w-0'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              {/* Event Badge Top-Left */}
+              <div className="absolute top-6 left-2.5 z-20">
+                <span className="px-2 py-0.5 rounded-md text-[9px] font-black tracking-wider uppercase bg-black/80 backdrop-blur-md text-amber-300 border border-amber-500/30">
+                  {TOP_5_FETES[activeFeteIndex].badge}
+                </span>
+              </div>
+
               {videoUrl ? (
                 <video
                   ref={videoRef}
                   src={videoUrl}
-                  poster="/images/carnival/hero_banner.jpg"
+                  poster="/images/carnival/top5_poster.png"
                   className="absolute inset-0 w-full h-full object-cover"
                   playsInline
                   muted={isMuted}
                   loop
                   preload="metadata"
+                  onTimeUpdate={handleTimeUpdate}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
                 />
@@ -827,9 +927,9 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-cyan-950 animate-pulse" />
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
-              <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                 <div className={`w-12 h-12 rounded-full bg-[#00e5cc] text-black flex items-center justify-center shadow-2xl transition-all ${isPlaying ? 'opacity-0 group-hover:opacity-100 scale-90' : 'opacity-100 scale-100'}`}>
                   {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
                 </div>
@@ -842,9 +942,15 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
                 {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
               </button>
 
-              <div className="absolute bottom-2.5 left-2.5 z-10 pr-10">
-                <p className="font-black text-white text-xs font-heading truncate">{videoTitle}</p>
-                <p className="text-[10px] text-cyan-300 font-bold truncate">{videoSubtitle}</p>
+              {/* Synchronized Event Name & Venue Caption */}
+              <div className="absolute bottom-2.5 left-2.5 z-10 pr-12 text-left pointer-events-none">
+                <p className="font-black text-white text-xs font-heading truncate flex items-center gap-1.5">
+                  <span className="text-[#00e5cc]">#{TOP_5_FETES[activeFeteIndex].num}</span>
+                  <span>{TOP_5_FETES[activeFeteIndex].title}</span>
+                </p>
+                <p className="text-[10px] text-slate-300 font-medium truncate">
+                  {TOP_5_FETES[activeFeteIndex].venue} • <span className="text-[#00e5cc] font-bold">{TOP_5_FETES[activeFeteIndex].time}</span>
+                </p>
               </div>
             </div>
 
