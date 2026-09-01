@@ -815,12 +815,6 @@ export default function App() {
     fetchPurchases();
   }, [user, isDemoMode, swrProfile]);
 
-  useEffect(() => {
-    if (!isDemoMode) {
-      getRedirectResult(auth).catch((err) => console.error(err));
-    }
-  }, [isDemoMode]);
-
   // P3: Supabase Realtime "Go Road Ready" Alerts
   useEffect(() => {
     if (!user || isDemoMode || !currentSquad?.id) return;
