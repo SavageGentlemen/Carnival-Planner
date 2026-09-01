@@ -94,26 +94,41 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
     const fetchLiveBandCostumes = async () => {
       try {
         if (supabase) {
-          const { data, error } = await supabase
+          const { data: sections, error: secError } = await supabase
             .from('band_costume_sections')
-            .select('id, title, section_type, base_price, image_url, is_sold_out, band_profiles(business_name, slug)')
+            .select('id, title, section_type, base_price, image_url, is_sold_out, band_id')
             .eq('is_active', true)
             .order('created_at', { ascending: false })
             .limit(12);
 
-          if (!error && data && data.length > 0) {
-            const formatted = data
-              .filter(item => item.band_profiles?.slug && item.image_url)
-              .map(item => ({
-                id: item.id,
-                title: item.title,
-                section: item.section_type || 'Costume Section',
-                band: item.band_profiles?.business_name || 'Verified Band',
-                bandSlug: item.band_profiles?.slug,
-                image: item.image_url,
-                price: item.base_price ? `$${Number(item.base_price).toLocaleString()}` : 'Inquire',
-                isSoldOut: item.is_sold_out
-              }));
+          if (!secError && sections && sections.length > 0) {
+            const bandIds = [...new Set(sections.map(s => s.band_id).filter(Boolean))];
+            let bandsMap = {};
+            if (bandIds.length > 0) {
+              const { data: bands } = await supabase
+                .from('band_profiles')
+                .select('id, business_name, slug')
+                .in('id', bandIds);
+              if (bands) {
+                bands.forEach(b => { bandsMap[b.id] = b; });
+              }
+            }
+
+            const formatted = sections
+              .filter(item => bandsMap[item.band_id]?.slug && item.image_url)
+              .map(item => {
+                const band = bandsMap[item.band_id];
+                return {
+                  id: item.id,
+                  title: item.title,
+                  section: item.section_type || 'Costume Section',
+                  band: band?.business_name || 'Verified Band',
+                  bandSlug: band?.slug,
+                  image: item.image_url,
+                  price: item.base_price ? `$${Number(item.base_price).toLocaleString()}` : 'Inquire',
+                  isSoldOut: item.is_sold_out
+                };
+              });
             setLiveCostumes(formatted);
           } else {
             setLiveCostumes([]);

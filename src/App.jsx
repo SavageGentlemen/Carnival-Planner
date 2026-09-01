@@ -3056,8 +3056,8 @@ export default function App() {
       <AutoPilotModal
         isOpen={showAutoPilotModal}
         onClose={() => setShowAutoPilotModal(false)}
-        carnivalName={currentCarnival.name}
-        carnivalId={activeCarnivalId}
+        carnivalName={currentCarnival?.name || ''}
+        carnivalId={activeCarnivalId || ''}
         onApplyItinerary={handleApplyAutoPilotItinerary}
       />
 
