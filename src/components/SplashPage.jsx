@@ -283,8 +283,14 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
             <a href="#promoter-boost" className="text-slate-300 hover:text-[#00e5cc] transition-colors">CONTACT</a>
           </nav>
 
-          {/* Right CTA Button */}
+          {/* Right CTA Buttons */}
           <div className="flex items-center gap-3">
+            <button
+              onClick={onGetStarted}
+              className="text-xs font-bold uppercase tracking-wider text-slate-300 hover:text-[#00e5cc] transition-colors px-3 py-1.5 rounded-lg border border-transparent hover:border-cyan-500/30"
+            >
+              LOG IN
+            </button>
             <LiquidButton
               size="sm"
               variant="cyan"

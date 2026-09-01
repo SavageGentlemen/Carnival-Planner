@@ -542,6 +542,17 @@ export default function App() {
 
   // --- EFFECTS ---
 
+  // URL parameters for direct navigation / sign-in
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('login') === 'true' || params.get('auth') === 'true' || params.get('signin') === 'true') {
+        setShowLanding(false);
+        setShowEmailAuth(true);
+      }
+    } catch (e) {}
+  }, []);
+
   // 1. Dark Mode - Apply to DOM
   useEffect(() => {
     if (darkMode) {
