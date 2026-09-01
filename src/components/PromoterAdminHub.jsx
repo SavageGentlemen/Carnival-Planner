@@ -132,11 +132,11 @@ export default function PromoterAdminHub() {
 
             <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-500 uppercase">Migrated Attendee Contacts</span>
+                <span className="text-xs font-bold text-gray-500 uppercase">Imported Attendee Contacts</span>
                 <Users className="w-5 h-5 text-blue-500" />
               </div>
               <p className="text-3xl font-black text-gray-900 dark:text-white">{platformStats.totalAudienceMigrated.toLocaleString()}</p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">Ported from Eventbrite & POSH</p>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">Imported from CSV & Ticketing Rosters</p>
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -207,14 +207,14 @@ export default function PromoterAdminHub() {
       {activeSubTab === 'migrations' && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="font-bold text-gray-900 dark:text-white text-base">Live Migration Activity Stream</h3>
-            <p className="text-xs text-gray-500">Attendee and VIP databases migrated from competing platforms.</p>
+            <h3 className="font-bold text-gray-900 dark:text-white text-base">Live Import Activity Stream</h3>
+            <p className="text-xs text-gray-500">Attendee and VIP databases imported via CSV rosters.</p>
           </div>
 
           <div className="overflow-x-auto">
             {migrationFeed.length === 0 ? (
               <div className="p-12 text-center text-gray-400 text-xs">
-                No attendee migration streams active currently.
+                No attendee import streams active currently.
               </div>
             ) : (
               <table className="w-full text-left text-xs">

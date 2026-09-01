@@ -21,15 +21,15 @@ import { bandOSService } from '../../services/bandOSService';
 import { supabase } from '../../supabaseClient';
 import Papa from 'papaparse';
 
-// Sample exports for 1-click test migration
-const SAMPLE_PLAYMAS_CSV = `Order Ref,Masquerader Name,Email,Mobile Phone,Section Title,Bra Size,Belt Size,Bottom Option,Feather Backpack,Deposit Paid,Total Balance,Section Leader
+// Sample exports for 1-click test import
+const SAMPLE_ROSTER_CSV = `Order Ref,Masquerader Name,Email,Mobile Phone,Section Title,Bra Size,Belt Size,Bottom Option,Feather Backpack,Deposit Paid,Total Balance,Section Leader
 PM-9901,Aaliyah Robinson,aaliyah.r@example.com,8685550192,Frontline Feathers — Solstice,34C,30",Thong,Large Wireframe,400.00,1250.00,jordan
 PM-9902,Marcus Vance,marcus.v@example.com,447700900123,Backline Masquerader — Eclipse,36D,34",Full Coverage,Standard Collar,250.00,750.00,kendra
 PM-9903,Jade Alexander,jade.alexander@example.com,13055550188,Frontline Feathers — Solstice,32B,26",Cheeky,Large Wireframe,400.00,1250.00,jordan
 PM-9904,Chloe Dubois,chloe.d@example.com,14155550144,Backline Masquerader — Eclipse,34B,28",High Waist,Standard Collar,250.00,750.00,marcus
 PM-9905,Elena Rostova,elena.r@example.com,12125550133,Frontline Feathers — Solstice,36C,32",Thong,Large Wireframe,400.00,1250.00,jordan`;
 
-const SAMPLE_SHOPIFY_CSV = `Name,Email,Phone,Lineitem name,Lineitem price,Lineitem quantity,Variant Bra,Variant Bottoms,Customer Tags
+const SAMPLE_COSTUME_CSV = `Name,Email,Phone,Lineitem name,Lineitem price,Lineitem quantity,Variant Bra,Variant Bottoms,Customer Tags
 #1001,Samantha Wright,samantha.w@example.com,17025550991,Frontline Feathers — Solstice,1250.00,1,34D,Cheeky,VIP_Spender
 #1002,Liam Gallagher,liam.g@example.com,447911123456,Backline Masquerader — Eclipse,750.00,1,32A,Full,Loyal_2025
 #1003,Zara Hadid,zara.h@example.com,16465550338,Frontline Feathers — Solstice,1250.00,1,36B,Thong,VIP_Spender`;
@@ -186,7 +186,7 @@ export default function BandCRM({ bandId }) {
       setShowImportModal(false);
       setParsedPreview(null);
       setImportCsvText('');
-      alert('Successfully migrated ' + parsedPreview.records.length + ' masqueraders into Band CRM!');
+      alert('Successfully imported ' + parsedPreview.records.length + ' masqueraders into Band CRM!');
     } catch (err) {
       console.error(err);
       alert('Failed to import: ' + err.message);
@@ -292,7 +292,7 @@ export default function BandCRM({ bandId }) {
               className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-100 px-3 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-colors text-xs shadow-sm"
             >
               <Upload className="w-3.5 h-3.5" /> 
-              Migrate PlayMas / Shopify
+              Import Masqueraders (CSV)
             </button>
 
             <button 
@@ -379,7 +379,7 @@ export default function BandCRM({ bandId }) {
             {filteredOrders.length === 0 ? (
               <tr>
                 <td colSpan={7} className="p-12 text-center text-gray-400 text-xs">
-                  No masquerader registrations found. Masqueraders will appear here automatically when they book sections via your storefront, or you can import customer lists using "Migrate Customer List".
+                  No masquerader registrations found. Masqueraders will appear here automatically when they book sections via your storefront, or you can import customer lists using "Import Masqueraders (CSV)".
                 </td>
               </tr>
             ) : (
@@ -477,9 +477,9 @@ export default function BandCRM({ bandId }) {
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-purple-500" />
-                  Migrate Past Masqueraders & Sizing
+                  Import Masqueraders & Sizing
                 </h3>
-                <p className="text-xs text-gray-500">Import CSV exports from PlayMas, Shopify, MasqueradePro, or Eventbrite.</p>
+                <p className="text-xs text-gray-500">Import CSV exports from your registration roster or customer spreadsheet.</p>
               </div>
               <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
@@ -488,28 +488,28 @@ export default function BandCRM({ bandId }) {
 
             <div className="bg-purple-50 dark:bg-purple-900/20 p-3.5 rounded-xl border border-purple-200 dark:border-purple-800 mb-4">
               <div className="text-xs font-bold text-purple-900 dark:text-purple-200 mb-2">
-                1-Click Preset Test Files:
+                1-Click Preset Templates:
               </div>
               <div className="flex gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
-                    setImportCsvText(SAMPLE_PLAYMAS_CSV);
-                    handleParseCSV(SAMPLE_PLAYMAS_CSV);
+                    setImportCsvText(SAMPLE_ROSTER_CSV);
+                    handleParseCSV(SAMPLE_ROSTER_CSV);
                   }}
                   className="bg-white dark:bg-gray-800 hover:bg-gray-50 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
                 >
-                  PlayMas 2026 Sample ({5} rows)
+                  Standard Roster Sample ({5} rows)
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setImportCsvText(SAMPLE_SHOPIFY_CSV);
-                    handleParseCSV(SAMPLE_SHOPIFY_CSV);
+                    setImportCsvText(SAMPLE_COSTUME_CSV);
+                    handleParseCSV(SAMPLE_COSTUME_CSV);
                   }}
                   className="bg-white dark:bg-gray-800 hover:bg-gray-50 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
                 >
-                  Shopify Costume Export ({3} rows)
+                  Costume & Sizing Sample ({3} rows)
                 </button>
               </div>
             </div>
