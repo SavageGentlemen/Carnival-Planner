@@ -33,9 +33,9 @@ export default function EmailAuthForm({ onBack, onSuccess }) {
       case 'auth/user-not-found':
         return 'No account found with this email.';
       case 'auth/wrong-password':
-        return 'Incorrect password. Please try again.';
+        return 'Incorrect password. If you previously logged in with Google, click "Forgot or need to set password?" below to create your password.';
       case 'auth/invalid-credential':
-        return 'Invalid email or password. Please check and try again.';
+        return 'Invalid credentials. If you previously logged in with Google, click "Forgot or need to set password?" below to set your password.';
       case 'auth/too-many-requests':
         return 'Too many attempts. Please try again later.';
       default:
@@ -229,10 +229,10 @@ export default function EmailAuthForm({ onBack, onSuccess }) {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="text-sm text-pink-400 hover:text-pink-300 transition-colors"
+                className="text-xs text-pink-400 hover:text-pink-300 transition-colors font-medium"
                 disabled={isLoading}
               >
-                Forgot password?
+                Forgot or need to set password?
               </button>
             </div>
           )}

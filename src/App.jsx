@@ -2,11 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import {
   onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithCredential,
   signOut as firebaseSignOut,
-  getRedirectResult,
 } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
@@ -866,34 +862,9 @@ export default function App() {
 
   // --- ACTIONS ---
 
-  const handleSignIn = async () => {
-    try {
-      if (Capacitor.isNativePlatform()) {
-        // 1. Trigger the native Google sign-in sheet
-        const result = await FirebaseAuthentication.signInWithGoogle();
-        
-        // If it works, you process the token here...
-        console.log("Success:", result); 
-        
-        // Bridge the native credential into the Firebase JS SDK
-        const idToken = result.credential?.idToken;
-        if (idToken) {
-          const credential = GoogleAuthProvider.credential(idToken);
-          await signInWithCredential(auth, credential);
-        }
-      } else {
-        // ── WEB: Standard popup flow ──
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-      }
-    } catch (error) {
-      // We stop using JSON.stringify. We extract the raw strings.
-      const errorMessage = error.message || String(error);
-      const errorCode = error.code || "UNKNOWN_CODE";
-      
-      alert("NATIVE CRASH \nCode: " + errorCode + "\nMessage: " + errorMessage);
-      console.error("Auth Failure:", error);
-    }
+  const handleSignIn = () => {
+    setShowLanding(false);
+    setShowEmailAuth(true);
   };
 
   const handleSignOut = async () => {
@@ -901,9 +872,8 @@ export default function App() {
       handleExitDemo();
       return;
     }
-    // Sign out of native plugin too (clears cached Google session on Android)
     if (Capacitor.isNativePlatform()) {
-      await FirebaseAuthentication.signOut();
+      await FirebaseAuthentication.signOut().catch(() => {});
     }
     await firebaseSignOut(auth);
     setShowLanding(true);
@@ -1819,47 +1789,10 @@ export default function App() {
       <main className="flex-1 p-4 max-w-4xl mx-auto w-full">
         {!user ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-            {showEmailAuth ? (
-              <EmailAuthForm
-                onBack={() => setShowEmailAuth(false)}
-                onSuccess={() => setShowEmailAuth(false)}
-              />
-            ) : (
-              <div className="glass-panel p-8 sm:p-10 max-w-md w-full border-cyan-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#00e5cc] to-teal-700 flex items-center justify-center shadow-[0_0_20px_rgba(0,229,204,0.4)] mx-auto mb-4">
-                  <span className="text-2xl">🪶</span>
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-black mb-2 text-white font-heading uppercase">Welcome Back</h2>
-                <p className="text-xs sm:text-sm text-slate-300 mb-6 font-medium">Log in to manage your carnival fetes, costumes & squad</p>
-                
-                <div className="space-y-3.5 w-full">
-                  <button
-                    onClick={handleSignIn}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-slate-900 hover:bg-slate-800 border border-white/20 hover:border-cyan-400/50 rounded-full shadow-sm text-white font-bold text-sm transition-all"
-                  >
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 mr-3" alt="G" />
-                    Continue with Google
-                  </button>
-                  <div className="flex items-center gap-3 text-slate-500">
-                    <div className="flex-1 h-px bg-slate-800"></div>
-                    <span className="text-xs font-bold uppercase">or</span>
-                    <div className="flex-1 h-px bg-slate-800"></div>
-                  </div>
-                  <button
-                    onClick={() => setShowEmailAuth(true)}
-                    className="w-full flex items-center justify-center px-6 py-3 bg-[#00e5cc] hover:bg-[#24f6df] rounded-full shadow-[0_0_20px_rgba(0,229,204,0.3)] text-black font-extrabold text-sm uppercase tracking-wider transition-all"
-                  >
-                    Continue with Email
-                  </button>
-                </div>
-                <button
-                  onClick={() => setShowLanding(true)}
-                  className="mt-6 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-cyan-300 transition-colors"
-                >
-                  ← Back to home
-                </button>
-              </div>
-            )}
+            <EmailAuthForm
+              onBack={() => setShowLanding(true)}
+              onSuccess={() => setShowEmailAuth(false)}
+            />
           </div>
         ) : showBandLeaderDashboard ? (
           <React.Suspense fallback={<LazyFallback />}>

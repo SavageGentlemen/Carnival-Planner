@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app from '../firebase';
 import SocaPassportTab from '../components/SocaPassportTab';
+import EmailAuthForm from '../components/EmailAuthForm';
 import { ArrowLeft, LogIn, Sparkles, MapPin, Trophy, Ticket, Shield, Play } from 'lucide-react';
 
 /**
@@ -23,18 +24,7 @@ export default function SocaPassportPage() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  const handleGoogleSignIn = async () => {
-    setAuthError('');
-    try {
-      const auth = getAuth(app);
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      console.error('[Passport Auth Error]', err);
-      setAuthError('Google sign-in popup closed or blocked. Trying Demo mode...');
-      setIsDemoMode(true);
-    }
-  };
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Listen for auth state
   useEffect(() => {
@@ -240,23 +230,32 @@ export default function SocaPassportPage() {
             ))}
           </div>
 
-          {/* CTAs */}
-          <div className="space-y-3">
-            <button
-              onClick={handleGoogleSignIn}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-black py-4 rounded-2xl text-base transition-all shadow-xl shadow-purple-500/20 flex items-center justify-center gap-2"
-            >
-              <LogIn className="w-5 h-5" />
-              Sign In to Get Started
-            </button>
-            <button
-              onClick={() => setIsDemoMode(true)}
-              className="w-full bg-slate-900 hover:bg-slate-800 border border-purple-500/30 text-purple-300 font-bold py-3 rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
-            >
-              <Play className="w-4 h-4" />
-              Preview Demo Passport Mode
-            </button>
-          </div>
+          {/* CTAs or Email Auth Form */}
+          {showAuthModal ? (
+            <div className="bg-slate-900/90 border border-purple-500/30 rounded-2xl p-6 shadow-2xl">
+              <EmailAuthForm
+                onBack={() => setShowAuthModal(false)}
+                onSuccess={() => setShowAuthModal(false)}
+              />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white font-black py-4 rounded-2xl text-base transition-all shadow-xl shadow-purple-500/20 flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-5 h-5" />
+                Sign In to Get Started
+              </button>
+              <button
+                onClick={() => setIsDemoMode(true)}
+                className="w-full bg-slate-900 hover:bg-slate-800 border border-purple-500/30 text-purple-300 font-bold py-3 rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                Preview Demo Passport Mode
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
