@@ -26,19 +26,14 @@ let cachedTransporter = null;
  * Returns a configured Nodemailer transporter or null in Resend API / Mock mode.
  */
 function getTransporter() {
-  if (process.env.RESEND_API_KEY) {
-    // Resend direct API mode
-    return null;
-  }
-
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = parseInt(process.env.SMTP_PORT || "465", 10);
   const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
   const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  const smtpHost = process.env.SMTP_HOST || (smtpUser && smtpUser.includes("@carnival-planner.com") ? "mail.privateemail.com" : null);
+  const smtpPort = parseInt(process.env.SMTP_PORT || "465", 10);
   const smtpSecure = process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === "true" : smtpPort === 465;
 
   if (!smtpHost && (!smtpUser || !smtpPass)) {
-    console.log("[EmailService] No active SMTP or Gmail credentials found. Running in DEV/MOCK mode.");
+    console.log("[EmailService] No active SMTP or Private Email credentials found. Running in DEV/MOCK mode.");
     return null;
   }
 
@@ -72,10 +67,31 @@ async function sendMail({ to, subject, html, text, from, replyTo }) {
     return { success: false, reason: "no_recipient" };
   }
 
-  const defaultFrom = from || (process.env.RESEND_API_KEY ? '"Caribbean Carnival Planner" <onboarding@resend.dev>' : (process.env.GMAIL_USER ? `"Caribbean Carnival Planner" <${process.env.GMAIL_USER}>` : '"Caribbean Carnival Planner" <cpteamgt@gmail.com>'));
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || "cpteam@carnival-planner.com";
+  const defaultFrom = from || `"Caribbean Carnival Planner" <${smtpUser}>`;
 
-  // 1. Direct Resend API (Fastest & recommended for serverless)
+  // 1. Check SMTP Transporter (Namecheap Private Email / SMTP)
+  const transporter = getTransporter();
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: defaultFrom,
+        to: Array.isArray(to) ? to.join(", ") : to,
+        subject,
+        html: html || undefined,
+        text: text || undefined,
+        replyTo: replyTo || smtpUser,
+      });
+      console.log(`[EmailService - SMTP] Sent '${subject}' to ${Array.isArray(to) ? to.join(", ") : to} (Id: ${info.messageId})`);
+      return { success: true, messageId: info.messageId, provider: "smtp" };
+    } catch (err) {
+      console.error("[EmailService - SMTP Exception]:", err.message);
+      // Fall through to Resend if available
+    }
+  }
+
+  // 2. Direct Resend API Fallback
+  const resendApiKey = process.env.RESEND_API_KEY;
   if (resendApiKey) {
     try {
       const resendFrom = defaultFrom.includes('@') ? defaultFrom : 'onboarding@resend.dev';
