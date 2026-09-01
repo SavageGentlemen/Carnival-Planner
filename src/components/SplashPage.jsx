@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { supabase } from '../supabaseClient';
 import { LiquidButton, HolographicCard, CostumeStage3D } from './threeui';
 
 export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcierge, onLegalPage }) {
@@ -30,48 +31,56 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
   const [quickQuery, setQuickQuery] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [videoUrl, setVideoUrl] = useState('/videos/background_apps.mp4');
+  const [videoUrl, setVideoUrl] = useState('/videos/carnival_fete_preview.mp4');
   const [videoTitle, setVideoTitle] = useState('Top 5 Fetes This Weekend');
-  const [videoSubtitle, setVideoSubtitle] = useState('Barbados & Trinidad Edition');
+  const [videoSubtitle, setVideoSubtitle] = useState('Trinidad & Barbados Carnival Edition');
   const [costumeSlide, setCostumeSlide] = useState(0);
   const [costumeViewMode, setCostumeViewMode] = useState('photo'); // 'photo' | '3d'
   const videoRef = useRef(null);
 
-  // Costumes data for carousel showcase
-  const costumes = [
-    {
-      id: 'teal',
-      title: 'Turquoise Empress',
-      section: 'Frontline Wing Package',
-      band: 'Tribe Carnival • Trinidad',
-      image: '/images/carnival/costume_teal.jpg',
-      price: '$1,250'
-    },
-    {
-      id: 'gold',
-      title: 'Solar Radiance',
-      section: 'Individual Showpiece',
-      band: 'Zulu International • Barbados',
-      image: '/images/carnival/costume_gold.jpg',
-      price: '$1,400'
-    },
-    {
-      id: 'pink',
-      title: 'Magenta Blossom',
-      section: 'Backline & Collar Upgrade',
-      band: 'YUMA Vibe • Trinidad',
-      image: '/images/carnival/costume_pink.jpg',
-      price: '$950'
-    },
-    {
-      id: 'red',
-      title: 'Fire Monarch',
-      section: 'Full Feather Backpack',
-      band: 'Xodus Carnival • Jamaica',
-      image: '/images/carnival/trinidad.jpg',
-      price: '$1,100'
-    }
-  ];
+  // Live costume sections from verified carnival bands
+  const [liveCostumes, setLiveCostumes] = useState([]);
+  const [loadingCostumes, setLoadingCostumes] = useState(true);
+
+  // Fetch live band costume sections from Supabase (only display when live data is present from bands)
+  useEffect(() => {
+    const fetchLiveBandCostumes = async () => {
+      try {
+        if (supabase) {
+          const { data, error } = await supabase
+            .from('band_costume_sections')
+            .select('id, title, section_type, base_price, image_url, is_sold_out, band_profiles(business_name, slug)')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(12);
+
+          if (!error && data && data.length > 0) {
+            const formatted = data
+              .filter(item => item.band_profiles?.slug && item.image_url)
+              .map(item => ({
+                id: item.id,
+                title: item.title,
+                section: item.section_type || 'Costume Section',
+                band: item.band_profiles?.business_name || 'Verified Band',
+                bandSlug: item.band_profiles?.slug,
+                image: item.image_url,
+                price: item.base_price ? `$${Number(item.base_price).toLocaleString()}` : 'Inquire',
+                isSoldOut: item.is_sold_out
+              }));
+            setLiveCostumes(formatted);
+          } else {
+            setLiveCostumes([]);
+          }
+        }
+      } catch (err) {
+        console.warn('[SplashPage] Could not fetch live band costumes:', err.message);
+        setLiveCostumes([]);
+      } finally {
+        setLoadingCostumes(false);
+      }
+    };
+    fetchLiveBandCostumes();
+  }, []);
 
   // Fetch latest auto-generated short from Firestore
   useEffect(() => {
@@ -129,11 +138,13 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
   };
 
   const handleNextCostume = () => {
-    setCostumeSlide((prev) => (prev + 1) % costumes.length);
+    if (liveCostumes.length === 0) return;
+    setCostumeSlide((prev) => (prev + 1) % liveCostumes.length);
   };
 
   const handlePrevCostume = () => {
-    setCostumeSlide((prev) => (prev - 1 + costumes.length) % costumes.length);
+    if (liveCostumes.length === 0) return;
+    setCostumeSlide((prev) => (prev - 1 + liveCostumes.length) % liveCostumes.length);
   };
 
   return (
@@ -169,7 +180,11 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
           <nav className="hidden lg:flex items-center gap-8 text-xs font-bold uppercase tracking-wider">
             <a href="#hero" className="text-[#00e5cc] transition-colors hover:text-white">HOME</a>
             <a href="#events" className="text-slate-300 hover:text-[#00e5cc] transition-colors">EVENTS</a>
-            <a href="#costumes" className="text-slate-300 hover:text-[#00e5cc] transition-colors">COSTUMES</a>
+            {liveCostumes.length > 0 ? (
+              <a href="#costumes" className="text-slate-300 hover:text-[#00e5cc] transition-colors">COSTUMES</a>
+            ) : (
+              <button onClick={() => navigate('/bands')} className="text-slate-300 hover:text-[#00e5cc] transition-colors uppercase">BANDS</button>
+            )}
             <button 
               onClick={() => navigate('/moymeetsworld')} 
               className="text-[#00e5cc] hover:text-white transition-colors flex items-center gap-1 font-extrabold"
@@ -583,126 +598,165 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
         </div>
       </section>
 
-      {/* ── SECTION 3: STUNNING COSTUMES (Gallery & 3D Stage) ── */}
-      <section id="costumes" className="relative py-12 px-6 max-w-7xl mx-auto z-20">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-white font-heading">
-            STUNNING COSTUMES
-          </h2>
-          <div className="w-16 h-1 bg-[#00e5cc] mx-auto mt-3 rounded-full shadow-[0_0_10px_#00e5cc]" />
-        </div>
-
-        {/* Mode Switcher: Photo Gallery vs 3D Studio Stage */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex p-1 bg-slate-900/90 border border-cyan-500/30 rounded-2xl backdrop-blur-md shadow-lg">
-            <button
-              onClick={() => setCostumeViewMode('photo')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-                costumeViewMode === 'photo'
-                  ? 'bg-[#00e5cc] text-gray-950 shadow-[0_0_15px_rgba(0,229,204,0.4)]'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              📸 Photo Gallery
-            </button>
-            <button
-              onClick={() => setCostumeViewMode('3d')}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                costumeViewMode === '3d'
-                  ? 'bg-gradient-to-r from-pink-500 to-cyan-400 text-white shadow-[0_0_20px_rgba(236,72,153,0.5)]'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" /> ✨ 3D Studio Stage
-            </button>
+      {/* ── SECTION 3: COSTUMES (Only displayed when live data is present from bands) ── */}
+      {liveCostumes.length > 0 ? (
+        <section id="costumes" className="relative py-12 px-6 max-w-7xl mx-auto z-20">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-white font-heading">
+              LIVE BAND COSTUMES
+            </h2>
+            <div className="w-16 h-1 bg-[#00e5cc] mx-auto mt-3 rounded-full shadow-[0_0_10px_#00e5cc]" />
+            <p className="text-xs text-slate-400 mt-2">Verified costume sections direct from registered Carnival bands</p>
           </div>
-        </div>
 
-        {/* If 3D Stage View Mode is Selected */}
-        {costumeViewMode === '3d' ? (
-          <div className="max-w-4xl mx-auto">
-            <CostumeStage3D
-              itemType="wings"
-              color="#ec4899"
-              accentColor="#00e5cc"
-              title="Carnival Frontline 3D Showcase"
-              price="$1,250"
-              className="w-full h-96 md:h-[450px] rounded-3xl"
-            />
+          {/* Mode Switcher: Photo Gallery vs 3D Studio Stage */}
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex p-1 bg-slate-900/90 border border-cyan-500/30 rounded-2xl backdrop-blur-md shadow-lg">
+              <button
+                onClick={() => setCostumeViewMode('photo')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                  costumeViewMode === 'photo'
+                    ? 'bg-[#00e5cc] text-gray-950 shadow-[0_0_15px_rgba(0,229,204,0.4)]'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                📸 Photo Gallery
+              </button>
+              <button
+                onClick={() => setCostumeViewMode('3d')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                  costumeViewMode === '3d'
+                    ? 'bg-gradient-to-r from-pink-500 to-cyan-400 text-white shadow-[0_0_20px_rgba(236,72,153,0.5)]'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" /> ✨ 3D Studio Stage
+              </button>
+            </div>
           </div>
-        ) : (
-          /* Photo Carousel Container */
-          <div className="relative">
-            
-            {/* Navigation Arrows */}
-            <button 
-              onClick={handlePrevCostume}
-              aria-label="Previous Costume"
-              className="absolute -left-3 md:-left-6 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-900/90 border border-cyan-400/40 text-white flex items-center justify-center hover:bg-[#00e5cc] hover:text-black transition-all shadow-xl"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
 
-            <button 
-              onClick={handleNextCostume}
-              aria-label="Next Costume"
-              className="absolute -right-3 md:-right-6 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-900/90 border border-cyan-400/40 text-white flex items-center justify-center hover:bg-[#00e5cc] hover:text-black transition-all shadow-xl"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
+          {/* If 3D Stage View Mode is Selected */}
+          {costumeViewMode === '3d' ? (
+            <div className="max-w-4xl mx-auto">
+              <CostumeStage3D
+                itemType="wings"
+                color="#ec4899"
+                accentColor="#00e5cc"
+                title="Carnival Frontline 3D Showcase"
+                price="$1,250"
+                className="w-full h-96 md:h-[450px] rounded-3xl"
+              />
+            </div>
+          ) : (
+            /* Photo Carousel Container */
+            <div className="relative">
+              
+              {/* Navigation Arrows */}
+              <button 
+                onClick={handlePrevCostume}
+                aria-label="Previous Costume"
+                className="absolute -left-3 md:-left-6 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-900/90 border border-cyan-400/40 text-white flex items-center justify-center hover:bg-[#00e5cc] hover:text-black transition-all shadow-xl"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
 
-            {/* 3 Visible Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[0, 1, 2].map((offset) => {
-                const index = (costumeSlide + offset) % costumes.length;
-                const item = costumes[index];
-                return (
-                  <HolographicCard key={item.id} tier="RARE" onClick={onGetStarted}>
-                    <div className="overflow-hidden group cursor-pointer bg-slate-950/90 rounded-3xl">
-                      <div className="relative aspect-[3/4] overflow-hidden bg-slate-950">
-                        <img 
-                          src={item.image} 
-                          alt={item.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#080c14] via-transparent to-transparent opacity-80" />
-                        
-                        <div className="absolute bottom-4 left-4 right-4 text-left">
-                          <span className="text-[10px] font-black uppercase text-[#00e5cc] tracking-widest block mb-1">
-                            {item.band}
-                          </span>
-                          <h4 className="text-lg font-black text-white font-heading">{item.title}</h4>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-xs text-slate-300">{item.section}</span>
-                            <span className="text-sm font-extrabold text-cyan-300">{item.price}</span>
+              <button 
+                onClick={handleNextCostume}
+                aria-label="Next Costume"
+                className="absolute -right-3 md:-right-6 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-900/90 border border-cyan-400/40 text-white flex items-center justify-center hover:bg-[#00e5cc] hover:text-black transition-all shadow-xl"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+
+              {/* Visible Live Band Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[0, 1, 2].slice(0, Math.min(3, liveCostumes.length)).map((offset) => {
+                  const index = (costumeSlide + offset) % liveCostumes.length;
+                  const item = liveCostumes[index];
+                  return (
+                    <HolographicCard 
+                      key={item.id} 
+                      tier="RARE" 
+                      onClick={() => {
+                        if (item.bandSlug) {
+                          navigate(`/band/${item.bandSlug}`);
+                        }
+                      }}
+                    >
+                      <div className="overflow-hidden group cursor-pointer bg-slate-950/90 rounded-3xl">
+                        <div className="relative aspect-[3/4] overflow-hidden bg-slate-950">
+                          <img 
+                            src={item.image} 
+                            alt={item.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#080c14] via-transparent to-transparent opacity-80" />
+                          
+                          <div className="absolute top-3 right-3">
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-600/90 border border-cyan-400 text-white shadow-lg">
+                              View Band
+                            </span>
+                          </div>
+
+                          <div className="absolute bottom-4 left-4 right-4 text-left">
+                            <span className="text-[10px] font-black uppercase text-[#00e5cc] tracking-widest block mb-1">
+                              {item.band}
+                            </span>
+                            <h4 className="text-lg font-black text-white font-heading">{item.title}</h4>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-xs text-slate-300">{item.section}</span>
+                              <span className="text-sm font-extrabold text-cyan-300">{item.price}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </HolographicCard>
-                );
-              })}
-            </div>
+                    </HolographicCard>
+                  );
+                })}
+              </div>
 
-            {/* Dot Indicators */}
-            <div className="flex items-center justify-center gap-2 mt-8">
-              {costumes.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCostumeSlide(i)}
-                  aria-label={`Slide ${i + 1}`}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${
-                    costumeSlide === i 
-                      ? 'w-8 bg-[#00e5cc] shadow-[0_0_10px_#00e5cc]' 
-                      : 'bg-slate-700 hover:bg-slate-500'
-                  }`}
-                />
-              ))}
-            </div>
+              {/* Dot Indicators */}
+              <div className="flex items-center justify-center gap-2 mt-8">
+                {liveCostumes.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCostumeSlide(i)}
+                    aria-label={`Slide ${i + 1}`}
+                    className={`w-2.5 h-2.5 rounded-full transition-all ${
+                      costumeSlide === i 
+                        ? 'w-8 bg-[#00e5cc] shadow-[0_0_10px_#00e5cc]' 
+                        : 'bg-slate-700 hover:bg-slate-500'
+                    }`}
+                  />
+                ))}
+              </div>
 
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="relative py-8 px-6 max-w-7xl mx-auto z-20">
+          <div className="glass-panel p-6 md:p-8 rounded-3xl border border-cyan-500/20 bg-gradient-to-r from-slate-950/90 via-purple-950/40 to-slate-950/90 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg shadow-pink-500/30 flex-shrink-0">
+                🎭
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white font-heading">Are You a Carnival Band Leader?</h3>
+                <p className="text-xs text-slate-400 mt-0.5 max-w-xl">
+                  Launch your official costume showroom, accept masquerader registrations, and manage distribution inventory with BandOS.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/bands')}
+              className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition shadow-[0_0_15px_rgba(0,229,204,0.3)] whitespace-nowrap"
+            >
+              Explore Bands Directory
+            </button>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
 
       {/* ── VIDEO SHORTS & PROMOTER BOOST SECTION ── */}
@@ -716,25 +770,25 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
                 FOR EVENT PROMOTERS & BAND LEADERS
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight font-heading">
-                Boost Your Fete to 10,000+ Carnival Goers 🎟️
+                Boost Your Fete to Active Carnival Travelers 🎟️
               </h2>
               <p className="text-slate-300 text-sm md:text-base mt-3 max-w-xl font-medium leading-relaxed">
-                Pin your event to the top of our curated live feed ($49) or get featured in our automated weekly video Shorts distributed to YouTube, Instagram Reels & TikTok ($149).
+                Put your event directly in front of high-intent masqueraders actively booking flights, securing accommodations, and building their daily carnival itineraries. Pin your fete to the top of our curated live feed and interactive map ($49) or get a dedicated AI-produced promotional video short ($99).
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 mt-8">
               <button
-                onClick={onGetStarted}
+                onClick={() => onOpenConcierge ? onOpenConcierge("I am an event promoter. How do I pin my fete to the live feed ($49)?") : onGetStarted()}
                 className="px-6 py-3 bg-amber-400 hover:bg-amber-300 text-black rounded-full font-black text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] text-center font-heading"
               >
                 Pin Event Feed ($49)
               </button>
               <button
-                onClick={onGetStarted}
+                onClick={() => onOpenConcierge ? onOpenConcierge("I am an event promoter. How do I get an AI Promo Reel spotlight ($99)?") : onGetStarted()}
                 className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 rounded-full font-bold text-xs uppercase tracking-wider transition-all text-center font-heading"
               >
-                Video Short Boost ($149)
+                AI Promo Reel ($99)
               </button>
             </div>
           </div>
@@ -760,6 +814,7 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
                 <video
                   ref={videoRef}
                   src={videoUrl}
+                  poster="/images/carnival/hero_banner.jpg"
                   className="absolute inset-0 w-full h-full object-cover"
                   playsInline
                   muted={isMuted}
