@@ -282,19 +282,31 @@ export default function MarketplaceGrid({ user }) {
                                         </span>
                                     </div>
 
-                                    {/* Official Badge */}
-                                    {listing.isOfficial && (
-                                        <div className="absolute top-3 right-3">
+                                    {/* Top Right Badges */}
+                                    <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                                        {listing.isOfficial && (
                                             <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-600 border border-purple-400 text-white shadow-lg flex items-center gap-1">
                                                 <Sparkles className="w-3 h-3" />
                                                 Official
                                             </span>
-                                        </div>
-                                    )}
+                                        )}
+                                        {(listing.priceDropActive || (listing.originalPrice && listing.originalPrice > listing.price)) && (
+                                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-red-600 to-amber-600 border border-amber-400 text-white shadow-lg flex items-center gap-1 animate-pulse">
+                                                🔥 Deal Drop
+                                            </span>
+                                        )}
+                                    </div>
 
                                     {/* Price Badge */}
-                                    <div className="absolute bottom-3 right-3">
-                                        <span className="px-3 py-1.5 bg-black/80 backdrop-blur-md rounded-xl text-cyan-300 font-black text-sm border border-cyan-500/30 shadow-[0_0_12px_rgba(0,229,204,0.3)]">
+                                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                                        {(listing.priceDropActive || (listing.originalPrice && listing.originalPrice > listing.price)) && (
+                                            <span className="px-2 py-1 bg-black/80 backdrop-blur-md rounded-lg text-slate-400 font-bold text-xs line-through border border-red-500/20">
+                                                {formatPrice(listing.originalPrice, listing.currency)}
+                                            </span>
+                                        )}
+                                        <span className={`px-3 py-1.5 bg-black/80 backdrop-blur-md rounded-xl font-black text-sm border shadow-[0_0_12px_rgba(0,229,204,0.3)] ${
+                                            listing.priceDropActive ? 'text-amber-300 border-amber-500/40' : 'text-cyan-300 border-cyan-500/30'
+                                        }`}>
                                             {formatPrice(listing.price, listing.currency)}
                                         </span>
                                     </div>

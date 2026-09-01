@@ -907,6 +907,125 @@ async function scrapeGenericPlatform(baseUrl, platformName, eventPath = '/events
     return events;
 }
 
+// --- Autonomous Geo-Coder & Venue Database ---
+const CARNIVAL_DEFAULT_COORDS = {
+    'trinidad': [10.6695, -61.5168],
+    'jamaica': [18.0179, -76.8099],
+    'barbados': [13.1939, -59.5432],
+    'stlucia': [14.0101, -60.9875],
+    'grenada': [12.1165, -61.6790],
+    'antigua': [17.1274, -61.8468],
+    'bahamas': [25.0343, -77.3963],
+    'bermuda': [32.3078, -64.7505],
+    'vincymas': [13.1587, -61.2248],
+    'tobago': [11.1683, -60.8406],
+    'stkitts-sugar-mas': [17.3026, -62.7177],
+    'stmaarten': [18.0425, -63.0548],
+    'dominica': [15.4150, -61.3710],
+    'guyana': [6.8013, -58.1551],
+    'miami': [25.7617, -80.1918],
+    'toronto': [43.6532, -79.3832],
+    'ny-labor-day': [40.6710, -73.9636],
+};
+
+const CARIBBEAN_VENUE_COORDINATES = [
+    // Trinidad & Tobago
+    { terms: ['queen\'s park savannah', 'savannah', 'grand stand', 'qps'], coords: [10.6695, -61.5168] },
+    { terms: ['hasely crawford', 'stadium'], coords: [10.6601, -61.5306] },
+    { terms: ['brian lara', 'tarouba'], coords: [10.3156, -61.4286] },
+    { terms: ['o2 park', 'chaguaramas'], coords: [10.6868, -61.6441] },
+    { terms: ['anchorage', 'hart\'s cut'], coords: [10.6872, -61.6375] },
+    { terms: ['pier 1', 'pier one'], coords: [10.6845, -61.6310] },
+    { terms: ['sound forge', 'mucurapo'], coords: [10.6658, -61.5298] },
+    { terms: ['hyatt regency', 'waterfront', 'port of spain'], coords: [10.6508, -61.5167] },
+    { terms: ['pigeon point', 'store bay', 'crown point'], coords: [11.1683, -60.8406] },
+    { terms: ['shaw park', 'scarborough'], coords: [11.1856, -60.7417] },
+
+    // Jamaica
+    { terms: ['hope gardens', 'hope zoo'], coords: [18.0189, -76.7554] },
+    { terms: ['national stadium', 'stadium east', 'arthur wint'], coords: [18.0039, -76.7725] },
+    { terms: ['mas camp', 'stadium north'], coords: [18.0052, -76.7744] },
+    { terms: ['devon house'], coords: [18.0175, -76.7925] },
+    { terms: ['sabina park'], coords: [17.9806, -76.7786] },
+    { terms: ['kingston waterfront', 'downtown kingston'], coords: [17.9691, -76.7947] },
+
+    // Barbados
+    { terms: ['kensington oval', 'fontabelle'], coords: [13.1042, -59.6225] },
+    { terms: ['oistins', 'christ church'], coords: [13.0694, -59.5444] },
+    { terms: ['bushy park', 'st philip'], coords: [13.1364, -59.4892] },
+    { terms: ['carlisle bay', 'copacabana', 'bay street'], coords: [13.0883, -59.6094] },
+    { terms: ['national botanical gardens', 'waterford'], coords: [13.1189, -59.5933] },
+
+    // St. Lucia
+    { terms: ['pigeon island', 'national landmark'], coords: [14.0906, -60.9575] },
+    { terms: ['daren sammy', 'beausejour'], coords: [14.0722, -60.9528] },
+    { terms: ['rodney bay', 'gros islet'], coords: [14.0728, -60.9542] },
+
+    // Grenada
+    { terms: ['kirani james', 'national athletic stadium'], coords: [12.0603, -61.7486] },
+    { terms: ['port louis', 'st george\'s'], coords: [12.0469, -61.7511] },
+
+    // Antigua
+    { terms: ['sir vivian richards', 'north sound'], coords: [17.1039, -61.7844] },
+    { terms: ['antigua recreation ground', 'st john\'s'], coords: [17.1219, -61.8419] },
+
+    // Miami / Diaspora
+    { terms: ['central broward', 'lauderhill'], coords: [26.1558, -80.2072] },
+    { terms: ['miami fairgrounds', 'tamiami'], coords: [25.7489, -80.3756] },
+    { terms: ['eastern parkway', 'brooklyn museum'], coords: [40.6710, -73.9636] },
+];
+
+function enrichEventMetadata(event, carnivalId) {
+    // 1. Assign Geospatial Coordinates
+    if (!event.lat || !event.lng) {
+        const textToSearch = `${event.venue || ''} ${event.title || ''}`.toLowerCase();
+        let matchedCoords = null;
+
+        for (const venue of CARIBBEAN_VENUE_COORDINATES) {
+            for (const term of venue.terms) {
+                if (textToSearch.includes(term)) {
+                    matchedCoords = venue.coords;
+                    break;
+                }
+            }
+            if (matchedCoords) break;
+        }
+
+        if (matchedCoords) {
+            event.lat = matchedCoords[0];
+            event.lng = matchedCoords[1];
+            event.geoSource = 'exact_venue_match';
+        } else if (CARNIVAL_DEFAULT_COORDS[carnivalId]) {
+            // Apply slight deterministic micro-jitter based on event title hash so pins don't overlap completely
+            const base = CARNIVAL_DEFAULT_COORDS[carnivalId];
+            const hash = (event.title || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const jitterLat = ((hash % 20) - 10) * 0.0015;
+            const jitterLng = (((hash * 7) % 20) - 10) * 0.0015;
+            event.lat = Number((base[0] + jitterLat).toFixed(5));
+            event.lng = Number((base[1] + jitterLng).toFixed(5));
+            event.geoSource = 'regional_center_approx';
+        }
+    }
+
+    // 2. Ticket Scarcity & Sold-Out Sentinel
+    const checkText = `${event.price || ''} ${event.title || ''}`.toLowerCase();
+    if (checkText.includes('sold out') || checkText.includes('soldout') || checkText.includes('tickets closed') || checkText.includes('waitlist only')) {
+        event.isSoldOut = true;
+        event.scarcityLevel = 'SOLD_OUT';
+    } else if (checkText.includes('limited') || checkText.includes('final tier') || checkText.includes('tier 3') || checkText.includes('tier 4') || checkText.includes('last chance') || checkText.includes('almost gone')) {
+        event.isSoldOut = false;
+        event.scarcityLevel = 'CRITICAL';
+    } else if (checkText.includes('tier 2') || checkText.includes('advance') || checkText.includes('late bird')) {
+        event.isSoldOut = false;
+        event.scarcityLevel = 'LIMITED';
+    } else {
+        event.isSoldOut = false;
+        event.scarcityLevel = 'AVAILABLE';
+    }
+
+    return event;
+}
+
 // --- Save to Firestore ---
 
 async function saveToFirebase(events, db) {
@@ -916,6 +1035,7 @@ async function saveToFirebase(events, db) {
         const carnivalId = categorizeEvent(event);
         if (carnivalId) {
             event.id = generateEventId(event);
+            enrichEventMetadata(event, carnivalId);
             if (!categorized[carnivalId]) categorized[carnivalId] = [];
             categorized[carnivalId].push(event);
         }
@@ -1033,9 +1153,32 @@ async function runScraper(db) {
     };
 }
 
+async function runStandalone() {
+    console.log('[Scraper Runner] Initializing standalone runner...');
+    const admin = require('firebase-admin');
+    if (!admin.apps.length) {
+        if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+            try {
+                const creds = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                admin.initializeApp({ credential: admin.credential.cert(creds) });
+            } catch (err) {
+                console.warn('[Scraper Runner] Could not parse FIREBASE_SERVICE_ACCOUNT, initializing default app:', err.message);
+                admin.initializeApp();
+            }
+        } else {
+            admin.initializeApp();
+        }
+    }
+    const db = admin.firestore();
+    return await runScraper(db);
+}
+
 module.exports = {
     runScraper,
+    runStandalone,
     categorizeEvent,
     generateEventId,
+    enrichEventMetadata,
     CARNIVAL_SEARCH_TERMS,
+    CARIBBEAN_VENUE_COORDINATES,
 };

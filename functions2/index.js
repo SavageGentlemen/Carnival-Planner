@@ -5617,6 +5617,279 @@ exports.scheduledDatabaseHygiene = onSchedule(
 
 
 
+// ==========================================
+// 24/7 MARKETPLACE PRICE TAPER BOT (DUTCH AUCTION)
+// ==========================================
+exports.scheduledMarketplacePriceTaper = onSchedule(
+  {
+    schedule: "0 3 * * *", // Every day at 3:00 AM AST
+    timeZone: "America/Port_of_Spain",
+    retryCount: 1,
+  },
+  async (event) => {
+    console.log("[Price Taper Bot] Running automated marketplace price tapering...");
+    let discountedCount = 0;
+
+    try {
+      const snap = await defaultDb.collection("marketplaceListings")
+        .where("status", "==", "active")
+        .where("autoPriceTaper", "==", true)
+        .get();
+
+      if (snap.empty) {
+        console.log("[Price Taper Bot] No listings opted into auto-price tapering.");
+        return;
+      }
+
+      const batch = defaultDb.batch();
+
+      snap.forEach((doc) => {
+        const item = doc.data();
+        const currentPrice = Number(item.price) || 0;
+        const floorPrice = Number(item.floorPrice) || Math.round(currentPrice * 0.6);
+        const taperPercent = Number(item.taperPercent) || 0.05; // 5% daily discount
+
+        if (currentPrice > floorPrice) {
+          const discountAmount = Math.max(1, Math.round(currentPrice * taperPercent));
+          const newPrice = Math.max(floorPrice, currentPrice - discountAmount);
+
+          if (newPrice < currentPrice) {
+            batch.update(doc.ref, {
+              price: newPrice,
+              originalPrice: item.originalPrice || currentPrice,
+              priceDropActive: true,
+              lastPriceDropAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+              priceDropHistory: FieldValue.arrayUnion({
+                date: new Date().toISOString(),
+                oldPrice: currentPrice,
+                newPrice: newPrice,
+                discountPercent: Math.round(((item.originalPrice || currentPrice) - newPrice) / (item.originalPrice || currentPrice) * 100),
+              })
+            });
+            discountedCount++;
+            console.log(`[Price Taper Bot] Listing ${doc.id} discounted: $${currentPrice} -> $${newPrice} (Floor: $${floorPrice})`);
+          }
+        }
+      });
+
+      if (discountedCount > 0) {
+        await batch.commit();
+      }
+
+      console.log(`[Price Taper Bot] Finished: Tapered prices for ${discountedCount} listings.`);
+    } catch (err) {
+      console.error("[Price Taper Bot] Error during price tapering execution:", err);
+    }
+  }
+);
+
+// ==========================================
+// 1-CLICK AI SMART ITINERARY AUTO-PILOT
+// ==========================================
+exports.generateSmartItinerary = onCall(
+  { cors: true, invoker: "public" },
+  async (request) => {
+    const {
+      destination = "Trinidad & Tobago",
+      carnivalId = "trinidad",
+      startDate,
+      endDate,
+      pace = "balanced",
+      budget = "moderate"
+    } = request.data || {};
+
+    const start = startDate ? new Date(startDate) : new Date();
+    const end = endDate ? new Date(endDate) : new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
+    const dayCount = Math.max(3, Math.min(10, Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1));
+
+    console.log(`[Smart Itinerary] Generating ${dayCount}-day itinerary for ${destination} (${pace} pace)...`);
+
+    const formatDate = (d) => d.toISOString().split("T")[0];
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    // 1. Attempt AI-Powered generation if Gemini is configured
+    if (geminiKey) {
+      try {
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+        const prompt = `You are the Master Carnival Itinerary AI Planner. Generate an optimal, conflict-free ${dayCount}-day itinerary for ${destination} (${carnivalId} carnival).
+Travel dates: ${formatDate(start)} to ${formatDate(end)}.
+Pace: ${pace}. Budget tier: ${budget}.
+
+CRITICAL RULES:
+1. Schedule MUST account for essential carnival milestones: Arrival, Costume Pickup at Mas Camp, Cooler Fete, Premium All-Inclusive Fete, J'ouvert (early morning 3 AM - 8 AM), Carnival Monday (Road March), Carnival Tuesday (Pretty Mas on de stage), and Cool-Down Lime.
+2. Ensure rest/hydration windows between late-night and breakfast fetes (do not schedule back-to-back without rest).
+3. Return STRICTLY a valid JSON array of objects without markdown backticks.
+
+Each object in the array must follow this schema:
+{
+  "title": "Event or Activity Title (e.g. Lost Tribe Costume Collection, Soca Brainwash, J'ouvert Morning, Road March)",
+  "date": "YYYY-MM-DD",
+  "time": "HH:MM",
+  "category": "Fete" | "Costume" | "Rest" | "Travel" | "Parade",
+  "priority": "essential" | "recommended" | "optional",
+  "venue": "Venue name or location",
+  "note": "Concise pro-tip (clothing, hydration, arrival advice)"
+}`;
+
+        const result = await model.generateContent(prompt);
+        let rawText = result.response.text().trim();
+        if (rawText.startsWith('```json')) rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+        else if (rawText.startsWith('```')) rawText = rawText.replace(/^```/, '').replace(/```$/, '').trim();
+
+        const parsed = JSON.parse(rawText);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return {
+            success: true,
+            source: "ai_optimized",
+            itinerary: parsed.map((item, idx) => ({
+              id: `auto-${Date.now()}-${idx}`,
+              ...item,
+              isAutoPilot: true,
+              isCustom: false,
+            }))
+          };
+        }
+      } catch (aiErr) {
+        console.warn("[Smart Itinerary] Gemini generation failed, falling back to heuristic template:", aiErr.message);
+      }
+    }
+
+    // 2. Intelligent Heuristic Rule-Based Fallback
+    const dates = [];
+    for (let i = 0; i < dayCount; i++) {
+      const cur = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+      dates.push(formatDate(cur));
+    }
+
+    const templateItems = [
+      {
+        dayOffset: 0,
+        time: "14:00",
+        title: `Arrival in ${destination} & Check-in`,
+        category: "Travel",
+        priority: "essential",
+        venue: "Airport / Accommodation",
+        note: "Settle into stay, purchase local SIM/eSIM and hydrate."
+      },
+      {
+        dayOffset: 0,
+        time: "17:00",
+        title: "Costume Camp Collection Window",
+        category: "Costume",
+        priority: "essential",
+        venue: "Band Mas Camp / Distribution Center",
+        note: "Bring photo ID, distribution slip, and original credit card for size fitting."
+      },
+      {
+        dayOffset: 1,
+        time: "07:00",
+        title: "Sunrise Breakfast Fete",
+        category: "Fete",
+        priority: "essential",
+        venue: "Scenic Coastal Venue / Park",
+        note: "Wear chic shades, linen or bright pastels. Eat breakfast early!"
+      },
+      {
+        dayOffset: 1,
+        time: "14:00",
+        title: "Afternoon Rest & Squad Recharge",
+        category: "Rest",
+        priority: "recommended",
+        venue: "Accommodation",
+        note: "Mandatory 3-hour rest window to pace your energy."
+      },
+      {
+        dayOffset: 1,
+        time: "20:00",
+        title: "Sunset Cooler Fete",
+        category: "Fete",
+        priority: "recommended",
+        venue: "Outdoor Festival Grounds",
+        note: "Pack cooler with plastic bottles and ice before 6 PM."
+      },
+      {
+        dayOffset: 2,
+        time: "16:00",
+        title: "Ultra-Premium All-Inclusive Fete",
+        category: "Fete",
+        priority: "essential",
+        venue: "Estate Grounds",
+        note: "High fashion fete wear. Gourmet food and top-shelf drinks provided."
+      },
+      {
+        dayOffset: 3,
+        time: "03:30",
+        title: "Official J'ouvert Morning (Mud, Paint & Oil)",
+        category: "Parade",
+        priority: "essential",
+        venue: "City Streets",
+        note: "Wear old clothes and cover phone in waterproof pouch. Pure bacchanal!"
+      },
+      {
+        dayOffset: 3,
+        time: "10:00",
+        title: "J'ouvert Scrub-Off & Rest Window",
+        category: "Rest",
+        priority: "essential",
+        venue: "Accommodation",
+        note: "Baby oil helps remove paint and mud. Sleep until afternoon."
+      },
+      {
+        dayOffset: 4,
+        time: "09:00",
+        title: "Carnival Monday Road March (Wear Monday Wear)",
+        category: "Parade",
+        priority: "essential",
+        venue: "Parade Route",
+        note: "Custom Monday wear swimsuit or stylish shorts. Follow your music truck."
+      },
+      {
+        dayOffset: 5,
+        time: "08:00",
+        title: "Carnival Tuesday — Full Costume Pretty Mas On Stage",
+        category: "Parade",
+        priority: "essential",
+        venue: "Grand Stand / Judging Stage",
+        note: "Full feather backpack and headpiece. This is the main event!"
+      },
+      {
+        dayOffset: Math.min(dayCount - 1, 6),
+        time: "12:00",
+        title: "Post-Carnival Beach Cool-Down & Departure",
+        category: "Travel",
+        priority: "recommended",
+        venue: "Beach / Airport",
+        note: "Bake & shark by the sea or airport departure transfer."
+      }
+    ];
+
+    const generatedItinerary = templateItems
+      .filter(item => item.dayOffset < dates.length)
+      .map((item, idx) => ({
+        id: `auto-${Date.now()}-${idx}`,
+        title: item.title,
+        date: dates[item.dayOffset],
+        time: item.time,
+        category: item.category,
+        priority: item.priority,
+        venue: item.venue,
+        note: item.note,
+        isAutoPilot: true,
+        isCustom: false
+      }));
+
+    return {
+      success: true,
+      source: "heuristic_template",
+      itinerary: generatedItinerary
+    };
+  }
+);
+
 const { createBandDepositCheckout, handleBandCheckoutWebhook, createBalancePaymentCheckout } = require('./bandCheckout');
 const { sendPaymentReminders } = require('./paymentReminders');
 exports.createBandDepositCheckout = createBandDepositCheckout;

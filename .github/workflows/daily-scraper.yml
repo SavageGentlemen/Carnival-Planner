@@ -13,22 +13,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
-      
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: functions2/package-lock.json
+
       - name: Install dependencies
         run: |
-          cd scraper
-          pip install -r requirements.txt
-      
-      - name: Run scraper
+          cd functions2
+          npm install --legacy-peer-deps
+
+      - name: Run Carnival Event Scraper & Scarcity Sentinel
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          cd scraper
-          python scraper.py
-      
+          cd functions2
+          node -e "const { runStandalone } = require('./scraper'); runStandalone().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });"
+
       - name: Log completion
-        run: echo "Scraper completed at $(date)"
+        run: echo "Autonomous Scraper Sentinel completed at $(date)"

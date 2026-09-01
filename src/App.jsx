@@ -45,6 +45,9 @@ import SquadHub from './components/hubs/SquadHub';
 import PassportHub from './components/hubs/PassportHub';
 import StoreHub from './components/hubs/StoreHub';
 import ProfileHub from './components/hubs/ProfileHub';
+import AutoPilotModal from './components/AutoPilotModal';
+import { mergeItinerary } from './services/itineraryAutoPilotService';
+import { Sparkles } from 'lucide-react';
 
 
 // ── LAZY-LOADED (code-split — only loaded when user navigates to tab) ──
@@ -456,6 +459,7 @@ export default function App() {
 
   // Notification State
   const [toastMessage, setToastMessage] = useState(null);
+  const [showAutoPilotModal, setShowAutoPilotModal] = useState(false);
   const [notifySquadOnRoadReady, setNotifySquadOnRoadReady] = useState(true);
   const [isSendingRoadReadyAlert, setIsSendingRoadReadyAlert] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -1292,6 +1296,25 @@ export default function App() {
       const items = carnivals[activeCarnivalId]?.schedule || [];
       updateCarnivalData('schedule', [...items, newItem]);
     }
+  };
+
+  const handleApplyAutoPilotItinerary = (generatedItems) => {
+    const formatted = (generatedItems || []).map((item, idx) => ({
+      id: item.id || `auto-${Date.now()}-${idx}`,
+      title: item.title,
+      datetime: item.datetime || `${item.date || new Date().toISOString().slice(0, 10)}T${item.time || '12:00'}`,
+      note: `[${item.category || 'Auto-Pilot'}] ${item.note || ''} ${item.venue ? '📍 ' + item.venue : ''}`.trim(),
+      isAutoPilot: true
+    }));
+
+    if (isCollaborative) {
+      updateCarnivalData('schedule', formatted, 'add');
+    } else {
+      const items = carnivals[activeCarnivalId]?.schedule || [];
+      const merged = mergeItinerary(items, formatted);
+      updateCarnivalData('schedule', merged);
+    }
+    setToastMessage(`⚡ Auto-Pilot added ${formatted.length} events to your itinerary!`);
   };
 
   const addPackingItem = () => {
@@ -2135,7 +2158,16 @@ export default function App() {
                     {/* TAB: SCHEDULE (Free) */}
                     {activeTab === 'Schedule' && (
                       <div className="animate-fadeIn">
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Itinerary</h3>
+                        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Itinerary</h3>
+                          <button
+                            onClick={() => setShowAutoPilotModal(true)}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 text-white text-xs font-bold rounded-xl hover:opacity-90 shadow-lg shadow-pink-500/20 transition active:scale-95"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                            ⚡ Auto-Pilot Itinerary
+                          </button>
+                        </div>
 
                         {/* Popular Events - Free for all users */}
                         {curatedEvents.length > 0 && (
@@ -2186,7 +2218,7 @@ export default function App() {
                                       <img src={evt.image} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" loading="lazy" decoding="async" />
                                     )}
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         <h5 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate">{evt.title}</h5>
                                         {vibeScores[evt.id] && (
                                           <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${vibeScores[evt.id].score >= 8 ? 'bg-red-500/20 text-red-400' :
@@ -2196,6 +2228,19 @@ export default function App() {
                                             🔥 {vibeScores[evt.id].score}/10
                                           </span>
                                         )}
+                                        {evt.isSoldOut || evt.scarcityLevel === 'SOLD_OUT' ? (
+                                          <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                            🚫 Sold Out
+                                          </span>
+                                        ) : evt.scarcityLevel === 'CRITICAL' ? (
+                                          <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            ⚡ Final Tier
+                                          </span>
+                                        ) : evt.scarcityLevel === 'LIMITED' ? (
+                                          <span className="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                            🎟️ Advance
+                                          </span>
+                                        ) : null}
                                       </div>
                                       {evt.date && (
                                         <p className="text-xs text-emerald-700 dark:text-emerald-400">
@@ -3079,6 +3124,15 @@ export default function App() {
       {showHelpGuide && (
         <HelpGuide onClose={() => setShowHelpGuide(false)} />
       )}
+
+      {/* 1-Click Smart Itinerary Auto-Pilot Modal */}
+      <AutoPilotModal
+        isOpen={showAutoPilotModal}
+        onClose={() => setShowAutoPilotModal(false)}
+        carnivalName={currentCarnival.name}
+        carnivalId={activeCarnivalId}
+        onApplyItinerary={handleApplyAutoPilotItinerary}
+      />
 
       {/* Profile Editor Modal */}
       {showProfileEditor && (
