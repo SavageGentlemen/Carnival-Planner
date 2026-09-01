@@ -26,52 +26,59 @@ let cachedTransporter = null;
  * Returns a configured Nodemailer transporter or null in Resend API / Mock mode.
  */
 function getTransporter() {
-  if (cachedTransporter) return cachedTransporter;
-
-  if (RESEND_API_KEY) {
+  if (process.env.RESEND_API_KEY) {
     // Resend direct API mode
     return null;
   }
 
-  if (IS_DEV_MODE && !SMTP_HOST) {
-    console.log("[EmailService] Running in DEV/MOCK mode. Emails will be logged to console.");
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = parseInt(process.env.SMTP_PORT || "465", 10);
+  const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  const smtpSecure = process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === "true" : smtpPort === 465;
+
+  if (!smtpHost && (!smtpUser || !smtpPass)) {
+    console.log("[EmailService] No active SMTP or Gmail credentials found. Running in DEV/MOCK mode.");
     return null;
   }
 
   try {
-    if (SMTP_HOST) {
-      cachedTransporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: SMTP_SECURE,
-        auth: (SMTP_USER && SMTP_PASS) ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+    if (smtpHost) {
+      return nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: (smtpUser && smtpPass) ? { user: smtpUser, pass: smtpPass } : undefined,
       });
-    } else if (SMTP_USER && SMTP_PASS) {
-      cachedTransporter = nodemailer.createTransport({
+    } else if (smtpUser && smtpPass) {
+      return nodemailer.createTransport({
         service: "gmail",
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
+        auth: { user: smtpUser, pass: smtpPass },
       });
     }
-    return cachedTransporter;
   } catch (err) {
     console.error("[EmailService] Failed to create transporter:", err.message);
     return null;
   }
+  return null;
 }
 
 /**
  * Core sendMail function
  */
-async function sendMail({ to, subject, html, text, from = DEFAULT_FROM, replyTo }) {
+async function sendMail({ to, subject, html, text, from, replyTo }) {
   if (!to) {
     console.warn("[EmailService] sendMail skipped: No recipient specified.");
     return { success: false, reason: "no_recipient" };
   }
 
+  const defaultFrom = from || (process.env.RESEND_API_KEY ? '"Caribbean Carnival Planner" <onboarding@resend.dev>' : (process.env.GMAIL_USER ? `"Caribbean Carnival Planner" <${process.env.GMAIL_USER}>` : '"Caribbean Carnival Planner" <cpteamgt@gmail.com>'));
+  const resendApiKey = process.env.RESEND_API_KEY;
+
   // 1. Direct Resend API (Fastest & recommended for serverless)
-  if (RESEND_API_KEY) {
+  if (resendApiKey) {
     try {
-      const resendFrom = from.includes('@') ? from : 'onboarding@resend.dev';
+      const resendFrom = defaultFrom.includes('@') ? defaultFrom : 'onboarding@resend.dev';
       const recipients = Array.isArray(to) ? to : [to];
 
       const payload = {
@@ -86,7 +93,7 @@ async function sendMail({ to, subject, html, text, from = DEFAULT_FROM, replyTo 
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${RESEND_API_KEY}`,
+          "Authorization": `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),

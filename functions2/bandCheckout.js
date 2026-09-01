@@ -120,7 +120,7 @@ exports.createBandDepositCheckout = onCall(
 );
 
 exports.handleBandCheckoutWebhook = onRequest(
-  { secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] },
+  { secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "GMAIL_USER", "GMAIL_APP_PASSWORD"] },
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");

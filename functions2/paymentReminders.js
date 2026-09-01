@@ -11,7 +11,8 @@ function getSupabase() {
 exports.sendPaymentReminders = onSchedule(
   {
     schedule: "every day 09:00",
-    timeZone: "UTC"
+    timeZone: "UTC",
+    secrets: ["GMAIL_USER", "GMAIL_APP_PASSWORD"]
   },
   async (event) => {
     try {
