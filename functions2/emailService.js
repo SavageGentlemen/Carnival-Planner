@@ -129,34 +129,14 @@ async function sendMail({ to, subject, html, text, from, replyTo }) {
     }
   }
 
-  // 2. SMTP Transporter
-  const transporter = getTransporter();
-
-  if (!transporter) {
-    console.log("\n================ [EMAIL SERVICE - MOCK MODE] ================");
-    console.log(`To:      ${to}`);
-    console.log(`From:    ${from}`);
-    console.log(`Subject: ${subject}`);
-    console.log(`Preview: ${(text || html || "").substring(0, 150)}...`);
-    console.log("============================================================\n");
-    return { success: true, mock: true };
-  }
-
-  try {
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      html,
-      text,
-      replyTo,
-    });
-    console.log(`[EmailService - SMTP] Sent '${subject}' to ${to} (MessageId: ${info.messageId})`);
-    return { success: true, messageId: info.messageId, provider: "smtp" };
-  } catch (err) {
-    console.error(`[EmailService - SMTP Error] Failed to send email to ${to}:`, err.message);
-    return { success: false, error: err.message };
-  }
+  // 3. Fallback Mock Mode (if both SMTP and Resend are unavailable)
+  console.log("\n================ [EMAIL SERVICE - MOCK MODE] ================");
+  console.log(`To:      ${to}`);
+  console.log(`From:    ${defaultFrom}`);
+  console.log(`Subject: ${subject}`);
+  console.log(`Preview: ${(text || html || "").substring(0, 150)}...`);
+  console.log("============================================================\n");
+  return { success: true, mock: true };
 }
 
 // --- Branded Container Styles ---
