@@ -869,7 +869,7 @@ export default function BandLeaderDashboard({ user, onExit, onClose }) {
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Band Slug</label>
                                     <div className="flex items-center gap-2 text-sm bg-gray-50 dark:bg-gray-900 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                                        <span className="text-gray-500">bandos.com/band/</span>
+                                        <span className="text-gray-500">{typeof window !== 'undefined' ? `${window.location.host}/band/` : 'carnival-planner.com/band/'}</span>
                                         <input 
                                             value={brandingData.slug} 
                                             onChange={e => setBrandingData({...brandingData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')})}
