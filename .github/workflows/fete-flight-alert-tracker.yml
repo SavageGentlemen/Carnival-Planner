@@ -40,6 +40,8 @@ jobs:
           MAKE_WEBHOOK_URL: ${{ secrets.MAKE_WEBHOOK_URL }}
           INSTAGRAM_WEBHOOK_URL: ${{ secrets.INSTAGRAM_WEBHOOK_URL }}
           SOCIAL_WEBHOOK_URL: ${{ secrets.SOCIAL_WEBHOOK_URL }}
+          VOICE_NAME: ${{ secrets.VOICE_NAME || 'en-NG-EzinneNeural' }}
+          SITE_NAME: ${{ secrets.SITE_NAME || 'carnival-planner.com' }}
         run: |
           python ig_engine/auto_daily_poster.py
 

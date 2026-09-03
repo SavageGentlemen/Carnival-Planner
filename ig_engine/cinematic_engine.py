@@ -438,10 +438,10 @@ def generate_ai_creative_ad(carnival_context="Notting Hill Carnival & NYC Labor 
     return chosen
 
 # -------------------------------------------------------------
-# 🎙️ NEURAL VOICEOVER SYNTHESIS (Female Voice @ 1.5x Speed)
-# -------------------------------------------------------------
-async def synthesize_neural_speech(text, output_mp3, voice="en-US-AvaNeural", rate="+50%"):
-    """Synthesizes crisp, high-energy female neural voiceover audio at 1.5x speed."""
+async def synthesize_neural_speech(text, output_mp3, voice=None, rate="+30%"):
+    """Synthesizes crisp, high-energy female neural voiceover audio using warm Caribbean/Black woman voice."""
+    if voice is None:
+        voice = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
     try:
         import edge_tts
         communicate = edge_tts.Communicate(text, voice, rate=rate)

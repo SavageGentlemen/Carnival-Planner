@@ -33,7 +33,7 @@ def run_2d_animated_reel(live=True):
     script = (
         "Level up your Carnival standard with Carnival Planner. "
         "Real-time squad radar, automated fete drop alerts, and verified costume marketplace. "
-        "Step into the next dimension of Caribbean lifestyle at carnival-planner dot com."
+        "Step into the next dimension of Caribbean lifestyle at carnival-planner.com."
     )
     terms = [
         "2d animation motion graphics",
@@ -43,8 +43,11 @@ def run_2d_animated_reel(live=True):
         "anime aesthetic street"
     ]
 
+    default_voice = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
+
     print("\n[1/4] 📡 Submitting 2D Animated Reel Task to MoneyPrinterTurbo...")
     print(f"   - Subject: {subject}")
+    print(f"   - Voice: {default_voice}")
     print(f"   - Animation Terms: {', '.join(terms)}")
 
     task_id = moneyprinter_client.submit_task(
@@ -52,7 +55,7 @@ def run_2d_animated_reel(live=True):
         video_script=script,
         video_terms=terms,
         video_aspect="9:16",
-        voice_name="en-US-ChristopherNeural",
+        voice_name=default_voice,
         subtitles_enabled=True
     )
     print(f"   - Task ID: {task_id}")

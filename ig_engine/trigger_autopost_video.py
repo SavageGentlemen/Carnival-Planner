@@ -30,17 +30,24 @@ if hasattr(sys.stdout, 'reconfigure'):
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+DEFAULT_VOICE = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
+SITE_NAME = os.getenv("SITE_NAME", "carnival-planner.com")
+
 CARNIVAL_CALENDAR = [
-    {"name": "New York Labor Day Carnival (Brooklyn)", "date": "September 7", "key": "nyc"},
-    {"name": "Miami Carnival 2026", "date": "October 11", "key": "miami"},
-    {"name": "Tobago Carnival 2026", "date": "November 1", "key": "tobago"},
-    {"name": "Sugar Mas (St. Kitts)", "date": "December 26", "key": "st_kitts"},
-    {"name": "Trinidad Carnival 2027", "date": "February 8", "key": "trinidad"},
-    {"name": "Jamaica Carnival 2027", "date": "April 11", "key": "jamaica"},
-    {"name": "St. Thomas Carnival 2027", "date": "April 25", "key": "st_thomas"},
-    {"name": "Barbados Crop Over 2027", "date": "August 2", "key": "crop_over"},
-    {"name": "Grenada Spicemas 2027", "date": "August 10", "key": "spicemas"},
-    {"name": "Notting Hill Carnival 2027", "date": "August 30", "key": "notting_hill"}
+    {"name": "Tobago Carnival 2026", "date": "October 25 - November 1", "key": "tobago", "island": "Tobago"},
+    {"name": "Sugar Mas (St. Kitts & Nevis)", "date": "December 15 - January 2", "key": "st_kitts", "island": "St. Kitts"},
+    {"name": "Montserrat Carnival", "date": "December 18 - January 2", "key": "montserrat", "island": "Montserrat"},
+    {"name": "Trinidad Carnival 2027", "date": "February 8 - 9", "key": "trinidad", "island": "Trinidad"},
+    {"name": "Dominica Mas Domnik", "date": "February 8 - 9", "key": "dominica", "island": "Dominica"},
+    {"name": "St. Maarten Carnival", "date": "April 15 - May 3", "key": "st_maarten", "island": "St. Maarten"},
+    {"name": "Jamaica Carnival 2027", "date": "April 7 - 12", "key": "jamaica", "island": "Jamaica"},
+    {"name": "St. Thomas Carnival (USVI)", "date": "April 24 - May 2", "key": "st_thomas", "island": "St. Thomas"},
+    {"name": "Bermuda Heroes Weekend", "date": "June 18 - 21", "key": "bermuda", "island": "Bermuda"},
+    {"name": "Vincy Mas (St. Vincent)", "date": "June 25 - July 6", "key": "vincy_mas", "island": "St. Vincent"},
+    {"name": "St. Lucia Carnival", "date": "July 15 - 21", "key": "st_lucia", "island": "St. Lucia"},
+    {"name": "Antigua Carnival", "date": "July 29 - August 3", "key": "antigua", "island": "Antigua"},
+    {"name": "Barbados Crop Over 2027", "date": "July 28 - August 3", "key": "crop_over", "island": "Barbados"},
+    {"name": "Grenada Spicemas 2027", "date": "August 9 - 10", "key": "spicemas", "island": "Grenada"}
 ]
 
 def select_next_carnival():
@@ -51,7 +58,7 @@ def select_next_carnival():
         candidates = CARNIVAL_CALENDAR
     return random.choice(candidates)
 
-def run_trigger_autopost(live=True):
+def run_trigger_autopost(live=True, target_override=None):
     print("=" * 80)
     print("🎬 CARNIVAL PLANNER: AUTONOMOUS VIDEO REEL GENERATION & SOCIAL AUTO-POST")
     print("=" * 80)
@@ -64,9 +71,11 @@ def run_trigger_autopost(live=True):
     print(f"   - Message: {health['message']}")
 
     # 2. Select Candidate Event
-    target = select_next_carnival()
+    target = target_override or select_next_carnival()
     carnival_name = f"{target['name']} ({target['date']})"
     print(f"\n[Step 2/5] 📍 Selected Event: {carnival_name}")
+    print(f"   - Voice: {DEFAULT_VOICE} (Warm Caribbean/Black Female Neural Voice)")
+    print(f"   - Target Site: {SITE_NAME}")
 
     # 3. Generate Video Reel
     print("\n[Step 3/5] 🎥 Compiling 9:16 Vertical Video Reel...")
@@ -75,26 +84,26 @@ def run_trigger_autopost(live=True):
 
     if health["online"]:
         try:
-            print("   - Using MoneyPrinterTurbo AI Sidecar...")
+            print(f"   - Using MoneyPrinterTurbo AI Sidecar (Voice: {DEFAULT_VOICE})...")
             terms = [
-                f"{target['key']} carnival",
-                "caribbean masquerader party",
-                "soca music crowd",
-                "tropical street festival",
-                "costume feathers dancing"
+                f"{target['key']} caribbean carnival",
+                "caribbean masquerader feathers",
+                "soca music festival crowd",
+                "tropical island carnival dancers",
+                "carnival parade costume"
             ]
             script = (
-                f"Don't travel to {target['name']} without knowing the secrets! "
-                "Collect your costume early, check live road maps, and coordinate your squad with Carnival Planner. "
-                "Download free at carnival-planner dot com!"
+                f"Get ready for {target['name']} and all the upcoming Caribbean island carnivals! "
+                "Never lose your squad on the road, track live sound trucks, and find costume drops on carnival-planner.com. "
+                "Download free and plan your entire trip at carnival-planner.com today!"
             )
             
             task_id = moneyprinter_client.submit_task(
-                video_subject=f"Carnival Planner: {carnival_name} Survival Guide",
+                video_subject=f"Carnival Planner: {carnival_name} & Caribbean Island Guide",
                 video_script=script,
                 video_terms=terms,
                 video_aspect="9:16",
-                voice_name="en-US-ChristopherNeural",
+                voice_name=DEFAULT_VOICE,
                 subtitles_enabled=True
             )
             task_result = moneyprinter_client.poll_task(task_id, max_wait_seconds=360)
@@ -104,7 +113,7 @@ def run_trigger_autopost(live=True):
                     task_result["video_url"],
                     filename_prefix=f"reel_{target['key']}"
                 )
-                engine_used = "MoneyPrinterTurbo AI Engine"
+                engine_used = f"MoneyPrinterTurbo AI Engine ({DEFAULT_VOICE})"
         except Exception as e:
             print(f"   ⚠️ Sidecar render error: {e}. Switching to cinematic canvas generator.")
 

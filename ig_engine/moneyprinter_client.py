@@ -49,8 +49,10 @@ class MoneyPrinterClient:
             }
 
     def submit_task(self, video_subject, video_script="", video_terms=None, video_aspect="9:16",
-                    voice_name="en-US-ChristopherNeural", bgm_type="random", subtitles_enabled=True):
+                    voice_name=None, bgm_type="random", subtitles_enabled=True):
         """Submits a video compilation task to MoneyPrinterTurbo FastAPI server."""
+        if voice_name is None:
+            voice_name = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
         if video_terms is None:
             video_terms = ["carnival", "party", "caribbean", "dancing", "music"]
 

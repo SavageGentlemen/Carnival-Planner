@@ -47,8 +47,8 @@ COLOR_CARD_BG = (14, 10, 28, 220)   # Translucent Obsidian Glass
 COLOR_TEXT_MAIN = (255, 255, 255)
 COLOR_TEXT_MUTED = (226, 232, 240)
 
-VOICE_NAME = "en-US-AvaNeural"
-VOICE_RATE = "+50%" # 1.5x Speed
+VOICE_NAME = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
+VOICE_RATE = "+30%"
 
 def get_font(size, bold=False):
     font_names = [

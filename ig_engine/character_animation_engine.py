@@ -46,9 +46,9 @@ COLOR_SKIN_SHADOW = (175, 105, 65)
 COLOR_WHITE = (255, 255, 255)
 COLOR_MUTED = (226, 232, 240)
 
-# Global Voice Configuration: Female Voice at 1.5x Speed
-VOICE_NAME = "en-US-AvaNeural"
-VOICE_RATE = "+50%" # 1.5x speed
+# Global Voice Configuration: Warm Caribbean/Black Woman Voice
+VOICE_NAME = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
+VOICE_RATE = "+30%"
 
 def get_font(size, bold=False):
     font_names = [

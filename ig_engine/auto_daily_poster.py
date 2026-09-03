@@ -25,10 +25,10 @@ from trigger_autopost_video import run_trigger_autopost
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-def run_daily_post(live=True):
+def run_daily_post(live=True, target_key=None):
     """
     Executes an automated post cycle:
-    1. Selects target upcoming carnival using zero-duplicate rotation.
+    1. Selects target upcoming carnival using zero-duplicate rotation (or target_key override).
     2. Uses MoneyPrinterTurbo sidecar (or cinematic fallback) to compile a 9:16 vertical MP4.
     3. Uploads local video to high-speed public CDN.
     4. Publishes live across all connected social channels & Make.com webhooks.
@@ -39,7 +39,12 @@ def run_daily_post(live=True):
     print(f"⚙️ Target Mode: {'LIVE PRODUCTION' if live else 'SIMULATION (DRY-RUN)'}")
     print("=" * 60)
 
-    results = run_trigger_autopost(live=live)
+    target_override = None
+    if target_key:
+        from trigger_autopost_video import CARNIVAL_CALENDAR
+        target_override = next((c for c in CARNIVAL_CALENDAR if c["key"] == target_key or target_key.lower() in c["name"].lower()), None)
+
+    results = run_trigger_autopost(live=live, target_override=target_override)
 
     if live and isinstance(results, dict):
         has_success = any(
@@ -58,4 +63,8 @@ def run_daily_post(live=True):
 
 if __name__ == "__main__":
     is_live = "--dry-run" not in sys.argv
-    res = run_daily_post(live=is_live)
+    target_arg = None
+    for i, arg in enumerate(sys.argv):
+        if arg == "--target" and i + 1 < len(sys.argv):
+            target_arg = sys.argv[i + 1]
+    res = run_daily_post(live=is_live, target_key=target_arg)

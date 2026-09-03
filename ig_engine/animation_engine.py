@@ -271,8 +271,10 @@ def render_countdown_animation_frame(t, duration, width=1080, height=1920):
 # -------------------------------------------------------------
 # 🎙️ NEURAL AUDIO SYNTHESIZER (Edge-TTS)
 # -------------------------------------------------------------
-async def synthesize_neural_speech(text, output_mp3, voice="en-US-ChristopherNeural"):
+async def synthesize_neural_speech(text, output_mp3, voice=None):
     """Synthesizes studio-grade neural voiceover audio using Edge-TTS with fallback to gTTS."""
+    if voice is None:
+        voice = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
     try:
         import edge_tts
         communicate = edge_tts.Communicate(text, voice)

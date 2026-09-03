@@ -31,16 +31,18 @@ def run_product_drop_reel(title="Soca Passport Loyalty & VIP Fete Drops", live=T
 
     subject = f"Carnival Planner: {title}"
     script = (
-        "Unlock exclusive fete discounts, early bird costume access, and digital passport stamps across twenty-five global carnivals. "
-        "Claim your squad invite link and build your entire trip free at carnival-planner dot com."
+        "Unlock exclusive fete discounts, early bird costume access, and digital passport stamps across Caribbean island carnivals. "
+        "Claim your squad invite link and build your entire trip free at carnival-planner.com."
     )
     terms = [
-        "luxury travel carribean",
+        "luxury travel caribbean",
         "carnival costume feather",
         "tropical sunset beach party",
         "festival stage lights",
         "sound system speaker"
     ]
+
+    default_voice = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
 
     print("\n[1/4] 🎬 Requesting High-Impact Video Reel from MoneyPrinterTurbo...")
     task_id = moneyprinter_client.submit_task(
@@ -48,7 +50,7 @@ def run_product_drop_reel(title="Soca Passport Loyalty & VIP Fete Drops", live=T
         video_script=script,
         video_terms=terms,
         video_aspect="9:16",
-        voice_name="en-US-ChristopherNeural",
+        voice_name=default_voice,
         subtitles_enabled=True
     )
     print(f"   - Task ID: {task_id}")
