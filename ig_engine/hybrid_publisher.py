@@ -34,21 +34,18 @@ SITE_URL = os.getenv("SITE_URL", "https://carnival-planner.com")
 def upload_local_to_public_cdn(media_url_or_path):
     """
     Checks if media is local; if so, searches candidate directories and uploads to
-    fast public CDN (catbox.moe) so Make.com and social APIs can download the MP4/image.
+    fast public CDN (Litterbox / Catbox) so Make.com and social APIs can download the MP4/image.
     """
     if not media_url_or_path:
         return media_url_or_path
 
-    if media_url_or_path.startswith("http://files.catbox.moe") or media_url_or_path.startswith("https://files.catbox.moe"):
-        return media_url_or_path
-
-    if media_url_or_path.startswith("http://") or media_url_or_path.startswith("https://"):
+    if str(media_url_or_path).startswith(("http://", "https://")):
         return media_url_or_path
 
     # Clean local path
-    clean_path = media_url_or_path.lstrip("/")
+    clean_path = str(media_url_or_path).lstrip("/")
     candidate_paths = [
-        os.path.abspath(media_url_or_path),
+        os.path.abspath(str(media_url_or_path)),
         os.path.abspath(clean_path),
         os.path.join(os.path.dirname(__file__), "output", os.path.basename(clean_path)),
         os.path.join(os.path.dirname(__file__), "assets", os.path.basename(clean_path)),
@@ -63,23 +60,51 @@ def upload_local_to_public_cdn(media_url_or_path):
         print(f"⚠️ Local asset not found in candidate paths for CDN upload: {media_url_or_path}")
         return media_url_or_path
 
-    print(f"☁️ Uploading local asset ({os.path.basename(target_file)}) to public CDN for Make.com / Webhooks...")
+    filename = os.path.basename(target_file)
+    mime_type = "video/mp4" if filename.lower().endswith((".mp4", ".mov", ".m4v")) else "image/jpeg"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    print(f"☁️ Uploading local asset ({filename}) to public CDN for Make.com / Webhooks...")
+
+    # Method 1: Litterbox (Fast temporary CDN, 24h retention, no Cloudflare block on datacenter IPs)
+    try:
+        with open(target_file, "rb") as f:
+            res = requests.post(
+                "https://litterbox.catbox.moe/resources/internals/api.php",
+                headers=headers,
+                data={"reqtype": "fileupload", "time": "24h"},
+                files={"fileToUpload": (filename, f, mime_type)},
+                timeout=90
+            )
+            if res.status_code == 200 and res.text.strip().startswith("http"):
+                cdn_url = res.text.strip()
+                print(f"✅ Public CDN URL generated via Litterbox: {cdn_url}")
+                return cdn_url
+            else:
+                print(f"ℹ️ Litterbox status ({res.status_code}): {res.text[:80]}. Trying Catbox...")
+    except Exception as e:
+        print(f"ℹ️ Litterbox attempt error: {e}. Trying Catbox...")
+
+    # Method 2: Catbox.moe
     try:
         with open(target_file, "rb") as f:
             res = requests.post(
                 "https://catbox.moe/user/api.php",
+                headers=headers,
                 data={"reqtype": "fileupload"},
-                files={"fileToUpload": f},
-                timeout=45
+                files={"fileToUpload": (filename, f, mime_type)},
+                timeout=90
             )
             if res.status_code == 200 and res.text.strip().startswith("http"):
                 cdn_url = res.text.strip()
-                print(f"✅ Public CDN URL generated: {cdn_url}")
+                print(f"✅ Public CDN URL generated via Catbox: {cdn_url}")
                 return cdn_url
             else:
-                print(f"⚠️ CDN response error ({res.status_code}): {res.text}")
+                print(f"⚠️ Catbox status ({res.status_code}): {res.text[:80]}")
     except Exception as e:
-        print(f"⚠️ Public CDN upload error: {e}")
+        print(f"⚠️ Catbox upload error: {e}")
 
     return media_url_or_path
 
@@ -129,8 +154,13 @@ def publish_to_all_socials(media_url_or_path, title, caption, tags=None, media_t
         webhook_payload = {
             "title": title,
             "caption": full_caption,
+            "video_url": public_media_url if is_video else None,
             "videoUrl": public_media_url if is_video else None,
+            "video": public_media_url if is_video else None,
+            "image_url": public_media_url if not is_video else None,
             "imageUrl": public_media_url if not is_video else None,
+            "image": public_media_url if not is_video else None,
+            "media_url": public_media_url,
             "productLink": SITE_URL,
             "platforms": ["instagram", "youtube", "facebook", "tiktok", "pinterest"],
             "hashtags": tags,

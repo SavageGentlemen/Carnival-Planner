@@ -31,14 +31,16 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 CARNIVAL_CALENDAR = [
-    {"name": "Notting Hill Carnival (London)", "date": "August 31", "key": "notting_hill"},
     {"name": "New York Labor Day Carnival (Brooklyn)", "date": "September 7", "key": "nyc"},
-    {"name": "Miami Carnival", "date": "October 11", "key": "miami"},
-    {"name": "Tobago Carnival", "date": "November 1", "key": "tobago"},
+    {"name": "Miami Carnival 2026", "date": "October 11", "key": "miami"},
+    {"name": "Tobago Carnival 2026", "date": "November 1", "key": "tobago"},
     {"name": "Sugar Mas (St. Kitts)", "date": "December 26", "key": "st_kitts"},
     {"name": "Trinidad Carnival 2027", "date": "February 8", "key": "trinidad"},
     {"name": "Jamaica Carnival 2027", "date": "April 11", "key": "jamaica"},
-    {"name": "Barbados Crop Over 2027", "date": "August 2", "key": "crop_over"}
+    {"name": "St. Thomas Carnival 2027", "date": "April 25", "key": "st_thomas"},
+    {"name": "Barbados Crop Over 2027", "date": "August 2", "key": "crop_over"},
+    {"name": "Grenada Spicemas 2027", "date": "August 10", "key": "spicemas"},
+    {"name": "Notting Hill Carnival 2027", "date": "August 30", "key": "notting_hill"}
 ]
 
 def select_next_carnival():

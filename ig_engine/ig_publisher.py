@@ -22,46 +22,10 @@ GRAPH_API_URL = "https://graph.facebook.com/v19.0"
 
 def get_public_media_url(file_path_or_url):
     """
-    If file_path_or_url is a local file, uploads to catbox.moe CDN to get a public HTTPS URL.
+    If file_path_or_url is a local file, uploads to fast public CDN to get a public HTTPS URL.
     """
-    if not file_path_or_url:
-        return file_path_or_url
-
-    if file_path_or_url.startswith("http://files.catbox.moe") or file_path_or_url.startswith("https://files.catbox.moe"):
-        return file_path_or_url
-
-    if file_path_or_url.startswith("http://") or file_path_or_url.startswith("https://"):
-        return file_path_or_url
-
-    clean_path = file_path_or_url.lstrip("/")
-    candidate_paths = [
-        os.path.abspath(file_path_or_url),
-        os.path.abspath(clean_path),
-        os.path.join(os.path.dirname(__file__), "output", os.path.basename(clean_path)),
-        os.path.join(os.path.dirname(__file__), "assets", os.path.basename(clean_path)),
-        os.path.join(os.getcwd(), "output", os.path.basename(clean_path)),
-        os.path.join(os.getcwd(), "public", os.path.basename(clean_path)),
-        os.path.join(os.getcwd(), "uploads", "videos", os.path.basename(clean_path)),
-    ]
-
-    target_file = next((p for p in candidate_paths if os.path.exists(p)), None)
-
-    if not target_file:
-        print(f"❌ Local file does not exist in candidate paths: {file_path_or_url}")
-        return file_path_or_url
-
-    print(f"☁️ Uploading local file '{os.path.basename(target_file)}' for Meta Graph API access...")
-    try:
-        with open(target_file, "rb") as f:
-            res = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f}, timeout=60)
-            if res.status_code == 200 and res.text.strip().startswith("http"):
-                direct_url = res.text.strip()
-                print(f"🔗 Public direct video URL generated: {direct_url}")
-                return direct_url
-    except Exception as e:
-        print(f"⚠️ Catbox public URL upload failed: {e}")
-
-    return file_path_or_url
+    from hybrid_publisher import upload_local_to_public_cdn
+    return upload_local_to_public_cdn(file_path_or_url)
 
 def publish_to_instagram(media_url_or_path, caption, media_type="auto", dry_run=True):
     """

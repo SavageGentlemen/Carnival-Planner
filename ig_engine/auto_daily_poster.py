@@ -41,6 +41,16 @@ def run_daily_post(live=True):
 
     results = run_trigger_autopost(live=live)
 
+    if live and isinstance(results, dict):
+        has_success = any(
+            isinstance(v, dict) and v.get("status") == "success"
+            for k, v in results.items()
+        )
+        if not has_success:
+            print("\n⚠️ WARNING: All social media publishing channels reported errors.")
+            if sys.stdout and hasattr(sys.stdout, "flush"):
+                sys.stdout.flush()
+
     print("\n" + "=" * 60)
     print("🎉 24/7 AUTO-POST CYCLE COMPLETE (Zero-Duplicate Verified)")
     print("=" * 60)
@@ -48,4 +58,4 @@ def run_daily_post(live=True):
 
 if __name__ == "__main__":
     is_live = "--dry-run" not in sys.argv
-    run_daily_post(live=is_live)
+    res = run_daily_post(live=is_live)
