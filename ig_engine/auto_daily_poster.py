@@ -44,7 +44,15 @@ def run_daily_post(live=True, target_key=None):
         from trigger_autopost_video import CARNIVAL_CALENDAR
         target_override = next((c for c in CARNIVAL_CALENDAR if c["key"] == target_key or target_key.lower() in c["name"].lower()), None)
 
-    results = run_trigger_autopost(live=live, target_override=target_override)
+    # Check for pending 1-a-day Nanobana Ad Campaigns
+    from nanobana_ad_engine import get_next_campaign, publish_ad
+    queued_ad_id = get_next_campaign()
+
+    if queued_ad_id and not target_key:
+        print(f"\n📢 [Priority Queue] Executing scheduled Nanobana Ad Campaign: '{queued_ad_id}'...")
+        results, _ = publish_ad(queued_ad_id, dry_run=not live)
+    else:
+        results = run_trigger_autopost(live=live, target_override=target_override)
 
     if live and isinstance(results, dict):
         has_success = any(

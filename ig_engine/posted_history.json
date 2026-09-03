@@ -21,7 +21,7 @@
   },
   {
     "id": "motion_anim_20260823_144030",
-    "title": "🚨 HOW TO TRACK YOUR SQUAD ON CARNIVAL DAY",
+    "title": "\ud83d\udea8 HOW TO TRACK YOUR SQUAD ON CARNIVAL DAY",
     "hook_line": "Stop losing your crew in 50k masqueraders!",
     "carnival": "Global 25+ Carnivals",
     "platform_ids": {
@@ -58,7 +58,7 @@
   },
   {
     "id": "character_anim_20260823_145244",
-    "title": "💃 CARNIVAL SURVIVAL PLAYBOOK: SQUAD RADAR & FETE DROPS",
+    "title": "\ud83d\udc83 CARNIVAL SURVIVAL PLAYBOOK: SQUAD RADAR & FETE DROPS",
     "hook_line": "Never lose your crew in 50k masqueraders!",
     "carnival": "Global 25+ Carnivals",
     "platform_ids": {
@@ -95,7 +95,7 @@
   },
   {
     "id": "flux_photoreal_20260823_150036",
-    "title": "🚨 NEVER LOSE YOUR SQUAD ON CARNIVAL DAY (8K AI REEL)",
+    "title": "\ud83d\udea8 NEVER LOSE YOUR SQUAD ON CARNIVAL DAY (8K AI REEL)",
     "hook_line": "Stop losing your friends in 50k masqueraders!",
     "carnival": "Global 25+ Carnivals",
     "platform_ids": {
@@ -132,7 +132,7 @@
   },
   {
     "id": "post_tobago_1788394963",
-    "title": "POV: You're getting ready for Tobago Carnival 2026 (November 1) with your Squad 🥳 #Shorts",
+    "title": "POV: You're getting ready for Tobago Carnival 2026 (November 1) with your Squad \ud83e\udd73 #Shorts",
     "hook_line": "",
     "carnival": "Tobago Carnival 2026 (November 1)",
     "platform_ids": {
@@ -181,7 +181,7 @@
   },
   {
     "id": "post_tobago_1788396659",
-    "title": "Don't travel to Tobago Carnival 2026 (October 25 - November 1) without knowing THIS secret 🤫 #Shorts",
+    "title": "Don't travel to Tobago Carnival 2026 (October 25 - November 1) without knowing THIS secret \ud83e\udd2b #Shorts",
     "hook_line": "",
     "carnival": "Tobago Carnival 2026 (October 25 - November 1)",
     "platform_ids": {
@@ -227,5 +227,53 @@
       }
     },
     "timestamp": "2026-09-02T20:50:59.750201"
+  },
+  {
+    "id": "nanobana_ad_1_stress_free_booking_1788398663",
+    "title": "Planning Carnival is Stressing Your Squad Out? \ud83d\ude2b Here's the Cheat Code #Shorts",
+    "type": "nanobana_3d_animated_ad",
+    "platform_ids": {
+      "webhook_2txuakwg": {
+        "status": "success",
+        "code": 200,
+        "response": "Accepted"
+      },
+      "webhook_2hhgb12q": {
+        "status": "success",
+        "code": 200,
+        "response": "Accepted"
+      },
+      "youtube": {
+        "status": "success",
+        "mode": "dry_run",
+        "platform": "youtube",
+        "video_id": "dry_run_yt_id"
+      },
+      "instagram": {
+        "status": "error",
+        "error": {
+          "error": {
+            "message": "Error validating access token: Session has expired on Monday, 24-Aug-26 21:00:00 PDT. The current time is Wednesday, 02-Sep-26 18:24:23 PDT.",
+            "type": "OAuthException",
+            "code": 190,
+            "error_subcode": 463,
+            "fbtrace_id": "AdY80gjRekwZERfO2mXwSNn"
+          }
+        }
+      },
+      "facebook": {
+        "status": "success",
+        "mode": "dry_run",
+        "platform": "facebook",
+        "post_id": "dry_run_fb_id"
+      },
+      "tiktok": {
+        "status": "success",
+        "mode": "dry_run",
+        "platform": "tiktok",
+        "post_id": "dry_run_tiktok_id"
+      }
+    },
+    "timestamp": "2026-09-02T21:24:23.453896"
   }
 ]

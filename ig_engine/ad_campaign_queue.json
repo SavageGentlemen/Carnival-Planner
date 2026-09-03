@@ -1,0 +1,23 @@
+[
+  {
+    "campaign_id": "ad_1_stress_free_booking",
+    "scheduled_date": "2026-09-02",
+    "status": "posted",
+    "posted_at": "2026-09-02T21:24:23.452197"
+  },
+  {
+    "campaign_id": "ad_2_luxury_trinidad_2027",
+    "scheduled_date": "2026-09-03",
+    "status": "pending"
+  },
+  {
+    "campaign_id": "ad_3_promoters_boost",
+    "scheduled_date": "2026-09-04",
+    "status": "pending"
+  },
+  {
+    "campaign_id": "ad_4_spotify_broad_awareness",
+    "scheduled_date": "2026-09-05",
+    "status": "pending"
+  }
+]
