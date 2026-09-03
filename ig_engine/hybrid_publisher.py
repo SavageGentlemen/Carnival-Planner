@@ -68,7 +68,27 @@ def upload_local_to_public_cdn(media_url_or_path):
 
     print(f"☁️ Uploading local asset ({filename}) to public CDN for Make.com / Webhooks...")
 
-    # Method 1: Litterbox (Fast temporary CDN, 24h retention, no Cloudflare block on datacenter IPs)
+    # Method 1: Uguu.se (Fast, no Cloudflare block, accepts datacenter IPs)
+    try:
+        with open(target_file, "rb") as f:
+            res = requests.post(
+                "https://uguu.se/upload.php",
+                headers=headers,
+                files={"files[]": (filename, f, mime_type)},
+                timeout=90
+            )
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("success") and data.get("files"):
+                    cdn_url = data["files"][0]["url"]
+                    print(f"✅ Public CDN URL generated via Uguu: {cdn_url}")
+                    return cdn_url
+            else:
+                print(f"ℹ️ Uguu status ({res.status_code}). Trying Litterbox...")
+    except Exception as e:
+        print(f"ℹ️ Uguu attempt error: {e}. Trying Litterbox...")
+
+    # Method 2: Litterbox (Fast temporary CDN, 24h retention)
     try:
         with open(target_file, "rb") as f:
             res = requests.post(
@@ -87,7 +107,7 @@ def upload_local_to_public_cdn(media_url_or_path):
     except Exception as e:
         print(f"ℹ️ Litterbox attempt error: {e}. Trying Catbox...")
 
-    # Method 2: Catbox.moe
+    # Method 3: Catbox.moe
     try:
         with open(target_file, "rb") as f:
             res = requests.post(
@@ -105,6 +125,24 @@ def upload_local_to_public_cdn(media_url_or_path):
                 print(f"⚠️ Catbox status ({res.status_code}): {res.text[:80]}")
     except Exception as e:
         print(f"⚠️ Catbox upload error: {e}")
+
+    # Method 4: Tmpfiles.org (Direct download link via /dl/)
+    try:
+        with open(target_file, "rb") as f:
+            res = requests.post(
+                "https://tmpfiles.org/api/v1/upload",
+                files={"file": (filename, f, mime_type)},
+                timeout=90
+            )
+            if res.status_code == 200:
+                data = res.json()
+                raw_url = data.get("data", {}).get("url")
+                if raw_url:
+                    cdn_url = raw_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                    print(f"✅ Public CDN URL generated via TmpFiles: {cdn_url}")
+                    return cdn_url
+    except Exception as e:
+        print(f"⚠️ TmpFiles upload error: {e}")
 
     return media_url_or_path
 
@@ -149,23 +187,34 @@ def publish_to_all_socials(media_url_or_path, title, caption, tags=None, media_t
         os.getenv("SOCIAL_WEBHOOK_URL")
     ])))
 
+    is_valid_http_url = public_media_url and str(public_media_url).startswith(("http://", "https://"))
+
     if configured_webhooks and not dry_run:
-        print(f"\n📡 Broadcasting via {len(configured_webhooks)} Webhook(s) to Make.com automation...")
-        webhook_payload = {
-            "title": title,
-            "caption": full_caption,
-            "video_url": public_media_url if is_video else None,
-            "videoUrl": public_media_url if is_video else None,
-            "video": public_media_url if is_video else None,
-            "image_url": public_media_url if not is_video else None,
-            "imageUrl": public_media_url if not is_video else None,
-            "image": public_media_url if not is_video else None,
-            "media_url": public_media_url,
-            "productLink": SITE_URL,
-            "platforms": ["instagram", "youtube", "facebook", "tiktok", "pinterest"],
-            "hashtags": tags,
-            "timestamp": datetime.now().isoformat()
-        }
+        if not is_valid_http_url:
+            print(f"\n⚠️ WARNING: Public CDN upload failed. Local path is '{public_media_url}'.")
+            print("⚠️ Skipping Make.com webhook dispatch to avoid 'Invalid URL' validation errors in Make.com scenario.")
+            for hook_url in configured_webhooks:
+                results[f"webhook_{hook_url.split('/')[-1][:8]}"] = {
+                    "status": "skipped",
+                    "reason": "Media is not a public HTTP/HTTPS URL"
+                }
+        else:
+            print(f"\n📡 Broadcasting via {len(configured_webhooks)} Webhook(s) to Make.com automation...")
+            webhook_payload = {
+                "title": title,
+                "caption": full_caption,
+                "video_url": public_media_url if is_video else None,
+                "videoUrl": public_media_url if is_video else None,
+                "video": public_media_url if is_video else None,
+                "image_url": public_media_url if not is_video else None,
+                "imageUrl": public_media_url if not is_video else None,
+                "image": public_media_url if not is_video else None,
+                "media_url": public_media_url,
+                "productLink": SITE_URL,
+                "platforms": ["instagram", "youtube", "facebook", "tiktok", "pinterest"],
+                "hashtags": tags,
+                "timestamp": datetime.now().isoformat()
+            }
 
         for hook_url in configured_webhooks:
             try:

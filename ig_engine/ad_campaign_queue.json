@@ -8,7 +8,8 @@
   {
     "campaign_id": "ad_2_luxury_trinidad_2027",
     "scheduled_date": "2026-09-03",
-    "status": "pending"
+    "status": "posted",
+    "posted_at": "2026-09-03T15:18:27.948607"
   },
   {
     "campaign_id": "ad_3_promoters_boost",
