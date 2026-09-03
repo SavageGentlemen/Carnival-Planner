@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import {
   onAuthStateChanged,
   signOut as firebaseSignOut,
@@ -16,7 +16,7 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import app, { auth, db } from './firebase';
+import app, { auth, db, logPageView, setAnalyticsUser, logAnalyticsEvent } from './firebase';
 import logo from './assets/carnival-logo.png';
 import { carnivalData } from './carnivals';
 import { query, where, getDocs, limit } from 'firebase/firestore';
@@ -165,7 +165,16 @@ export default function App() {
   const [userMode, setUserMode] = useState('masquerader'); // 'masquerader' | 'bandleader' | 'promoter'
 
   // Routing State
+  const location = useLocation();
   const isAndroidBetaPage = window.location.pathname === '/android' || window.location.search.includes('android=true');
+
+  // ── GA4 Page & Screen View Tracking ──
+  useEffect(() => {
+    const currentScreen = showLanding ? 'Landing' : activeTab;
+    const pageTitle = `Carnival Planner - ${currentScreen}`;
+    const pagePath = `${location.pathname || '/'}${location.search || ''}#${currentScreen}`;
+    logPageView(pagePath, pageTitle);
+  }, [location.pathname, location.search, activeTab, showLanding]);
 
   // Data
   const [carnivals, setCarnivals] = useState({});
@@ -612,6 +621,10 @@ export default function App() {
       // Create/update user document for admin analytics tracking
       if (u) {
         console.log('[Analytics] Creating/updating user doc for:', u.uid, u.email);
+        setAnalyticsUser(u.uid, {
+          email: u.email || '',
+          displayName: u.displayName || ''
+        });
 
         // Use setDoc with merge - works offline and syncs when online
         // No need for getDoc first - merge handles both create and update
@@ -657,6 +670,8 @@ export default function App() {
         } catch (err) {
           console.error('[Analytics] Failed to update user doc:', err.code, err.message);
         }
+      } else {
+        setAnalyticsUser(null);
       }
     });
     return () => unsubscribe();
@@ -952,6 +967,11 @@ export default function App() {
     if (!user) return;
     setActiveCarnivalId(id);
     localStorage.setItem('actCvnId', id);
+    logAnalyticsEvent('select_content', {
+      content_type: 'carnival',
+      item_id: id,
+      item_name: name
+    });
 
     if (isDemoMode) {
       // If they select a carnival not in our demo data, just initialize empty

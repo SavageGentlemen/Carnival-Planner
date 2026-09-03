@@ -2,7 +2,14 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
+import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "firebase/messaging";
+import {
+  getAnalytics,
+  isSupported as isAnalyticsSupported,
+  logEvent,
+  setUserId,
+  setUserProperties,
+} from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWRyVUAOTYiayOzzjVw200Vw1SMb2bchw",
@@ -29,11 +36,88 @@ export const storage = getStorage(app);
 export const firestoreReady = Promise.resolve(true);
 console.log('Firestore initialized');
 
+// ── Firebase Analytics (GA4: G-XC1K69PSVC) ──
+export let analytics = null;
+
+export const initAnalytics = async () => {
+  try {
+    const supported = await isAnalyticsSupported();
+    if (supported) {
+      analytics = getAnalytics(app);
+      console.log('Firebase Analytics (GA4) initialized:', firebaseConfig.measurementId);
+      return analytics;
+    } else {
+      console.log('Firebase Analytics not supported in this environment');
+      return null;
+    }
+  } catch (err) {
+    console.warn('Error initializing Firebase Analytics:', err);
+    return null;
+  }
+};
+
+export const analyticsReady = initAnalytics();
+
+export const logAnalyticsEvent = async (eventName, eventParams = {}) => {
+  try {
+    let instance = analytics;
+    if (!instance) {
+      instance = await analyticsReady;
+    }
+    if (instance) {
+      logEvent(instance, eventName, eventParams);
+    }
+  } catch (err) {
+    console.warn('[Analytics] Failed to log event:', eventName, err);
+  }
+};
+
+export const logPageView = async (pagePath, pageTitle) => {
+  try {
+    let instance = analytics;
+    if (!instance) {
+      instance = await analyticsReady;
+    }
+    if (instance) {
+      logEvent(instance, 'page_view', {
+        page_path: pagePath || (typeof window !== 'undefined' ? window.location.pathname : '/'),
+        page_location: typeof window !== 'undefined' ? window.location.href : '',
+        page_title: pageTitle || (typeof document !== 'undefined' ? document.title : ''),
+      });
+    }
+  } catch (err) {
+    console.warn('[Analytics] Failed to log page_view:', err);
+  }
+};
+
+export const setAnalyticsUser = async (userId, properties = {}) => {
+  try {
+    let instance = analytics;
+    if (!instance) {
+      instance = await analyticsReady;
+    }
+    if (instance && userId) {
+      setUserId(instance, userId);
+      if (properties && typeof properties === 'object') {
+        const cleanProps = {};
+        for (const [k, v] of Object.entries(properties)) {
+          if (v !== null && v !== undefined) cleanProps[k] = String(v);
+        }
+        if (Object.keys(cleanProps).length > 0) {
+          setUserProperties(instance, cleanProps);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Analytics] Failed to set analytics user:', err);
+  }
+};
+
 let messaging = null;
 
 const initMessaging = async () => {
   try {
-    const supported = await isSupported();
+    const supported = await isMessagingSupported();
     if (supported) {
       messaging = getMessaging(app);
       console.log('Firebase Messaging initialized');
