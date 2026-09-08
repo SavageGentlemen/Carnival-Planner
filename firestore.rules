@@ -3,14 +3,26 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper function to check if user is super admin
     function isSuperAdmin() {
-      return request.auth != null && request.auth.token.email == 'djkrss1@gmail.com';
+      return request.auth != null && (
+        request.auth.token.email in [
+          'djkrss1@gmail.com', 
+          'info@moymeetsworld.com',
+          'moymeetsworld@gmail.com',
+          'defoursemoy@gmail.com',
+          'info@moysworld.com'
+        ]
+      );
     }
     
     // Helper function to check if user is admin
     function isAdmin() {
       return request.auth != null && (
         isSuperAdmin() ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        request.auth.token.admin == true ||
+        request.auth.token.isAdmin == true ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.isAdmin == true)
       );
     }
     
@@ -232,8 +244,8 @@ service cloud.firestore {
     
     // --- ADMIN MANAGEMENT ---
     match /admins/{adminId} {
-      // Allow any user to read their own admin record to verify status
-      allow read: if request.auth != null && request.auth.uid == adminId;
+      // Super admins can read all admins; users can read their own admin record
+      allow read: if isSuperAdmin() || (request.auth != null && request.auth.uid == adminId);
       // Only super admin can manage other admins
       allow write: if isSuperAdmin();
     }
@@ -309,6 +321,122 @@ service cloud.firestore {
         allow read: if request.auth != null;
         // Payouts created via Cloud Functions only
         allow create, update, delete: if isAdmin();
+      }
+    }
+
+    // --- TRAVEL PACKAGES & CURATED TRIPS (MOY MEETS WORLD) ---
+    match /travelPackages/{packageId} {
+      // Anyone can read packages for public storefront / travel directory
+      allow read: if true;
+      // Admins and travel hosts have full permissions to add, edit, save, and delete trips
+      allow write: if isAdmin() || (
+        request.auth != null && (
+          request.auth.token.email in [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+          ]
+        )
+      );
+
+      // Revision history for packages
+      match /revisions/{revId} {
+        allow read, write: if isAdmin() || (
+          request.auth != null && (
+            request.auth.token.email in [
+              'djkrss1@gmail.com', 
+              'info@moymeetsworld.com', 
+              'moymeetsworld@gmail.com',
+              'defoursemoy@gmail.com',
+              'info@moysworld.com'
+            ]
+          )
+        );
+      }
+    }
+
+    // --- TRAVEL BOOKINGS & RESERVATIONS ---
+    match /travelBookings/{bookingId} {
+      // Guests / masqueraders can submit booking reservations with valid contact info
+      allow create: if request.resource.data.fullName is string && 
+                       request.resource.data.email is string;
+      // Users can view their own booking; Admins can view all bookings
+      allow read: if isAdmin() || (
+        request.auth != null && (
+          request.auth.uid == resource.data.userId ||
+          request.auth.token.email in [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+          ]
+        )
+      );
+      // Admins can update booking status (confirm, mark paid, cancel) or delete
+      allow update, delete: if isAdmin() || (
+        request.auth != null && (
+          request.auth.token.email in [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+          ]
+        )
+      );
+    }
+
+    // --- TRAVEL SETTINGS & GATEWAY CONFIG ---
+    match /travelSettings/{settingId} {
+      // Public read for checkout gateway settings
+      allow read: if true;
+      // Admins can save and update payment gateways and concierge numbers
+      allow write: if isAdmin() || (
+        request.auth != null && (
+          request.auth.token.email in [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+          ]
+        )
+      );
+    }
+
+    // --- TRAVEL SITE CONTENT (MOY MEETS WORLD HERO, ABOUT, FAQS, PHILOSOPHY) ---
+    match /travelSiteContent/{contentId} {
+      // Public read so all visitors see the latest dynamic copy
+      allow read: if true;
+      // Admins and travel hosts have full permissions to update and autosave site content
+      allow write: if isAdmin() || (
+        request.auth != null && (
+          request.auth.token.email in [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+          ]
+        )
+      );
+
+      // Revision history for site copy / FAQs
+      match /revisions/{revId} {
+        allow read, write: if isAdmin() || (
+          request.auth != null && (
+            request.auth.token.email in [
+              'djkrss1@gmail.com', 
+              'info@moymeetsworld.com', 
+              'moymeetsworld@gmail.com',
+              'defoursemoy@gmail.com',
+              'info@moysworld.com'
+            ]
+          )
+        );
       }
     }
   }

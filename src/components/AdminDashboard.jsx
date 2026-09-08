@@ -28,8 +28,15 @@ export default function AdminDashboard({ user }) {
     // Check basic admin permissions or role
     useEffect(() => {
         if (!user) return;
-        // Hardcoded Super Admin for bootstrap security
-        if (user.email === 'djkrss1@gmail.com') {
+        const SUPER_ADMINS = [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+        ];
+        const email = (user.email || '').toLowerCase();
+        if (SUPER_ADMINS.includes(email)) {
             setIsSuperAdmin(true);
         }
         setLoading(false);

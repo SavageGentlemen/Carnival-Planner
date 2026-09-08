@@ -535,19 +535,26 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
                   onClick={() => navigate('/moymeetsworld/trinidad-carnival-2027')}
                   className="px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-2xl border border-white/20 hover:border-cyan-400/40 transition-all"
                 >
-                  Trinidad 2027 Package
+                  St Lucia Carnival 2027
+                </button>
+
+                <button
+                  onClick={() => navigate('/moymeetsworld/custom-pkg-1787629349617')}
+                  className="px-5 py-3.5 bg-cyan-950/60 hover:bg-cyan-900 text-cyan-300 font-bold text-xs uppercase tracking-wider rounded-2xl border border-cyan-400/40 transition-all"
+                >
+                  Thailand 2027
                 </button>
               </div>
             </div>
 
             {/* Right Card / Destination Preview */}
             <div className="w-full lg:w-80 shrink-0">
-              <HolographicCard tier="GOLD" onClick={() => navigate('/moymeetsworld')}>
+              <HolographicCard tier="GOLD" onClick={() => navigate('/moymeetsworld/trinidad-carnival-2027')}>
                 <div className="p-5 bg-slate-950/90 rounded-3xl group">
                   <div className="relative h-48 rounded-xl overflow-hidden mb-4 bg-black">
                     <img 
-                      src="/images/moymeetsworld_logo.jpg" 
-                      alt="Moy Meets World" 
+                      src="https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630878374_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=2e37d1fa-ffc5-47a9-b3d6-fb5cf12ea263" 
+                      alt="St Lucia Carnival with Moy Meets World" 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-2 left-2 bg-black/80 text-[#00e5cc] font-black text-[9px] uppercase px-2 py-0.5 rounded backdrop-blur-sm border border-cyan-400/30">
@@ -559,11 +566,11 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
                   </div>
 
                   <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-black text-white text-base font-heading">Trinidad Mas Experience</h4>
+                    <h4 className="font-black text-white text-base font-heading">St Lucia Carnival</h4>
                   </div>
-                  <p className="text-xs text-cyan-300 font-semibold mb-2">Feb 5 - 11, 2027 • Port of Spain</p>
+                  <p className="text-xs text-cyan-300 font-semibold mb-2">July 16 - 23, 2027 • St. Lucia</p>
                   <p className="text-[11px] text-slate-300 leading-normal line-clamp-2">
-                    All-inclusive J'ouvert, Tribe / YUMA Frontline costume, private villa and premier fetes.
+                    Flights from POS, breakfast-inclusive stay, costume package, 3 signature events & survival kit.
                   </p>
 
                   <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-[#00e5cc] font-bold">

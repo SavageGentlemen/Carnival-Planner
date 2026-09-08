@@ -70,7 +70,7 @@ export default function TravelPackageCard({ packageItem, onSelect, onBookDirect 
         {/* Premium Discount Perk Badge */}
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-400/30 text-amber-200 text-[10px] font-extrabold uppercase tracking-wide mb-3">
           <Sparkles className="w-3 h-3 text-amber-300" />
-          <span>Premium Perk: 5% Off ({pricing?.doubleOccupancy ? `$${Math.round(pricing.doubleOccupancy * 0.05)} Savings` : 'Exclusive VIP'})</span>
+          <span>Premium Perk: 5% Off ({typeof pricing?.doubleOccupancy === 'number' && pricing.doubleOccupancy > 0 ? `$${Math.round(pricing.doubleOccupancy * 0.05)} Savings` : 'Exclusive VIP'})</span>
         </div>
 
         {/* Pricing & Spots Info */}
@@ -87,9 +87,9 @@ export default function TravelPackageCard({ packageItem, onSelect, onBookDirect 
               ) : (
                 <>
                   <span className="text-xl font-extrabold text-white font-heading">
-                    ${pricing?.doubleOccupancy?.toLocaleString() || '2,450'}
+                    {pricing?.doubleOccupancy ? `$${pricing.doubleOccupancy.toLocaleString()}` : 'Price on Request'}
                   </span>
-                  <span className="text-[11px] text-slate-400">USD / person</span>
+                  {pricing?.doubleOccupancy && <span className="text-[11px] text-slate-400">USD / person</span>}
                 </>
               )}
             </div>
@@ -100,7 +100,7 @@ export default function TravelPackageCard({ packageItem, onSelect, onBookDirect 
               {packageItem.customQuoteOnly ? 'Inquiries' : 'Hold Deposit'}
             </span>
             <span className="text-xs font-black text-[#00e5cc] bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-400/30">
-              {packageItem.customQuoteOnly ? 'Open' : `$${pricing?.deposit || 500} USD`}
+              {packageItem.customQuoteOnly ? 'Open' : (pricing?.deposit ? `$${pricing.deposit} USD` : '$0 USD')}
             </span>
           </div>
         </div>

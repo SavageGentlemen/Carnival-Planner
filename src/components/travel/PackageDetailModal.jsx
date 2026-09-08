@@ -20,8 +20,6 @@ import { MOY_AGENT_PROFILE } from './travelData';
 export default function PackageDetailModal({ packageItem, onClose, onOpenBooking }) {
   if (!packageItem) return null;
 
-  const [selectedTier, setSelectedTier] = useState(packageItem.accommodations?.[0]?.type || 'Single Luxury Suite');
-
   const {
     title,
     subtitle,
@@ -39,6 +37,25 @@ export default function PackageDetailModal({ packageItem, onClose, onOpenBooking
     accommodations = [],
     spotsRemaining
   } = packageItem;
+
+  const effectiveAccommodations = (accommodations && accommodations.length > 0)
+    ? accommodations
+    : [
+        {
+          type: 'Single Luxury Suite',
+          price: pricing?.singleOccupancy ? `$${Number(pricing.singleOccupancy).toLocaleString()} USD` : 'Custom Quote on Request',
+          occupancy: 'Single (1 King Bed)',
+          description: 'Private oceanfront / hillside luxury suite with ensuite bathroom, balcony, high-speed WiFi, espresso bar, and personalized concierge.'
+        },
+        {
+          type: 'Shared Double Room',
+          price: pricing?.doubleOccupancy ? `$${Number(pricing.doubleOccupancy).toLocaleString()} USD / person` : 'Custom Quote on Request',
+          occupancy: 'Shared (2 Queen Beds or King for Couples)',
+          description: 'Spacious shared luxury room for pairs or solo masqueraders matched with a vetted squad member of the same gender.'
+        }
+      ];
+
+  const [selectedTier, setSelectedTier] = useState(effectiveAccommodations[0]?.type || 'Single Luxury Suite');
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-xl flex justify-center p-0 sm:p-4 md:p-6 animate-fadeIn">
@@ -181,11 +198,11 @@ export default function PackageDetailModal({ packageItem, onClose, onOpenBooking
           <div className="glass-panel p-6 sm:p-8 rounded-3xl border-cyan-500/30 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
               
-              {/* Host Avatar / Emblem */}
+              {/* Host Avatar */}
               <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-cyan-400/40 p-0.5 shrink-0 shadow-[0_0_25px_rgba(0,229,204,0.3)] bg-black">
                 <img 
-                  src="/images/moymeetsworld_logo.jpg" 
-                  alt="Moy Meets World" 
+                  src={MOY_AGENT_PROFILE.avatar} 
+                  alt={MOY_AGENT_PROFILE.fullName} 
                   className="w-full h-full object-cover rounded-xl"
                 />
               </div>
@@ -240,12 +257,12 @@ export default function PackageDetailModal({ packageItem, onClose, onOpenBooking
                 Accommodations & Package Pricing
               </h3>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Choose your preferred room occupancy. You can hold your spot today with a ${pricing?.deposit || 500} USD deposit.
+                Choose your preferred room occupancy. {pricing?.deposit ? `Hold your spot today with a $${pricing.deposit} USD deposit.` : 'Flexible payment schedules provided upon booking.'}
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {accommodations.map((acc, idx) => {
+              {effectiveAccommodations.map((acc, idx) => {
                 const isSelected = selectedTier === acc.type;
                 return (
                   <div
@@ -284,7 +301,9 @@ export default function PackageDetailModal({ packageItem, onClose, onOpenBooking
                     <div className="pt-4 border-t border-white/10">
                       <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
                         <span>Hold Deposit:</span>
-                        <span className="font-bold text-[#00e5cc]">${pricing?.deposit || 500} USD</span>
+                        <span className="font-bold text-[#00e5cc]">
+                          {pricing?.deposit ? `$${pricing.deposit} USD` : (packageItem.customQuoteOnly ? 'Custom Quote' : 'Flexible')}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -342,7 +361,7 @@ export default function PackageDetailModal({ packageItem, onClose, onOpenBooking
             </a>
 
             <button
-              onClick={() => onOpenBooking(packageItem, accommodations.find(a => a.type === selectedTier) || accommodations[0])}
+              onClick={() => onOpenBooking(packageItem, effectiveAccommodations.find(a => a.type === selectedTier) || effectiveAccommodations[0])}
               className="flex-1 sm:flex-initial py-3 px-8 rounded-full bg-[#00e5cc] hover:bg-[#24f6df] text-black text-xs font-black uppercase tracking-wider shadow-[0_0_25px_rgba(0,229,204,0.4)] transition-all hover:scale-105"
             >
               Reserve Spot Now ($500)

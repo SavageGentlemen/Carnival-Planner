@@ -5,7 +5,31 @@ service firebase.storage {
       // Anyone can read promo ads (for displaying to free users)
       allow read: if true;
       // Only admin can upload/delete ads
-      allow write: if request.auth != null && request.auth.token.email == 'djkrss1@gmail.com';
+      allow write: if request.auth != null && (
+        request.auth.token.email in [
+          'djkrss1@gmail.com', 
+          'info@moymeetsworld.com', 
+          'moymeetsworld@gmail.com',
+          'defoursemoy@gmail.com',
+          'info@moysworld.com'
+        ]
+      ) && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Travel Assets (Moy Meets World Package Photos & Banners)
+    match /travel_assets/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        request.auth.token.email in [
+          'djkrss1@gmail.com', 
+          'info@moymeetsworld.com', 
+          'moymeetsworld@gmail.com',
+          'defoursemoy@gmail.com',
+          'info@moysworld.com'
+        ]
+      ) && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
     match /users/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;

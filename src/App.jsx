@@ -168,14 +168,6 @@ export default function App() {
   const location = useLocation();
   const isAndroidBetaPage = window.location.pathname === '/android' || window.location.search.includes('android=true');
 
-  // ── GA4 Page & Screen View Tracking ──
-  useEffect(() => {
-    const currentScreen = showLanding ? 'Landing' : activeTab;
-    const pageTitle = `Carnival Planner - ${currentScreen}`;
-    const pagePath = `${location.pathname || '/'}${location.search || ''}#${currentScreen}`;
-    logPageView(pagePath, pageTitle);
-  }, [location.pathname, location.search, activeTab, showLanding]);
-
   // Data
   const [carnivals, setCarnivals] = useState({});
   const [activeCarnivalId, setActiveCarnivalId] = useState(() => {
@@ -184,13 +176,20 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Budget');
   const activeHub = TAB_TO_HUB[activeTab] || 'plan';
 
-
   // UI State
   const [isPremium, setIsPremium] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [roadMode, setRoadMode] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  // ── GA4 Page & Screen View Tracking ──
+  useEffect(() => {
+    const currentScreen = showLanding ? 'Landing' : activeTab;
+    const pageTitle = `Carnival Planner - ${currentScreen}`;
+    const pagePath = `${location.pathname || '/'}${location.search || ''}#${currentScreen}`;
+    logPageView(pagePath, pageTitle);
+  }, [location.pathname, location.search, activeTab, showLanding]);
 
   // Form Inputs
   const [newBudgetName, setNewBudgetName] = useState('');
@@ -732,7 +731,15 @@ export default function App() {
       }
 
       // 1. Super Admin Hardcoded Check
-      if (user.email === 'djkrss1@gmail.com') {
+      const SUPER_ADMINS = [
+        'djkrss1@gmail.com', 
+        'info@moymeetsworld.com', 
+        'moymeetsworld@gmail.com',
+        'defoursemoy@gmail.com',
+        'info@moysworld.com'
+      ];
+      const email = (user.email || '').toLowerCase();
+      if (SUPER_ADMINS.includes(email)) {
         setIsAdmin(true);
         return;
       }

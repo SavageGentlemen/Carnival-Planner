@@ -18,14 +18,35 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { MOY_AGENT_PROFILE } from './travelData';
 
-export default function BookingPaymentModal({ packageItem, selectedAccommodation, onClose, user }) {
+export default function BookingPaymentModal({ packageItem, selectedAccommodation, onClose, user, gatewaySettings }) {
   if (!packageItem) return null;
+
+  const activeWhatsapp = gatewaySettings?.whatsappNum || MOY_AGENT_PROFILE.whatsappNumber;
+  const activeBankAcc = gatewaySettings?.bankAccount || '180-801-445-001';
+  const activeWipayId = gatewaySettings?.wipayId || MOY_AGENT_PROFILE.trinidadBankingInfo.wipayMerchantId;
 
   const [fullName, setFullName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState('');
   const [guestsCount, setGuestsCount] = useState(1);
-  const [roomType, setRoomType] = useState(selectedAccommodation?.type || packageItem.accommodations?.[0]?.type || 'Single Luxury Suite');
+  const availableAccommodations = (packageItem.accommodations && packageItem.accommodations.length > 0)
+    ? packageItem.accommodations
+    : [
+        {
+          type: 'Single Luxury Suite',
+          price: packageItem.pricing?.singleOccupancy ? `$${Number(packageItem.pricing.singleOccupancy).toLocaleString()} USD` : 'Custom Quote',
+          occupancy: 'Single (1 King Bed)',
+          description: 'Private luxury suite with ensuite bath and balcony.'
+        },
+        {
+          type: 'Shared Double Room',
+          price: packageItem.pricing?.doubleOccupancy ? `$${Number(packageItem.pricing.doubleOccupancy).toLocaleString()} USD / person` : 'Custom Quote',
+          occupancy: 'Double Occupancy (2 Guests)',
+          description: 'Spacious shared luxury room for pairs or matched solo travelers.'
+        }
+      ];
+
+  const [roomType, setRoomType] = useState(selectedAccommodation?.type || availableAccommodations[0]?.type || 'Single Luxury Suite');
   const [masqueradeSection, setMasqueradeSection] = useState('');
   const [costumeSizing, setCostumeSizing] = useState('');
   const [roommateNotes, setRoommateNotes] = useState('');
@@ -41,7 +62,11 @@ export default function BookingPaymentModal({ packageItem, selectedAccommodation
   const totalDepositDue = discountApplied ? Math.round(baseDepositDue * 0.95) : baseDepositDue;
 
   // Generate a human-friendly booking reference: MMW-TRN-XXXX
-  const bookingRef = `MMW-${packageItem.country.substring(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const countryPrefix = (packageItem.country || packageItem.location || 'TRIP')
+    .replace(/[^a-zA-Z]/g, '')
+    .substring(0, 3)
+    .toUpperCase() || 'TRP';
+  const bookingRef = `MMW-${countryPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const handleSubmitBooking = async (e) => {
     e.preventDefault();
@@ -87,7 +112,7 @@ export default function BookingPaymentModal({ packageItem, selectedAccommodation
   };
 
   const handleCopyBankDetails = () => {
-    const text = `Republic Bank Limited (Trinidad & Tobago)\nAccount Name: Moy Meets World Travel Ltd\nAccount Number: 180-801-445-001\nAccount Type: TTD Commercial Checking / USD Foreign Account\nBranch: Port of Spain Main Branch\nReference: ${bookingRef}`;
+    const text = `Republic Bank Limited (Trinidad & Tobago)\nAccount Name: Moy Meets World Travel Ltd\nAccount Number: ${activeBankAcc}\nAccount Type: TTD Commercial Checking / USD Foreign Account\nBranch: Port of Spain Main Branch\nReference: ${bookingRef}`;
     navigator.clipboard.writeText(text);
     setCopiedBankInfo(true);
     setTimeout(() => setCopiedBankInfo(false), 3000);
@@ -104,7 +129,7 @@ export default function BookingPaymentModal({ packageItem, selectedAccommodation
       `• Preferred Payment: *${paymentMethod.toUpperCase()}*\n` +
       `• Deposit Due: *$${totalDepositDue} USD*`;
     
-    const url = `https://wa.me/${MOY_AGENT_PROFILE.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+    const url = `https://wa.me/${activeWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
 
@@ -206,7 +231,7 @@ export default function BookingPaymentModal({ packageItem, selectedAccommodation
                 <div className="text-xs text-slate-300 bg-black/40 p-3 rounded-lg font-mono space-y-1">
                   <p>Bank: <strong>Republic Bank Limited</strong></p>
                   <p>Account: <strong>Moy Meets World Travel Ltd</strong></p>
-                  <p>Account No: <strong>180-801-445-001</strong> (TTD / USD)</p>
+                  <p>Account No: <strong>{activeBankAcc}</strong> (TTD / USD)</p>
                   <p>Branch: <strong>Port of Spain Main Branch</strong></p>
                   <p className="text-emerald-400">Reference: <strong>{bookingSuccess.ref}</strong></p>
                 </div>
@@ -344,7 +369,7 @@ export default function BookingPaymentModal({ packageItem, selectedAccommodation
                   onChange={(e) => setRoomType(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-xs focus:border-[#00e5cc] focus:outline-none"
                 >
-                  {packageItem.accommodations?.map((acc, i) => (
+                  {availableAccommodations.map((acc, i) => (
                     <option key={i} value={acc.type}>
                       {acc.type} — {acc.price} ({acc.occupancy})
                     </option>
