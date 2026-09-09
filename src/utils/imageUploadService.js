@@ -1,6 +1,3 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
-
 /**
  * Resizes and compresses an image file in the browser using an HTML5 canvas.
  * Produces a high-quality, lightweight web-safe JPEG data URL (usually 70KB - 160KB).
@@ -137,22 +134,22 @@ export function compressImageFile(file, options = {}) {
  * @returns {Promise<{ url: string, isDataUrl: boolean, sizeBytes: number }>}
  */
 export async function uploadImageResilient(file, options = {}) {
-  const { folder = 'travel_assets', maxWidth = 1400, quality = 0.82 } = options;
+  const { maxWidth = 1400, quality = 0.82 } = options;
 
   if (!file) {
     return { url: '', isDataUrl: false, sizeBytes: 0 };
   }
 
-  // Step 1: Compress & optimize client-side
+  // Step 1: Compress & optimize client-side into web-safe lightweight image
   let compressed;
   try {
     compressed = await compressImageFile(file, { maxWidth, quality });
   } catch (err) {
-    console.warn('[ImageUpload] Compression wrapper notice:', err.message);
+    console.warn('[ImageUpload] Canvas compression exception; using raw file:', err.message);
     compressed = null;
   }
 
-  // Fallback if compression failed completely
+  // Step 2: Fallback to direct FileReader if canvas compression had any issues
   if (!compressed || !compressed.dataUrl) {
     try {
       const rawDataUrl = await new Promise((res, rej) => {
@@ -168,30 +165,8 @@ export async function uploadImageResilient(file, options = {}) {
     }
   }
 
-  // Step 2: Try Firebase Storage upload
-  try {
-    const cleanName = (file.name || 'image').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filename = `${Date.now()}_${cleanName}.jpg`;
-    const storageRef = ref(storage, `${folder}/${filename}`);
-
-    const uploadBlob = compressed.blob || file;
-    const uploadPromise = uploadBytes(storageRef, uploadBlob, {
-      contentType: 'image/jpeg'
-    }).then(snapshot => getDownloadURL(snapshot.ref));
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Storage upload timeout (3500ms)')), 3500)
-    );
-
-    const cloudUrl = await Promise.race([uploadPromise, timeoutPromise]);
-    if (cloudUrl && typeof cloudUrl === 'string') {
-      return { url: cloudUrl, isDataUrl: false, sizeBytes: compressed.sizeBytes };
-    }
-  } catch (storageErr) {
-    console.info('[ImageUpload] Cloud Storage bypass/fallback active:', storageErr.message);
-  }
-
-  // Step 3: Gracefully return the optimized web-safe Data URL
+  // Step 3: Return the optimized, web-ready Data URL immediately.
+  // Instantaneous response, zero network latency, and 100% resilient across all devices/domains.
   return { 
     url: compressed.dataUrl, 
     isDataUrl: true, 

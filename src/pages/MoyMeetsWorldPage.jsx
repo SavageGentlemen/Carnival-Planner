@@ -126,7 +126,7 @@ export default function MoyMeetsWorldPage({ user }) {
     return () => unsub();
   }, []);
 
-  // Sync live packages from Firestore
+  // Sync live packages from Firestore with resilient local storage preservation
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'travelPackages'), (snap) => {
       if (!snap.empty) {
@@ -136,10 +136,30 @@ export default function MoyMeetsWorldPage({ user }) {
           localStorage.setItem('mmw_packages_custom', JSON.stringify(firestorePkgs));
         } catch (e) {}
       } else {
+        // Only fallback if localStorage has no custom packages
+        try {
+          const cached = localStorage.getItem('mmw_packages_custom');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setPackages(parsed.map(sanitizePackageData));
+              return;
+            }
+          }
+        } catch (e) {}
         setPackages(MOY_TRAVEL_PACKAGES.map(sanitizePackageData));
       }
     }, (err) => {
-      console.warn('[MoyTravel] Firestore packages sync:', err.message);
+      console.warn('[MoyTravel] Firestore packages sync notice:', err.message);
+      try {
+        const cached = localStorage.getItem('mmw_packages_custom');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPackages(parsed.map(sanitizePackageData));
+          }
+        }
+      } catch (e) {}
     });
     return () => unsub();
   }, []);

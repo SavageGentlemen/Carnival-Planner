@@ -22,23 +22,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 );
 
-if ('serviceWorker' in navigator) {
-  if (import.meta.env.PROD) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then((registration) => {
-          console.log('SW registered:', registration.scope);
-        })
-        .catch((error) => {
-          console.log('SW registration failed:', error);
-        });
-    });
-  } else {
-    // In development mode: automatically unregister stale SW to prevent cached chunk collisions
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      for (const registration of registrations) {
-        registration.unregister();
-      }
-    });
+// Guarantee latest client bundle by unregistering legacy service workers and purging stale caches
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
+  }).catch(() => {});
+
+  if ('caches' in window) {
+    caches.keys().then((keys) => {
+      keys.forEach((key) => caches.delete(key));
+    }).catch(() => {});
   }
 }
