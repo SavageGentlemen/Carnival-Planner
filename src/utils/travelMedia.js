@@ -64,7 +64,8 @@ export function resolveTravelImageUrl(url, context = {}) {
     if (trimmed.includes('1787674458') || trimmed.includes('WhatsApp_Image_2026-08-25')) {
       return TRAVEL_ASSETS.moyLifestyle;
     }
-    return getTravelImageFallback(context);
+    // Return the actual cloud storage URL for all newly uploaded files
+    return trimmed;
   }
 
   return trimmed;

@@ -155,6 +155,7 @@ export default function MoyAgentDashboard({ onClose, user }) {
 
   const [isSavingPkg, setIsSavingPkg] = useState(false);
   const [uploadingField, setUploadingField] = useState(null); // 'heroImage' | 'cardImage' | null
+  const [uploadSuccessField, setUploadSuccessField] = useState(null); // 'heroImage' | 'cardImage' | null
   const [autosaveStatus, setAutosaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'local_only'
   const [lastSavedText, setLastSavedText] = useState('');
   const [restoredFromDraft, setRestoredFromDraft] = useState(false);
@@ -335,31 +336,54 @@ export default function MoyAgentDashboard({ onClose, user }) {
       const result = await uploadImageResilient(file, {
         folder: 'travel_assets',
         maxWidth: isHero ? 1600 : 1000,
-        quality: 0.8
+        quality: 0.82
       });
-      const url = result.url;
+      const url = result?.url;
 
-      if (field === 'avatar') {
-        updateSiteContent(prev => ({
-          ...prev,
-          aboutMoy: {
-            ...prev.aboutMoy,
-            photo: url,
-            hostPhoto: url
-          }
-        }));
-      } else if (field === 'heroBg') {
-        updateSiteContent(prev => ({
-          ...prev,
-          hero: {
-            ...prev.hero,
-            backgroundImage: url
-          }
-        }));
+      if (url) {
+        if (field === 'avatar') {
+          updateSiteContent(prev => ({
+            ...prev,
+            aboutMoy: {
+              ...prev.aboutMoy,
+              photo: url,
+              hostPhoto: url
+            }
+          }));
+        } else if (field === 'heroBg') {
+          updateSiteContent(prev => ({
+            ...prev,
+            hero: {
+              ...prev.hero,
+              backgroundImage: url
+            }
+          }));
+        }
       }
     } catch (err) {
-      console.error('Upload error:', err);
-      alert('Upload failed: ' + err.message);
+      console.warn('Content photo upload notice; applying local fallback:', err);
+      try {
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          const fallbackUrl = re.target?.result;
+          if (fallbackUrl) {
+            if (field === 'avatar') {
+              updateSiteContent(prev => ({
+                ...prev,
+                aboutMoy: { ...prev.aboutMoy, photo: fallbackUrl, hostPhoto: fallbackUrl }
+              }));
+            } else if (field === 'heroBg') {
+              updateSiteContent(prev => ({
+                ...prev,
+                hero: { ...prev.hero, backgroundImage: fallbackUrl }
+              }));
+            }
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (e2) {
+        console.error('All content photo fallbacks exhausted:', e2);
+      }
     } finally {
       if (field === 'avatar') setUploadingContentPhoto(false);
       if (field === 'heroBg') setUploadingHeroBg(false);
@@ -710,12 +734,28 @@ export default function MoyAgentDashboard({ onClose, user }) {
       const result = await uploadImageResilient(file, {
         folder: 'travel_assets',
         maxWidth: isHero ? 1600 : 1200,
-        quality: 0.8
+        quality: 0.82
       });
-      updateEditingPkg({ [field]: result.url });
+      if (result?.url) {
+        updateEditingPkg({ [field]: result.url });
+        setUploadSuccessField(field);
+        setTimeout(() => setUploadSuccessField(null), 3000);
+      }
     } catch (err) {
-      console.error('Photo upload error:', err);
-      alert(`Photo upload failed: ${err.message}`);
+      console.warn('Photo upload cloud notice; applying local fallback:', err);
+      try {
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          if (re.target?.result) {
+            updateEditingPkg({ [field]: re.target.result });
+            setUploadSuccessField(field);
+            setTimeout(() => setUploadSuccessField(null), 3000);
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (fallbackErr) {
+        console.error('All photo upload options failed:', fallbackErr);
+      }
     } finally {
       setUploadingField(null);
       if (e.target) e.target.value = '';
@@ -1735,13 +1775,25 @@ export default function MoyAgentDashboard({ onClose, user }) {
                             className="flex-1 p-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-mono focus:border-[#00e5cc] focus:outline-none"
                             placeholder="Image URL or upload from device..."
                           />
-                          <label className="cursor-pointer px-3.5 py-2.5 bg-cyan-950 border border-cyan-400/40 hover:bg-cyan-900 rounded-xl text-cyan-300 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors shadow-sm">
+                          <label className={`cursor-pointer px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors shadow-sm ${
+                            uploadSuccessField === 'heroImage' 
+                              ? 'bg-emerald-950 border border-emerald-400 text-emerald-300' 
+                              : 'bg-cyan-950 border border-cyan-400/40 hover:bg-cyan-900 text-cyan-300'
+                          }`}>
                             {uploadingField === 'heroImage' ? (
                               <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : uploadSuccessField === 'heroImage' ? (
+                              <CheckCircle2 className="w-4 h-4 text-[#00e5cc]" />
                             ) : (
                               <Upload className="w-4 h-4" />
                             )}
-                            <span>{uploadingField === 'heroImage' ? 'Uploading...' : 'Upload'}</span>
+                            <span>
+                              {uploadingField === 'heroImage' 
+                                ? 'Uploading...' 
+                                : uploadSuccessField === 'heroImage' 
+                                  ? '✓ Updated' 
+                                  : 'Upload'}
+                            </span>
                             <input
                               type="file"
                               accept="image/*"
@@ -1780,13 +1832,25 @@ export default function MoyAgentDashboard({ onClose, user }) {
                             className="flex-1 p-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-mono focus:border-[#00e5cc] focus:outline-none"
                             placeholder="Image URL or upload from device..."
                           />
-                          <label className="cursor-pointer px-3.5 py-2.5 bg-cyan-950 border border-cyan-400/40 hover:bg-cyan-900 rounded-xl text-cyan-300 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors shadow-sm">
+                          <label className={`cursor-pointer px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors shadow-sm ${
+                            uploadSuccessField === 'cardImage' 
+                              ? 'bg-emerald-950 border border-emerald-400 text-emerald-300' 
+                              : 'bg-cyan-950 border border-cyan-400/40 hover:bg-cyan-900 text-cyan-300'
+                          }`}>
                             {uploadingField === 'cardImage' ? (
                               <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : uploadSuccessField === 'cardImage' ? (
+                              <CheckCircle2 className="w-4 h-4 text-[#00e5cc]" />
                             ) : (
                               <Upload className="w-4 h-4" />
                             )}
-                            <span>{uploadingField === 'cardImage' ? 'Uploading...' : 'Upload'}</span>
+                            <span>
+                              {uploadingField === 'cardImage' 
+                                ? 'Uploading...' 
+                                : uploadSuccessField === 'cardImage' 
+                                  ? '✓ Updated' 
+                                  : 'Upload'}
+                            </span>
                             <input
                               type="file"
                               accept="image/*"

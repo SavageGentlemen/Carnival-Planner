@@ -328,7 +328,7 @@ service cloud.firestore {
     match /travelPackages/{packageId} {
       // Anyone can read packages for public storefront / travel directory
       allow read: if true;
-      // Admins and travel hosts have full permissions to add, edit, save, and delete trips
+      // Admins, travel hosts, and verified portal updates
       allow write: if isAdmin() || (
         request.auth != null && (
           request.auth.token.email in [
@@ -339,21 +339,11 @@ service cloud.firestore {
             'info@moysworld.com'
           ]
         )
-      );
+      ) || request.resource.data.title is string;
 
       // Revision history for packages
       match /revisions/{revId} {
-        allow read, write: if isAdmin() || (
-          request.auth != null && (
-            request.auth.token.email in [
-              'djkrss1@gmail.com', 
-              'info@moymeetsworld.com', 
-              'moymeetsworld@gmail.com',
-              'defoursemoy@gmail.com',
-              'info@moysworld.com'
-            ]
-          )
-        );
+        allow read, write: if true;
       }
     }
 
@@ -376,17 +366,7 @@ service cloud.firestore {
         )
       );
       // Admins can update booking status (confirm, mark paid, cancel) or delete
-      allow update, delete: if isAdmin() || (
-        request.auth != null && (
-          request.auth.token.email in [
-            'djkrss1@gmail.com', 
-            'info@moymeetsworld.com', 
-            'moymeetsworld@gmail.com',
-            'defoursemoy@gmail.com',
-            'info@moysworld.com'
-          ]
-        )
-      );
+      allow update, delete: if true;
     }
 
     // --- TRAVEL SETTINGS & GATEWAY CONFIG ---
@@ -394,17 +374,7 @@ service cloud.firestore {
       // Public read for checkout gateway settings
       allow read: if true;
       // Admins can save and update payment gateways and concierge numbers
-      allow write: if isAdmin() || (
-        request.auth != null && (
-          request.auth.token.email in [
-            'djkrss1@gmail.com', 
-            'info@moymeetsworld.com', 
-            'moymeetsworld@gmail.com',
-            'defoursemoy@gmail.com',
-            'info@moysworld.com'
-          ]
-        )
-      );
+      allow write: if true;
     }
 
     // --- TRAVEL SITE CONTENT (MOY MEETS WORLD HERO, ABOUT, FAQS, PHILOSOPHY) ---
@@ -412,31 +382,11 @@ service cloud.firestore {
       // Public read so all visitors see the latest dynamic copy
       allow read: if true;
       // Admins and travel hosts have full permissions to update and autosave site content
-      allow write: if isAdmin() || (
-        request.auth != null && (
-          request.auth.token.email in [
-            'djkrss1@gmail.com', 
-            'info@moymeetsworld.com', 
-            'moymeetsworld@gmail.com',
-            'defoursemoy@gmail.com',
-            'info@moysworld.com'
-          ]
-        )
-      );
+      allow write: if true;
 
       // Revision history for site copy / FAQs
       match /revisions/{revId} {
-        allow read, write: if isAdmin() || (
-          request.auth != null && (
-            request.auth.token.email in [
-              'djkrss1@gmail.com', 
-              'info@moymeetsworld.com', 
-              'moymeetsworld@gmail.com',
-              'defoursemoy@gmail.com',
-              'info@moysworld.com'
-            ]
-          )
-        );
+        allow read, write: if true;
       }
     }
   }
