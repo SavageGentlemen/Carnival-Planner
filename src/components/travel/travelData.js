@@ -14,8 +14,8 @@ export const MOY_TRAVEL_PACKAGES = [
     duration: '7 Days ',
     location: 'St. Lucia',
     accentColor: '#e11d48',
-    heroImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630888899_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=15aae2de-1db4-4e7e-9ee4-333a6fbfd7fa',
-    cardImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630878374_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=2e37d1fa-ffc5-47a9-b3d6-fb5cf12ea263',
+    heroImage: '/images/travel/stlucia_hero.jpeg',
+    cardImage: '/images/travel/stlucia_card.jpeg',
     status: 'Booking Open',
     spotsTotal: 10,
     spotsRemaining: 6,
@@ -75,8 +75,8 @@ export const MOY_TRAVEL_PACKAGES = [
     duration: '14 Days',
     location: 'Thailand',
     accentColor: '#0ea5e9',
-    heroImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630264162_WhatsApp_Image_2026-08-24_at_11.55.45_PM.jpeg?alt=media&token=a1f33371-84fd-4d9f-8c24-f79912f1b72f',
-    cardImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630604386_4f8c36a3-8a86-43f9-8a7d-406bdbc91979.jpeg?alt=media&token=5fe7ed79-d246-4cb8-9b2c-51ca335991e6',
+    heroImage: '/images/travel/thailand_hero.jpeg',
+    cardImage: '/images/travel/thailand_card.jpeg',
     status: 'Booking Open',
     spotsTotal: 10,
     spotsRemaining: 8,
@@ -132,9 +132,9 @@ export const MOY_AGENT_PROFILE = {
   title: 'Chief Travel Curator',
   location: 'Tobago, Trinidad & Tobago 🇹🇹',
   logoImage: '/images/moymeetsworld_logo.jpg',
-  avatar: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787632241831_ce0a511f-89ef-44c5-a7e2-3179b48b206f.jpeg?alt=media&token=17e43f4c-fb77-4f5a-80eb-ec12734e1a90',
-  lifestylePhoto: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787674458258_WhatsApp_Image_2026-08-25_at_12.11.21_PM.jpeg?alt=media&token=24f51499-64cb-494d-a539-b833ca197d7a',
-  heroArtwork: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787674458258_WhatsApp_Image_2026-08-25_at_12.11.21_PM.jpeg?alt=media&token=24f51499-64cb-494d-a539-b833ca197d7a',
+  avatar: '/images/travel/moy_headshot.jpeg',
+  lifestylePhoto: '/images/travel/moy_lifestyle.jpeg',
+  heroArtwork: '/images/travel/moy_lifestyle.jpeg',
   bio: `My group trips are designed for people who want to experience a destination, not simply visit it.
 
 I carefully curate the itinerary, accommodations, activities and experiences to create trips that feel exciting, social and effortless — while still giving you the freedom to enjoy the destination your own way.
@@ -200,7 +200,7 @@ export const DEFAULT_SITE_CONTENT = {
     destinationsPill: 'CARIBBEAN • SOUTH AMERICA • ASIA • EUROPE',
     ctaButtonText: 'Explore Curated Escapes',
     whatsappButtonText: 'WhatsApp Moy',
-    backgroundImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787674458258_WhatsApp_Image_2026-08-25_at_12.11.21_PM.jpeg?alt=media&token=24f51499-64cb-494d-a539-b833ca197d7a',
+    backgroundImage: '/images/travel/moy_lifestyle.jpeg',
     emblemImage: '/images/moymeetsworld_logo.jpg'
   },
   packagesHeader: {
@@ -226,15 +226,15 @@ export const DEFAULT_SITE_CONTENT = {
     description: 'We curate every moment with intention and elegance.',
     buttonText: 'Browse All Packages',
     buttonLink: '#experiences',
-    backgroundImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787674458258_WhatsApp_Image_2026-08-25_at_12.11.21_PM.jpeg?alt=media&token=24f51499-64cb-494d-a539-b833ca197d7a'
+    backgroundImage: '/images/travel/moy_lifestyle.jpeg'
   },
   aboutMoy: {
     fullName: 'Moy (Moy Meets World)',
     title: 'Chief Travel Curator',
     location: 'Tobago, Trinidad & Tobago 🇹🇹',
     verifiedBadge: 'Certified Travel Specialist',
-    photo: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787632241831_ce0a511f-89ef-44c5-a7e2-3179b48b206f.jpeg?alt=media&token=17e43f4c-fb77-4f5a-80eb-ec12734e1a90',
-    hostPhoto: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787632241831_ce0a511f-89ef-44c5-a7e2-3179b48b206f.jpeg?alt=media&token=17e43f4c-fb77-4f5a-80eb-ec12734e1a90',
+    photo: '/images/travel/moy_headshot.jpeg',
+    hostPhoto: '/images/travel/moy_headshot.jpeg',
     bio: `My group trips are designed for people who want to experience a destination, not simply visit it.
 
 I carefully curate the itinerary, accommodations, activities and experiences to create trips that feel exciting, social and effortless — while still giving you the freedom to enjoy the destination your own way.

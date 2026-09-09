@@ -44,6 +44,7 @@ import {
 } from 'firebase/auth';
 import { auth, db, storage } from '../../firebase';
 import { MOY_AGENT_PROFILE, MOY_TRAVEL_PACKAGES, DEFAULT_SITE_CONTENT } from './travelData';
+import { resolveTravelImageUrl, getTravelImageFallback, sanitizePackageData } from '../../utils/travelMedia';
 
 class DashboardErrorBoundary extends React.Component {
   constructor(props) {
@@ -93,10 +94,10 @@ export default function MoyAgentDashboard({ onClose, user }) {
       const cached = localStorage.getItem('mmw_packages_custom');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(sanitizePackageData);
       }
     } catch (e) {}
-    return MOY_TRAVEL_PACKAGES;
+    return MOY_TRAVEL_PACKAGES.map(sanitizePackageData);
   });
   const [editingPkg, setEditingPkg] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -192,13 +193,13 @@ export default function MoyAgentDashboard({ onClose, user }) {
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'travelPackages'), (snap) => {
       if (!snap.empty) {
-        const firestorePkgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const firestorePkgs = snap.docs.map(d => sanitizePackageData({ id: d.id, ...d.data() }));
         setPackagesList(firestorePkgs);
         try {
           localStorage.setItem('mmw_packages_custom', JSON.stringify(firestorePkgs));
         } catch (e) {}
       } else {
-        setPackagesList(MOY_TRAVEL_PACKAGES);
+        setPackagesList(MOY_TRAVEL_PACKAGES.map(sanitizePackageData));
       }
     }, (err) => {
       console.warn('[MoyTravel] Firestore packages sync notice:', err.message);
@@ -1747,7 +1748,15 @@ export default function MoyAgentDashboard({ onClose, user }) {
                         </div>
                         {editingPkg.heroImage && (
                           <div className="relative h-44 rounded-2xl overflow-hidden border border-white/15 bg-black/50 shadow-inner">
-                            <img src={editingPkg.heroImage} alt="Hero Preview" className="w-full h-full object-cover" />
+                            <img 
+                              src={resolveTravelImageUrl(editingPkg.heroImage, { country: editingPkg.country, title: editingPkg.title, isHero: true })} 
+                              alt="Hero Preview" 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                const fallback = getTravelImageFallback({ country: editingPkg.country, title: editingPkg.title, isHero: true });
+                                if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                              }}
+                            />
                             <span className="absolute bottom-2 right-2 text-[10px] bg-black/80 px-2 py-1 rounded-lg text-slate-300 font-bold border border-white/10">
                               Hero Banner Preview
                             </span>
@@ -1784,7 +1793,15 @@ export default function MoyAgentDashboard({ onClose, user }) {
                         </div>
                         {editingPkg.cardImage && (
                           <div className="relative h-44 rounded-2xl overflow-hidden border border-white/15 bg-black/50 shadow-inner">
-                            <img src={editingPkg.cardImage} alt="Card Preview" className="w-full h-full object-cover" />
+                            <img 
+                              src={resolveTravelImageUrl(editingPkg.cardImage, { country: editingPkg.country, title: editingPkg.title, isHero: false })} 
+                              alt="Card Preview" 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => {
+                                const fallback = getTravelImageFallback({ country: editingPkg.country, title: editingPkg.title, isHero: false });
+                                if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                              }}
+                            />
                             <span className="absolute bottom-2 right-2 text-[10px] bg-black/80 px-2 py-1 rounded-lg text-slate-300 font-bold border border-white/10">
                               Card Thumbnail Preview
                             </span>
@@ -1904,8 +1921,8 @@ export default function MoyAgentDashboard({ onClose, user }) {
                       ],
                       tagline: 'Custom curated carnival journey.',
                       overview: 'Experience this stunning cultural celebration with full concierge guidance and unforgettable vibes.',
-                      cardImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630878374_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=2e37d1fa-ffc5-47a9-b3d6-fb5cf12ea263',
-                      heroImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630888899_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=15aae2de-1db4-4e7e-9ee4-333a6fbfd7fa',
+                      cardImage: '/images/travel/stlucia_card.jpeg',
+                      heroImage: '/images/travel/stlucia_hero.jpeg',
                       included: [
                         'Round Trip Flights from Trinidad',
                         'Accommodations (Breakfast Inclusive)',
@@ -1980,8 +1997,8 @@ export default function MoyAgentDashboard({ onClose, user }) {
                         ],
                         tagline: 'Custom curated carnival journey.',
                         overview: 'Experience this stunning cultural celebration with full concierge guidance and unforgettable vibes.',
-                        cardImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630878374_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=2e37d1fa-ffc5-47a9-b3d6-fb5cf12ea263',
-                        heroImage: 'https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630888899_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=15aae2de-1db4-4e7e-9ee4-333a6fbfd7fa',
+                        cardImage: '/images/travel/stlucia_card.jpeg',
+                        heroImage: '/images/travel/stlucia_hero.jpeg',
                         included: [
                           'Round Trip Flights from Trinidad',
                           'Accommodations (Breakfast Inclusive)',
@@ -2010,7 +2027,15 @@ export default function MoyAgentDashboard({ onClose, user }) {
                       <div>
                         {pkg.cardImage && (
                           <div className="h-44 rounded-2xl overflow-hidden mb-4 border border-white/10 bg-black/40">
-                            <img src={pkg.cardImage} alt={pkg.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <img 
+                              src={resolveTravelImageUrl(pkg.cardImage, { country: pkg.country, title: pkg.title, isHero: false })} 
+                              alt={pkg.title} 
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                              onError={(e) => {
+                                const fallback = getTravelImageFallback({ country: pkg.country, title: pkg.title, isHero: false });
+                                if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                              }}
+                            />
                           </div>
                         )}
                         <div className="flex items-center justify-between mb-3">
@@ -2619,9 +2644,16 @@ export default function MoyAgentDashboard({ onClose, user }) {
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <div className="w-32 h-20 rounded-xl overflow-hidden border border-cyan-400/40 bg-black shrink-0">
                     <img
-                      src={siteContentState.hero?.backgroundImage || siteContentState.aboutMoy?.lifestylePhoto || MOY_AGENT_PROFILE.lifestylePhoto}
+                      src={resolveTravelImageUrl(
+                        siteContentState.hero?.backgroundImage || siteContentState.aboutMoy?.lifestylePhoto || MOY_AGENT_PROFILE.lifestylePhoto,
+                        { type: 'lifestyle', isHero: true }
+                      )}
                       alt="Hero Bg"
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const fallback = getTravelImageFallback({ type: 'lifestyle', isHero: true });
+                        if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                      }}
                     />
                   </div>
                   <div className="flex-1 space-y-2 w-full">

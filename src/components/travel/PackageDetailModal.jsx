@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { resolveTravelImageUrl, getTravelImageFallback } from '../../utils/travelMedia';
 import { 
   X, 
   Calendar, 
@@ -75,9 +76,15 @@ export default function PackageDetailModal({ packageItem, onClose, onOpenBooking
         {/* ── 1. HERO BANNER ── */}
         <div className="relative h-72 sm:h-96 w-full overflow-hidden">
           <img
-            src={heroImage}
+            src={resolveTravelImageUrl(heroImage, { country, location, title, isHero: true })}
             alt={title}
             className="w-full h-full object-cover object-center"
+            onError={(e) => {
+              const fallback = getTravelImageFallback({ country, location, title, isHero: true });
+              if (e.currentTarget.src !== fallback) {
+                e.currentTarget.src = fallback;
+              }
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#080c14] via-[#080c14]/50 to-black/30" />
 

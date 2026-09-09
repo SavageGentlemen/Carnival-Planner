@@ -27,9 +27,10 @@ import { db } from '../firebase';
 import { 
   MOY_TRAVEL_PACKAGES, 
   MOY_AGENT_PROFILE, 
-  MOY_FAQS,
+  MOY_FAQS, 
   DEFAULT_SITE_CONTENT 
 } from '../components/travel/travelData';
+import { resolveTravelImageUrl, getTravelImageFallback, sanitizePackageData } from '../utils/travelMedia';
 import TravelPackageCard from '../components/travel/TravelPackageCard';
 import PackageDetailModal from '../components/travel/PackageDetailModal';
 import BookingPaymentModal from '../components/travel/BookingPaymentModal';
@@ -93,10 +94,10 @@ export default function MoyMeetsWorldPage({ user }) {
       const cached = localStorage.getItem('mmw_packages_custom');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(sanitizePackageData);
       }
     } catch (e) {}
-    return MOY_TRAVEL_PACKAGES;
+    return MOY_TRAVEL_PACKAGES.map(sanitizePackageData);
   });
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [bookingModalState, setBookingModalState] = useState(null); // { packageItem, accommodation }
@@ -127,13 +128,13 @@ export default function MoyMeetsWorldPage({ user }) {
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'travelPackages'), (snap) => {
       if (!snap.empty) {
-        const firestorePkgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const firestorePkgs = snap.docs.map(d => sanitizePackageData({ id: d.id, ...d.data() }));
         setPackages(firestorePkgs);
         try {
           localStorage.setItem('mmw_packages_custom', JSON.stringify(firestorePkgs));
         } catch (e) {}
       } else {
-        setPackages(MOY_TRAVEL_PACKAGES);
+        setPackages(MOY_TRAVEL_PACKAGES.map(sanitizePackageData));
       }
     }, (err) => {
       console.warn('[MoyTravel] Firestore packages sync:', err.message);
@@ -337,9 +338,16 @@ export default function MoyMeetsWorldPage({ user }) {
         {/* Immersive Background Image */}
         <div className="absolute inset-0 z-0">
           <img
-            src={siteContent.hero?.backgroundImage || siteContent.aboutMoy?.lifestylePhoto || MOY_AGENT_PROFILE.lifestylePhoto}
+            src={resolveTravelImageUrl(
+              siteContent.hero?.backgroundImage || siteContent.aboutMoy?.lifestylePhoto || MOY_AGENT_PROFILE.lifestylePhoto,
+              { type: 'lifestyle', isHero: true }
+            )}
             alt="Moy Meets World Luxury Travel"
             className="w-full h-full object-cover object-center scale-105 opacity-40 filter brightness-90"
+            onError={(e) => {
+              const fallback = getTravelImageFallback({ type: 'lifestyle', isHero: true });
+              if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+            }}
           />
           {/* Gradients to match rich dark luxury mood */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#06090e] via-[#06090e]/70 to-black/75" />
@@ -489,9 +497,16 @@ export default function MoyMeetsWorldPage({ user }) {
       <section className="relative py-24 px-6 text-center my-12 overflow-hidden border-y border-white/10">
         <div className="absolute inset-0 z-0">
           <img
-            src={siteContent.experienceBanner?.backgroundImage || "https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787674458258_WhatsApp_Image_2026-08-25_at_12.11.21_PM.jpeg?alt=media&token=24f51499-64cb-494d-a539-b833ca197d7a"}
+            src={resolveTravelImageUrl(
+              siteContent.experienceBanner?.backgroundImage,
+              { type: 'lifestyle', isHero: true }
+            )}
             alt="Carnival Vibe"
             className="w-full h-full object-cover object-center opacity-30"
+            onError={(e) => {
+              const fallback = getTravelImageFallback({ type: 'lifestyle', isHero: true });
+              if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-[#06090e]/80 to-slate-950" />
         </div>
@@ -524,9 +539,16 @@ export default function MoyMeetsWorldPage({ user }) {
             {/* Host Photo */}
             <div className="relative w-44 h-44 sm:w-56 sm:h-56 rounded-3xl overflow-hidden border-2 border-cyan-400/40 p-1 shrink-0 shadow-[0_0_40px_rgba(0,229,204,0.35)] bg-black">
               <img 
-                src={siteContent.aboutMoy?.photo || siteContent.aboutMoy?.hostPhoto || MOY_AGENT_PROFILE.avatar} 
+                src={resolveTravelImageUrl(
+                  siteContent.aboutMoy?.photo || siteContent.aboutMoy?.hostPhoto || MOY_AGENT_PROFILE.avatar,
+                  { type: 'avatar' }
+                )} 
                 alt={siteContent.aboutMoy?.fullName || MOY_AGENT_PROFILE.fullName} 
                 className="w-full h-full object-cover rounded-2xl"
+                onError={(e) => {
+                  const fallback = getTravelImageFallback({ type: 'avatar' });
+                  if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                }}
               />
             </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar, MapPin, Sparkles, Users, ArrowRight, ShieldCheck } from 'lucide-react';
+import { resolveTravelImageUrl, getTravelImageFallback } from '../../utils/travelMedia';
 
 export default function TravelPackageCard({ packageItem, onSelect, onBookDirect }) {
   const {
@@ -18,6 +19,7 @@ export default function TravelPackageCard({ packageItem, onSelect, onBookDirect 
   } = packageItem;
 
   const isSoldOut = spotsRemaining === 0;
+  const resolvedCardImage = resolveTravelImageUrl(cardImage, { country, location, title, isHero: false });
 
   return (
     <div 
@@ -26,10 +28,16 @@ export default function TravelPackageCard({ packageItem, onSelect, onBookDirect 
     >
       {/* Background Image with Zoom on Hover */}
       <img
-        src={cardImage}
+        src={resolvedCardImage}
         alt={title}
         className="absolute inset-0 w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-700 ease-out"
         loading="lazy"
+        onError={(e) => {
+          const fallback = getTravelImageFallback({ country, location, title, isHero: false });
+          if (e.currentTarget.src !== fallback) {
+            e.currentTarget.src = fallback;
+          }
+        }}
       />
 
       {/* Atmospheric Overlays for optimal readability (BahaYogi style) */}

@@ -553,9 +553,12 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
                 <div className="p-5 bg-slate-950/90 rounded-3xl group">
                   <div className="relative h-48 rounded-xl overflow-hidden mb-4 bg-black">
                     <img 
-                      src="https://firebasestorage.googleapis.com/v0/b/carnival-planner.firebasestorage.app/o/travel_assets%2F1787630878374_7f8c93d1-d6d0-4da2-9c29-1458d7d85ee4.jpeg?alt=media&token=2e37d1fa-ffc5-47a9-b3d6-fb5cf12ea263" 
+                      src="/images/travel/stlucia_card.jpeg" 
                       alt="St Lucia Carnival with Moy Meets World" 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        e.currentTarget.src = '/images/travel/stlucia_card.jpeg';
+                      }}
                     />
                     <div className="absolute top-2 left-2 bg-black/80 text-[#00e5cc] font-black text-[9px] uppercase px-2 py-0.5 rounded backdrop-blur-sm border border-cyan-400/30">
                       FLAGSHIP 2027
