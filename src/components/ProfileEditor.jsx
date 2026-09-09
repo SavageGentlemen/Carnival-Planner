@@ -5,8 +5,8 @@ import {
     MessageCircle, Phone
 } from 'lucide-react';
 import { doc, getDoc, setDoc, deleteDoc, Timestamp, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
+import { uploadImageResilient } from '../utils/imageUploadService';
 import {
     connectExternalWallet,
     isWalletAvailable,
@@ -186,16 +186,22 @@ export default function ProfileEditor({
 
             // Upload profile photo if changed
             if (profilePhoto) {
-                const photoRef = ref(storage, `profiles/${user.uid}/avatar_${Date.now()}`);
-                await uploadBytes(photoRef, profilePhoto);
-                profilePhotoUrl = await getDownloadURL(photoRef);
+                const result = await uploadImageResilient(profilePhoto, {
+                    folder: `profiles/${user.uid}`,
+                    maxWidth: 800,
+                    quality: 0.8
+                });
+                profilePhotoUrl = result.url;
             }
 
             // Upload cover photo if changed
             if (coverPhoto) {
-                const coverRef = ref(storage, `profiles/${user.uid}/cover_${Date.now()}`);
-                await uploadBytes(coverRef, coverPhoto);
-                coverPhotoUrl = await getDownloadURL(coverRef);
+                const result = await uploadImageResilient(coverPhoto, {
+                    folder: `profiles/${user.uid}`,
+                    maxWidth: 1400,
+                    quality: 0.8
+                });
+                coverPhotoUrl = result.url;
             }
 
             // Handle username registry (for uniqueness)

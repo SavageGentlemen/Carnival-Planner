@@ -35,6 +35,7 @@ import TravelPackageCard from '../components/travel/TravelPackageCard';
 import PackageDetailModal from '../components/travel/PackageDetailModal';
 import BookingPaymentModal from '../components/travel/BookingPaymentModal';
 import MoyAgentDashboard from '../components/travel/MoyAgentDashboard';
+import { PrivacyPolicy, TermsOfService, RefundPolicy } from '../components/LegalPages';
 
 class PortalErrorBoundary extends React.Component {
   constructor(props) {
@@ -107,6 +108,7 @@ export default function MoyMeetsWorldPage({ user }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [gatewaySettings, setGatewaySettings] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeLegalModal, setActiveLegalModal] = useState(null);
 
   // Sync live site content (Bio, FAQs, Philosophy, Hero) from Firestore
   useEffect(() => {
@@ -785,8 +787,15 @@ export default function MoyMeetsWorldPage({ user }) {
 
         </div>
 
-        <div className="max-w-7xl mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-medium">
+        <div className="max-w-7xl mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-medium gap-3">
           <p>{siteContent.footer?.copyright || `© ${new Date().getFullYear()} Moy Meets World & Carnival Planner. All rights reserved.`}</p>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-400">
+            <button onClick={() => setActiveLegalModal('privacy')} className="hover:text-cyan-300 transition-colors">Privacy Policy</button>
+            <span>•</span>
+            <button onClick={() => setActiveLegalModal('terms')} className="hover:text-cyan-300 transition-colors">Terms of Service</button>
+            <span>•</span>
+            <button onClick={() => setActiveLegalModal('refund')} className="hover:text-cyan-300 transition-colors">Refund Policy</button>
+          </div>
           <p className="mt-2 sm:mt-0">Powered by Caribbean Carnival Planner OS</p>
         </div>
       </footer>
@@ -811,6 +820,24 @@ export default function MoyMeetsWorldPage({ user }) {
           user={user}
           gatewaySettings={gatewaySettings}
         />
+      )}
+
+      {/* ── LEGAL POLICY MODAL ── */}
+      {activeLegalModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-xl p-4 sm:p-6 flex justify-center items-start animate-fadeIn">
+          <div className="relative w-full max-w-4xl bg-slate-900 border border-white/20 rounded-3xl overflow-hidden shadow-2xl my-8 text-left">
+            <button
+              onClick={() => setActiveLegalModal(null)}
+              className="absolute top-4 right-4 z-50 w-9 h-9 rounded-full bg-black/80 hover:bg-[#00e5cc] text-white hover:text-black flex items-center justify-center transition-all border border-white/20 shadow-xl"
+              aria-label="Close legal modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {activeLegalModal === 'privacy' && <PrivacyPolicy onBack={() => setActiveLegalModal(null)} logo="/images/moymeetsworld_logo.jpg" />}
+            {activeLegalModal === 'terms' && <TermsOfService onBack={() => setActiveLegalModal(null)} logo="/images/moymeetsworld_logo.jpg" />}
+            {activeLegalModal === 'refund' && <RefundPolicy onBack={() => setActiveLegalModal(null)} logo="/images/moymeetsworld_logo.jpg" />}
+          </div>
+        </div>
       )}
 
       {showAgentDashboard && (

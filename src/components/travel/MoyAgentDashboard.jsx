@@ -45,6 +45,7 @@ import {
 import { auth, db, storage } from '../../firebase';
 import { MOY_AGENT_PROFILE, MOY_TRAVEL_PACKAGES, DEFAULT_SITE_CONTENT } from './travelData';
 import { resolveTravelImageUrl, getTravelImageFallback, sanitizePackageData } from '../../utils/travelMedia';
+import { uploadImageResilient } from '../../utils/imageUploadService';
 
 class DashboardErrorBoundary extends React.Component {
   constructor(props) {
@@ -330,11 +331,13 @@ export default function MoyAgentDashboard({ onClose, user }) {
     if (field === 'heroBg') setUploadingHeroBg(true);
 
     try {
-      const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const filename = `${Date.now()}_${cleanName}`;
-      const storageRef = ref(storage, `travel_assets/${filename}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
+      const isHero = field === 'heroBg';
+      const result = await uploadImageResilient(file, {
+        folder: 'travel_assets',
+        maxWidth: isHero ? 1600 : 1000,
+        quality: 0.8
+      });
+      const url = result.url;
 
       if (field === 'avatar') {
         updateSiteContent(prev => ({
@@ -358,8 +361,8 @@ export default function MoyAgentDashboard({ onClose, user }) {
       console.error('Upload error:', err);
       alert('Upload failed: ' + err.message);
     } finally {
-      setUploadingContentPhoto(false);
-      setUploadingHeroBg(false);
+      if (field === 'avatar') setUploadingContentPhoto(false);
+      if (field === 'heroBg') setUploadingHeroBg(false);
     }
   };
 
@@ -697,23 +700,25 @@ export default function MoyAgentDashboard({ onClose, user }) {
     }
   };
 
-  // Direct Photo Upload to Firebase Storage
+  // Resilient Photo Upload (Cloud Storage + Web-Safe Optimized Compression)
   const handleUploadPhoto = async (e, field) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingField(field);
     try {
-      const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const filename = `${Date.now()}_${cleanName}`;
-      const storageRef = ref(storage, `travel_assets/${filename}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
-      updateEditingPkg({ [field]: url });
+      const isHero = field === 'heroImage';
+      const result = await uploadImageResilient(file, {
+        folder: 'travel_assets',
+        maxWidth: isHero ? 1600 : 1200,
+        quality: 0.8
+      });
+      updateEditingPkg({ [field]: result.url });
     } catch (err) {
-      console.error('Storage photo upload error:', err);
+      console.error('Photo upload error:', err);
       alert(`Photo upload failed: ${err.message}`);
     } finally {
       setUploadingField(null);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -2236,9 +2241,16 @@ export default function MoyAgentDashboard({ onClose, user }) {
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-cyan-400/40 bg-black shrink-0 shadow-lg">
                     <img
-                      src={siteContentState.aboutMoy?.photo || siteContentState.aboutMoy?.hostPhoto || MOY_AGENT_PROFILE.avatar}
+                      src={resolveTravelImageUrl(
+                        siteContentState.aboutMoy?.photo || siteContentState.aboutMoy?.hostPhoto || MOY_AGENT_PROFILE.avatar,
+                        { type: 'avatar' }
+                      )}
                       alt="Moy Avatar"
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const fallback = getTravelImageFallback({ type: 'avatar' });
+                        if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+                      }}
                     />
                   </div>
                   <div className="flex-1 space-y-2 w-full">
@@ -2254,10 +2266,11 @@ export default function MoyAgentDashboard({ onClose, user }) {
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) handleUploadContentPhoto(file, 'avatar');
+                            if (e.target) e.target.value = '';
                           }}
                         />
                       </label>
-                      <span className="text-[11px] text-slate-400">Direct upload to Firebase Storage</span>
+                      <span className="text-[11px] text-slate-400">Optimized instant web-safe upload</span>
                     </div>
                     <input
                       type="text"
@@ -2668,6 +2681,7 @@ export default function MoyAgentDashboard({ onClose, user }) {
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) handleUploadContentPhoto(file, 'heroBg');
+                          if (e.target) e.target.value = '';
                         }}
                       />
                     </label>

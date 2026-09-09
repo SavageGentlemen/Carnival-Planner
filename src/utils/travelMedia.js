@@ -39,6 +39,11 @@ export function resolveTravelImageUrl(url, context = {}) {
 
   const trimmed = url.trim();
 
+  // If already a web-safe Data URL (client-side compressed upload), return immediately
+  if (trimmed.startsWith('data:image/')) {
+    return trimmed;
+  }
+
   // If pointing to delinquent or failing carnival-planner Firebase Storage, map to authentic local CDN asset
   if (
     trimmed.includes('carnival-planner.firebasestorage.app') ||

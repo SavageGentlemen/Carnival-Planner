@@ -5,6 +5,7 @@ import { signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import app, { auth, db, storage } from '../firebase';
+import { uploadImageResilient } from '../utils/imageUploadService';
 import AffiliateDashboard from './AffiliateDashboard';
 
 export default function AccountSettings({ user, onClose }) {
@@ -97,13 +98,12 @@ export default function AccountSettings({ user, onClose }) {
     setError('');
 
     try {
-      const timestamp = Date.now();
-      const ext = file.name.split('.').pop();
-      const storagePath = `avatars/${user.uid}/${timestamp}.${ext}`;
-      const storageRef = ref(storage, storagePath);
-
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const result = await uploadImageResilient(file, {
+        folder: `avatars/${user.uid}`,
+        maxWidth: 800,
+        quality: 0.8
+      });
+      const downloadUrl = result.url;
 
       setProfile(prev => ({ ...prev, avatarUrl: downloadUrl }));
 
