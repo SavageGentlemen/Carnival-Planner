@@ -1,0 +1,114 @@
+[
+  {
+    "id": "fetelist-all",
+    "name": "Fetelist Global Fete Directory",
+    "url": "https://www.fetelist.com",
+    "type": "events",
+    "carnivalId": "global",
+    "active": true
+  },
+  {
+    "id": "caribtix-events",
+    "name": "Caribtix Caribbean Event Hub",
+    "url": "https://www.caribtix.com/event/listing",
+    "type": "events",
+    "carnivalId": "caribbean",
+    "active": true
+  },
+  {
+    "id": "frontline-ticketing",
+    "name": "Frontline Ticketing",
+    "url": "https://frontlineticketing.com",
+    "type": "events",
+    "carnivalId": "caribbean",
+    "active": true
+  },
+  {
+    "id": "islandetickets",
+    "name": "IslandETickets Trinidad & Caribbean",
+    "url": "https://islandetickets.com",
+    "type": "events",
+    "carnivalId": "trinidad",
+    "active": true
+  },
+  {
+    "id": "ticketgateway-events",
+    "name": "TicketGateway Events",
+    "url": "https://www.ticketgateway.com/events",
+    "type": "events",
+    "carnivalId": "caribbean",
+    "active": true
+  },
+  {
+    "id": "tribe-carnival",
+    "name": "TRIBE Carnival Trinidad",
+    "url": "https://tribecarnival.com",
+    "type": "bands",
+    "carnivalId": "trinidad",
+    "active": true
+  },
+  {
+    "id": "lost-tribe",
+    "name": "The Lost Tribe Trinidad",
+    "url": "https://losttribecarnival.com",
+    "type": "bands",
+    "carnivalId": "trinidad",
+    "active": true
+  },
+  {
+    "id": "yuma-vibe",
+    "name": "YUMA Vibe Trinidad",
+    "url": "https://yumavibe.com",
+    "type": "bands",
+    "carnivalId": "trinidad",
+    "active": true
+  },
+  {
+    "id": "xodus-jamaica",
+    "name": "Xodus Carnival Jamaica",
+    "url": "https://xoduscarnival.com",
+    "type": "bands",
+    "carnivalId": "jamaica",
+    "active": true
+  },
+  {
+    "id": "yardmas-jamaica",
+    "name": "YardMas Carnival Jamaica",
+    "url": "https://yardmascarnival.com",
+    "type": "bands",
+    "carnivalId": "jamaica",
+    "active": true
+  },
+  {
+    "id": "genx-miami",
+    "name": "GenX Carnival Miami",
+    "url": "https://genx.carnival-tribe.com",
+    "type": "bands",
+    "carnivalId": "miami",
+    "active": true
+  },
+  {
+    "id": "krave-barbados",
+    "name": "Krave The Band Barbados Crop Over",
+    "url": "https://kravetheband.com",
+    "type": "bands",
+    "carnivalId": "barbados",
+    "active": true
+  },
+  {
+    "id": "saldenah-toronto",
+    "name": "Saldenah Carnival Toronto Caribana",
+    "url": "https://saldenahcarnival.com",
+    "type": "bands",
+    "carnivalId": "toronto",
+    "active": true
+  },
+  {
+    "id": "ucom-nottinghill",
+    "name": "UCOM United Colours of Mas London",
+    "url": "https://unitedcoloursofmas.com",
+    "type": "bands",
+    "carnivalId": "nottinghill",
+    "active": true
+  }
+]

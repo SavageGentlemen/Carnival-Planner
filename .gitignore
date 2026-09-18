@@ -99,4 +99,6 @@ marketing/output/
 __pycache__/
 *.pyc
 .DS_Store
+.cache/
+scripts/output_tiles/
 

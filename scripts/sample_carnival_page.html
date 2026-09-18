@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tribal Pulse Carnival 2026 - Official Costume & Band Packages</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.85);
+      --accent-pink: #ec4899;
+      --accent-purple: #8b5cf6;
+      --accent-cyan: #06b6d4;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --status-available: #10b981;
+      --status-limited: #f59e0b;
+      --status-soldout: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      background: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 100%);
+      color: var(--text-main);
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .badge-year {
+      display: inline-block;
+      padding: 6px 16px;
+      background: linear-gradient(90deg, var(--accent-pink), var(--accent-purple));
+      color: white;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 38px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(to right, #f43f5e, #a855f7, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+    /* Package Cards Grid */
+    .packages-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 50px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px);
+    }
+    .card.featured {
+      border: 2px solid var(--accent-pink);
+      transform: translateY(-8px);
+    }
+    .card-ribbon {
+      position: absolute;
+      top: -12px;
+      right: 20px;
+      background: var(--accent-pink);
+      color: white;
+      font-size: 11px;
+      font-weight: bold;
+      padding: 4px 10px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+    .status-pill {
+      display: inline-block;
+      align-self: flex-start;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .pill-available {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid #10b981;
+    }
+    .pill-limited {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid #f59e0b;
+    }
+    .pill-soldout {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid #ef4444;
+    }
+    .section-name {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .tier-name {
+      font-size: 13px;
+      color: var(--accent-cyan);
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .price-box {
+      margin-bottom: 20px;
+    }
+    .price {
+      font-size: 34px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    .deposit {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .features-list {
+      list-style: none;
+      margin-bottom: 24px;
+      flex-grow: 1;
+    }
+    .features-list li {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .check { color: var(--status-available); font-weight: bold; }
+    .cross { color: #64748b; font-weight: bold; }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .btn-active {
+      background: linear-gradient(90deg, var(--accent-pink), var(--accent-purple));
+      color: white;
+    }
+    .btn-disabled {
+      background: #334155;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+
+    /* Comparison Table Section */
+    .comparison-section {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 30px;
+      backdrop-filter: blur(12px);
+    }
+    .comparison-section h2 {
+      font-size: 22px;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 14px;
+    }
+    th {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+    td.highlight {
+      font-weight: 600;
+      color: #fff;
+    }
+    .route-banner {
+      margin-top: 30px;
+      padding: 16px 20px;
+      background: linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
+      border-left: 4px solid var(--accent-cyan);
+      border-radius: 8px;
+      font-size: 14px;
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge-year">Trinidad Carnival 2026</span>
+      <h1>Tribal Pulse — "Solaris" Collection</h1>
+      <p class="subtitle">Select your road section package. All packages include premium bar truck access, security, and live DJ trucks.</p>
+    </header>
+
+    <!-- Packages Grid -->
+    <div class="packages-grid">
+      <!-- Backline -->
+      <div class="card">
+        <span class="status-pill pill-available">AVAILABLE</span>
+        <div class="section-name">Solar Flare</div>
+        <div class="tier-name">Backline Section</div>
+        <div class="price-box">
+          <div class="price">$650 USD</div>
+          <div class="deposit">Deposit: $200 USD | Remaining due Jan 15</div>
+        </div>
+        <ul class="features-list">
+          <li><span class="check">✓</span> Tiara Headpiece</li>
+          <li><span class="check">✓</span> Decorated Monokini or Two-Piece</li>
+          <li><span class="check">✓</span> Standard Wristband & Goodie Bag</li>
+          <li><span class="check">✓</span> All-Inclusive Premium Drinks Truck</li>
+          <li><span class="cross">✕</span> Backpack Feathers</li>
+          <li><span class="cross">✕</span> VIP Air-Conditioned Rest Truck</li>
+        </ul>
+        <button class="btn btn-active">Register Now</button>
+      </div>
+
+      <!-- Midline -->
+      <div class="card featured">
+        <div class="card-ribbon">Most Popular</div>
+        <span class="status-pill pill-limited">FEW LEFT (4 REMAINING)</span>
+        <div class="section-name">Eclipse Aurora</div>
+        <div class="tier-name">Midline Section</div>
+        <div class="price-box">
+          <div class="price">$980 USD</div>
+          <div class="deposit">Deposit: $300 USD | Remaining due Jan 15</div>
+        </div>
+        <ul class="features-list">
+          <li><span class="check">✓</span> Medium Collared Feather Backpack</li>
+          <li><span class="check">✓</span> Decorated Bra & High-Waist Bottom</li>
+          <li><span class="check">✓</span> Express Mobile Bar Priority Access</li>
+          <li><span class="check">✓</span> Hot Gourmet Lunch & Breakfast</li>
+          <li><span class="check">✓</span> Custom Masquerader Tumbler</li>
+          <li><span class="cross">✕</span> VIP Air-Conditioned Rest Truck</li>
+        </ul>
+        <button class="btn btn-active">Register Now</button>
+      </div>
+
+      <!-- Frontline VIP -->
+      <div class="card">
+        <span class="status-pill pill-soldout">SOLD OUT</span>
+        <div class="section-name">Supernova Monarch</div>
+        <div class="tier-name">Frontline VIP Section</div>
+        <div class="price-box">
+          <div class="price">$1,450 USD</div>
+          <div class="deposit">Waitlist Deposit: $500 USD</div>
+        </div>
+        <ul class="features-list">
+          <li><span class="check">✓</span> Floor-Length Monarch Feather Backpack</li>
+          <li><span class="check">✓</span> Full Crystal Wire Bra & Corset</li>
+          <li><span class="check">✓</span> VIP Lounge Truck & A/C Rest Pod Access</li>
+          <li><span class="check">✓</span> Champagne & Top-Shelf Spirits Service</li>
+          <li><span class="check">✓</span> Professional Road Photography Pack</li>
+          <li><span class="check">✓</span> Private Makeup Touch-up Artist</li>
+        </ul>
+        <button class="btn btn-disabled">Join Waitlist</button>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="comparison-section">
+      <h2>Section Comparison & Route Details</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Feature / Inclusions</th>
+            <th>Solar Flare (Backline)</th>
+            <th>Eclipse Aurora (Midline)</th>
+            <th>Supernova Monarch (Frontline)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="highlight">Total Price</td>
+            <td>$650 USD</td>
+            <td>$980 USD</td>
+            <td>$1,450 USD</td>
+          </tr>
+          <tr>
+            <td class="highlight">Current Status</td>
+            <td style="color: #34d399; font-weight: bold;">Open (35 spots)</td>
+            <td style="color: #fbbf24; font-weight: bold;">Last 4 spots</td>
+            <td style="color: #f87171; font-weight: bold;">Waitlist Only</td>
+          </tr>
+          <tr>
+            <td class="highlight">Feather Wing Span</td>
+            <td>None</td>
+            <td>Medium (3.5 ft)</td>
+            <td>Large Monarch (6.5 ft)</td>
+          </tr>
+          <tr>
+            <td class="highlight">Road Days Covered</td>
+            <td>Carnival Monday & Tuesday</td>
+            <td>Carnival Monday & Tuesday</td>
+            <td>Carnival Monday & Tuesday</td>
+          </tr>
+          <tr>
+            <td class="highlight">Restroom Access</td>
+            <td>Executive Mobile Washrooms</td>
+            <td>Executive Mobile Washrooms</td>
+            <td>Private VIP Rest Pod</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="route-banner">
+        📍 <strong>Parade Route:</strong> Starting at Hasely Crawford Stadium at 7:00 AM, crossing Queen's Park Savannah stage at 1:30 PM, ending at Socadrome.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
