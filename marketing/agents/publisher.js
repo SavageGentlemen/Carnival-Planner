@@ -67,8 +67,10 @@ export async function runPublisher(autoStage = false, isDryRun = false) {
         
         if (decision === 'A') {
             if (!isDryRun) {
-                const stageFile = path.join(STAGING_DIR, `${Date.now()}_${draft.originalPost.id}.json`);
+                const stageFile = path.join(STAGING_DIR, `${Date.now()}_${draft.originalPost?.id || i}.json`);
                 await fs.writeFile(stageFile, JSON.stringify(draft, null, 2));
+                // Optional mobile notification to Telegram bot
+                await dispatchTelegramApproval(draft);
             }
             console.log(`[Publisher] Draft Approved & Staged.`);
             activityLog.push({ action: 'APPROVED', draft, timestamp: new Date().toISOString() });
@@ -77,6 +79,39 @@ export async function runPublisher(autoStage = false, isDryRun = false) {
             activityLog.push({ action: 'SKIPPED', draft, timestamp: new Date().toISOString() });
         }
     }
+
+async function dispatchTelegramApproval(draft) {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) return false;
+    
+    try {
+        const text = `📢 *[Marketing Swarm] New Draft Staged*\n\n*Platform:* ${draft.platform || 'Reddit/Web'}\n*Confidence:* ${draft.confidence || 'N/A'}\n*Target:* ${draft.targetUrl || '#'}\n\n*Draft Reply:*\n${(draft.draftReply || '').slice(0, 350)}...`;
+        const reply_markup = {
+            inline_keyboard: [
+                ...(draft.targetUrl ? [[{ text: "🔗 View Target Post", url: draft.targetUrl }]] : []),
+                [
+                    { text: "🌐 Open Carnival Planner", url: "https://carnival-planner.web.app" }
+                ]
+            ]
+        };
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                parse_mode: 'Markdown',
+                reply_markup
+            })
+        });
+        console.log(`[Publisher] Telegram notification sent for draft.`);
+        return true;
+    } catch (e) {
+        console.warn(`[Publisher] Telegram alert failed: ${e.message}`);
+        return false;
+    }
+}
     
     if (rl) rl.close();
     

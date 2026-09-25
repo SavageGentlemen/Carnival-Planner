@@ -109,16 +109,26 @@ async function dispatchTelegramAlert(alertTitle, alertBody, mapUrl) {
   try {
     const text = `🚨 *${alertTitle}*\n\n${alertBody}${mapUrl ? `\n\n📍 *Live Location:* ${mapUrl}` : ''}`;
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const replyMarkup = {
+      inline_keyboard: [
+        ...(mapUrl ? [[{ text: "📍 Open Live Radar Map", url: mapUrl }]] : []),
+        [
+          { text: "🛡️ Open Road Mode", url: "https://carnival-planner.web.app" },
+          { text: "🚑 Emergency Services", url: "tel:999" }
+        ]
+      ]
+    };
     await globalThis.fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
         text,
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
+        reply_markup: replyMarkup
       })
     });
-    console.log('[Telegram Alert] Emergency broadcast dispatched successfully.');
+    console.log('[Telegram Alert] Emergency broadcast dispatched successfully with interactive buttons.');
     return true;
   } catch (err) {
     console.error('[Telegram Alert] Failed to dispatch Telegram alert:', err.message);
@@ -132,13 +142,28 @@ async function dispatchDiscordAlert(alertTitle, alertBody, mapUrl) {
     return false;
   }
   try {
-    const content = `🚨 **${alertTitle}**\n${alertBody}${mapUrl ? `\n📍 **Live Location:** ${mapUrl}` : ''}`;
+    const payload = {
+      content: `🚨 **EMERGENCY SQUAD ROAD ALERT**`,
+      embeds: [
+        {
+          title: `🚨 ${alertTitle}`,
+          description: alertBody,
+          color: 0xef4444, // Red emergency color
+          fields: [
+            ...(mapUrl ? [{ name: "📍 Live GPS Radar", value: `[Click to view live coordinates & map](${mapUrl})`, inline: false }] : []),
+            { name: "🛡️ Squad Response", value: `Verify squad safety in the Carnival Planner Road Mode.`, inline: true }
+          ],
+          footer: { text: "CaribPulse Emergency Dispatch System • Squad SOS" },
+          timestamp: new Date().toISOString()
+        }
+      ]
+    };
     await globalThis.fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
+      body: JSON.stringify(payload)
     });
-    console.log('[Discord Alert] Emergency broadcast dispatched successfully.');
+    console.log('[Discord Alert] Emergency broadcast dispatched successfully with rich embed.');
     return true;
   } catch (err) {
     console.error('[Discord Alert] Failed to dispatch Discord alert:', err.message);
@@ -3869,7 +3894,7 @@ exports.getVibeScores = onCall(
 const { ethers } = require('ethers');
 
 // Crossmint Configuration
-const CROSSMINT_API_KEY = process.env.CROSSMINT_API_KEY || 'ck_production_34QAfBpa1vBME3LMBUZAJbHuKt6ZsZm427jwhwPR7RoyRWEtdB5mXEqXWxKYZFTRpWci4Y2sV9Gy6dUzWkbwJdy9zAr856xB72KPwpzSG8iFpNx2AeKJJVTLZkPg8hhQGqVmBFron2zVTjd4HykYtBkRbPJSnx6psEbotcH6itKq3QJ2wtRjwfvXBqBYFJ64sTwTPj3979M3pE9Lck1RtdE';
+const CROSSMINT_API_KEY = process.env.CROSSMINT_API_KEY || '';
 const CROSSMINT_COLLECTION_ID = process.env.CROSSMINT_COLLECTION_ID || '1d0a1221-6a27-4c65-a204-788acafd188c';
 
 /**
@@ -5226,6 +5251,11 @@ const WHATSAPP_COUNTRY_CONFIGS = {
 
 // ----- Webhook: whatsappWebhook (v2) -----
 exports.whatsappWebhook = onRequest(
+  {
+    region: "us-central1",
+    cors: true,
+    secrets: ["GEMINI_API_KEY"]
+  },
   async (req, res) => {
     console.log("Incoming WhatsApp event:", JSON.stringify(req.body));
 
@@ -5262,7 +5292,38 @@ exports.whatsappWebhook = onRequest(
       replyText = `🚗 *${config.name} Transport Guide*:\n\n${config.transport}`;
     } else if (lowerText.includes("costume") || lowerText.includes("pickup") || lowerText.includes("collection") || lowerText.includes("mas camp")) {
       replyText = `🎭 *${config.name} Costume Pickup Info*:\n\n${config.costumes}`;
-    } else {
+    }
+
+    // Dynamic Gemini AI fallback for complex or open-ended inquiries
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey && (!replyText || replyText.trim() === "")) {
+      try {
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const aiPrompt = `You are the WhatsApp AI Carnival Concierge for Caribbean Carnival Planner (carnival-planner.web.app).
+A user messaged via WhatsApp: "${messageText}".
+Active island context: ${config.name} Carnival.
+Known details:
+- Fetes: ${config.fetes}
+- Food: ${config.food}
+- Transport: ${config.transport}
+- Costumes: ${config.costumes}
+
+Provide a helpful, upbeat, concise response formatted cleanly for WhatsApp with relevant emojis and *bold* text. Keep it under 150 words.`;
+
+        const aiResult = await model.generateContent(aiPrompt);
+        const dynamicReply = aiResult?.response?.text();
+        if (dynamicReply && dynamicReply.trim()) {
+          replyText = dynamicReply.trim();
+        }
+      } catch (geminiErr) {
+        console.warn("[WhatsApp Webhook] Gemini dynamic reply error, fallback to menu:", geminiErr.message);
+      }
+    }
+
+    // Fallback menu if Gemini unavailable or empty
+    if (!replyText) {
       replyText = `👋 Hello! I am your AI Carnival Concierge.\n\nAsk me about:\n- *Fetes* (e.g., "tell me about Jamaica fetes")\n- *Food* (e.g., "where to get doubles in Trinidad")\n- *Transport* (e.g., "tips for getting around Barbados")\n- *Costumes* (e.g., "where to pick up Fog Angels costumes in Tobago")`;
     }
 
@@ -5680,6 +5741,90 @@ exports.scheduledMarketplacePriceTaper = onSchedule(
       console.log(`[Price Taper Bot] Finished: Tapered prices for ${discountedCount} listings.`);
     } catch (err) {
       console.error("[Price Taper Bot] Error during price tapering execution:", err);
+    }
+  }
+);
+
+// ==========================================
+// 24/7 ASSET & FLYER AUDIT BOT (ASSET SENTINEL)
+// ==========================================
+// Automatically audits fete flyer links and CDN URLs in Firestore weekly,
+// healing broken/404 links with high-res verified fallback carnival banners.
+const FALLBACK_HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80"
+];
+
+async function checkUrlAccessibility(url, timeoutMs = 4000) {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
+  try {
+    const res = await globalThis.fetch(url, {
+      method: 'HEAD',
+      headers: { 'User-Agent': 'CarnivalPlanner-AssetSentinel/1.0' },
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    return res.status >= 200 && res.status < 400;
+  } catch {
+    return false;
+  }
+}
+
+exports.scheduledAssetSentinel = onSchedule(
+  {
+    schedule: "0 5 * * 1", // Every Monday at 5:00 AM AST
+    timeZone: "America/Port_of_Spain",
+    retryCount: 1,
+  },
+  async (event) => {
+    console.log("[Asset Sentinel Bot] Starting automated weekly event flyer health check...");
+    let totalEventsChecked = 0;
+    let brokenUrlsRepaired = 0;
+
+    try {
+      const snap = await squadDb.collection("carnivalEvents").get();
+      if (snap.empty) {
+        console.log("[Asset Sentinel Bot] No carnival event collections found.");
+        return;
+      }
+
+      for (const doc of snap.docs) {
+        const data = doc.data();
+        const events = data.events || [];
+        let docModified = false;
+
+        for (let i = 0; i < events.length; i++) {
+          const evt = events[i];
+          const flyerUrl = evt.imageUrl || evt.flyerUrl || evt.image;
+          if (flyerUrl) {
+            totalEventsChecked++;
+            // Check only external HTTP links (skip base64 or relative assets)
+            if (flyerUrl.startsWith('http')) {
+              const isAlive = await checkUrlAccessibility(flyerUrl);
+              if (!isAlive) {
+                const fallbackImg = FALLBACK_HERO_IMAGES[Math.floor(Math.random() * FALLBACK_HERO_IMAGES.length)];
+                console.log(`[Asset Sentinel Bot] Healed dead flyer in ${doc.id}: ${evt.title || evt.id}`);
+                if (evt.imageUrl) evt.imageUrl = fallbackImg;
+                if (evt.flyerUrl) evt.flyerUrl = fallbackImg;
+                if (evt.image) evt.image = fallbackImg;
+                brokenUrlsRepaired++;
+                docModified = true;
+              }
+            }
+          }
+        }
+
+        if (docModified) {
+          await doc.ref.update({
+            events,
+            lastAssetAudit: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      console.log(`[Asset Sentinel Bot] Audit complete: Checked ${totalEventsChecked} events, healed ${brokenUrlsRepaired} broken links.`);
+    } catch (err) {
+      console.error("[Asset Sentinel Bot] Error executing asset sentinel audit:", err);
     }
   }
 );

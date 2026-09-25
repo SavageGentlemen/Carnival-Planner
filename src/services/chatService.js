@@ -12,6 +12,8 @@ import {
 import { publishNostrMessage } from './nostrService';
 import { supabase } from '../supabaseClient';
 import { db } from '../firebase';
+import app from '../firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Mock messages for Demo Mode
 let DEMO_MESSAGES = [
@@ -143,7 +145,26 @@ export const sendMessage = async (squadId, user, text, imageFile, isDemoMode, ca
         }
 
         setTimeout(async () => {
-            const aiReply = generateMockAIReply(text || (imageFile ? "Nice photo! 📸" : "..."));
+            let aiReply = null;
+            const queryText = text || (imageFile ? "I shared a photo from the carnival road" : "Tell me about upcoming fetes and tips");
+            
+            // Attempt live Gemini AI reply via feteConcierge Cloud Function
+            try {
+                const functions = getFunctions(app);
+                const feteConcierge = httpsCallable(functions, 'feteConcierge');
+                const result = await feteConcierge({ query: queryText });
+                if (result.data?.reply && typeof result.data.reply === 'string') {
+                    aiReply = result.data.reply;
+                }
+            } catch (aiErr) {
+                console.warn("Live AI concierge unavailable, falling back to local heuristic:", aiErr?.message || aiErr);
+            }
+
+            // Fallback to local heuristic if offline or API error
+            if (!aiReply) {
+                aiReply = generateMockAIReply(text || (imageFile ? "Nice photo! 📸" : "..."));
+            }
+
             const botMsg = {
                 text: aiReply,
                 senderId: 'bot',
@@ -160,7 +181,7 @@ export const sendMessage = async (squadId, user, text, imageFile, isDemoMode, ca
             } catch (err) {
                 console.error("Failed to send AI reply:", err);
             }
-        }, 2000); // 2 second delay for realism
+        }, 1500);
     }
 };
 

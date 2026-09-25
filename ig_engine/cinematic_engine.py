@@ -93,6 +93,13 @@ def record_published_post(campaign_data, platform_results=None):
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
             json.dump(history, f, indent=2, ensure_ascii=False)
         print(f"💾 Recorded post '{entry['title']}' to {HISTORY_FILE} (Total posted: {len(history)})")
+        
+        # Optional cloud synchronization
+        try:
+            from cloud_history_sync import sync_with_cloud
+            sync_with_cloud(entry)
+        except Exception:
+            pass
     except Exception as e:
         print(f"⚠️ Could not save history: {e}")
 
