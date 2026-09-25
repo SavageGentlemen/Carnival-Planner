@@ -22,17 +22,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>,
 );
 
-// Guarantee latest client bundle by unregistering legacy service workers and purging stale caches
+// ── Smart PWA Update Strategy ──
+// Preserves offline caching for Road Mode while ensuring users get fresh code after deploys.
+// When a new service worker is detected, it activates automatically (skipWaiting is set in vite.config.js).
+// We listen for the 'controllerchange' event to reload once the new SW takes control.
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
     }
-  }).catch(() => {});
-
-  if ('caches' in window) {
-    caches.keys().then((keys) => {
-      keys.forEach((key) => caches.delete(key));
-    }).catch(() => {});
-  }
+  });
 }

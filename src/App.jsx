@@ -99,62 +99,15 @@ import { useVibeEngine } from './hooks/useVibeEngine';
 import { useSquadSubscription } from './hooks/useSquadSubscription';
 import { useSquadMeshNetwork } from './hooks/useSquadMeshNetwork';
 import * as nip19 from 'nostr-tools/nip19';
-
-// --- CONFIGURATION ---
-const appId = 'carnival-planner-v1';
-
-// ✅ STRIPE PRICE IDs (Updated from your request)
-const STRIPE_MONTHLY_PRICE_ID = 'price_1SanHUJR9xpdRiXijLesRPVt';
-const STRIPE_YEARLY_PRICE_ID = 'price_1SanMhJR9xpdRiXinv2F9knM';
-
-// Curated Fete Database (Free for all users)
-const POPULAR_EVENTS = {
-  trinidad: [
-    { title: "Soca Brainwash", note: "The main event. Bring drinks." },
-    { title: "AM Bush", note: "J'ouvert style. Wear old clothes." },
-    { title: "Phuket", note: "All inclusive." },
-    { title: "Soaka Street Festival", note: "Iron park." },
-  ],
-  stlucia: [
-    { title: "Remedy", note: "Beachside." },
-    { title: "Mess", note: "Paint and Powder." },
-    { title: "Indulgence", note: "Breakfast fete." },
-  ],
-  default: [
-    { title: "Catamaran Cruise", note: "Boat ride." },
-    { title: "J'ouvert", note: "Paint and powder." },
-    { title: "Monday Mas", note: "On the road." },
-  ]
-};
-
-// Hub Navigation Maps
-const TAB_TO_HUB = {
-  Budget: 'plan',
-  Costume: 'plan',
-  Bands: 'plan',
-  Schedule: 'plan',
-  Packing: 'plan',
-  Guides: 'plan',
-  Squad: 'squad',
-  Vault: 'squad',
-  Map: 'squad',
-  Passport: 'passport',
-  Bounties: 'passport',
-  Leaderboard: 'passport',
-  Marketplace: 'store',
-  Profile: 'profile',
-  Media: 'profile',
-  Promoter: 'profile',
-  Info: 'profile',
-};
-
-const HUB_DEFAULT_TAB = {
-  plan: 'Budget',
-  squad: 'Squad',
-  passport: 'Passport',
-  store: 'Marketplace',
-  profile: 'Profile',
-};
+import {
+  appId,
+  STRIPE_MONTHLY_PRICE_ID,
+  STRIPE_YEARLY_PRICE_ID,
+  POPULAR_EVENTS,
+  TAB_TO_HUB,
+  HUB_DEFAULT_TAB
+} from './appConstants';
+import { useCarnivalData } from './hooks/useCarnivalData';
 
 export default function App() {
   // --- STATE ---
@@ -168,11 +121,8 @@ export default function App() {
   const location = useLocation();
   const isAndroidBetaPage = window.location.pathname === '/android' || window.location.search.includes('android=true');
 
-  // Data
-  const [carnivals, setCarnivals] = useState({});
-  const [activeCarnivalId, setActiveCarnivalId] = useState(() => {
-    return localStorage.getItem('actCvnId') || null;
-  });
+  // Data & Carnival State
+  const { carnivals, setCarnivals, activeCarnivalId, setActiveCarnivalId } = useCarnivalData({ user, isDemoMode, db });
   const [activeTab, setActiveTab] = useState('Budget');
   const activeHub = TAB_TO_HUB[activeTab] || 'plan';
 
@@ -758,45 +708,6 @@ export default function App() {
     checkAdmin();
   }, [user, isDemoMode]);
 
-  // 4. Load Carnivals
-  useEffect(() => {
-    if (!user) {
-      if (!isDemoMode) {
-        setCarnivals({});
-      }
-      return;
-    }
-
-    if (isDemoMode) return; // Loaded in handleTryDemo
-
-    const carnivalsRef = collection(db, 'users', user.uid, 'apps', appId, 'carnivals');
-    const unsubscribe = onSnapshot(carnivalsRef, (snapshot) => {
-      const map = {};
-      snapshot.forEach((docSnap) => {
-        map[docSnap.id] = docSnap.data();
-      });
-      setCarnivals(map);
-    });
-    return () => unsubscribe();
-  }, [user, isDemoMode]);
-
-  // 4a. Auto-Heal: Ensure activeCarnivalId is always valid if user has carnivals
-  useEffect(() => {
-    if (!user || isDemoMode) return;
-    const carnivalIds = Object.keys(carnivals);
-    if (carnivalIds.length > 0) {
-      if (
-        activeCarnivalId === null ||
-        activeCarnivalId === 'null' ||
-        !carnivals[activeCarnivalId]
-      ) {
-        const firstValidId = carnivalIds[0];
-        console.log('[Auto-Heal] Selecting valid carnival ID:', firstValidId);
-        setActiveCarnivalId(firstValidId);
-        localStorage.setItem('actCvnId', firstValidId);
-      }
-    }
-  }, [carnivals, activeCarnivalId, user, isDemoMode]);
 
   const fetchBandProfile = async () => {
     if (!user || isDemoMode) {
