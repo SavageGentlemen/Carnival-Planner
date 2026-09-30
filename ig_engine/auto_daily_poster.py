@@ -40,18 +40,21 @@ def run_daily_post(live=True, target_key=None):
     print("=" * 60)
 
     target_override = None
+    campaign_override = None
     if target_key:
-        from trigger_autopost_video import CARNIVAL_CALENDAR
-        target_override = next((c for c in CARNIVAL_CALENDAR if c["key"] == target_key or target_key.lower() in c["name"].lower()), None)
+        if target_key.startswith("ad_") or target_key.startswith("campaign:"):
+            campaign_override = target_key.replace("campaign:", "")
+        else:
+            from trigger_autopost_video import CARNIVAL_CALENDAR
+            target_override = next((c for c in CARNIVAL_CALENDAR if c["key"] == target_key or target_key.lower() in c["name"].lower()), None)
 
-    # Check for pending 1-a-day Nanobana Ad Campaigns
-    from nanobana_ad_engine import get_next_campaign, publish_ad
-    queued_ad_id = get_next_campaign()
-
-    if queued_ad_id and not target_key:
-        print(f"\n📢 [Priority Queue] Executing scheduled Nanobana Ad Campaign: '{queued_ad_id}'...")
-        results, _ = publish_ad(queued_ad_id, dry_run=not live)
+    # If explicitly requesting an ad campaign by ID, run nanobana ad engine
+    if campaign_override:
+        from nanobana_ad_engine import publish_ad
+        print(f"\n📢 Executing requested Ad Campaign: '{campaign_override}'...")
+        results, _ = publish_ad(campaign_override, dry_run=not live)
     else:
+        # Default: Daily Dynamic Carnival Video & Deduplicated Shorts Reel
         results = run_trigger_autopost(live=live, target_override=target_override)
 
     if live and isinstance(results, dict):
