@@ -117,56 +117,21 @@ def run_trigger_autopost(live=True, target_override=None):
     print(f"   - Title: {viral_pkg['title']}")
     print(f"   - Pillar: {viral_pkg.get('pillar', 'standard')}")
 
-    # 3. Check MoneyPrinterTurbo AI Engine Status
-    print("\n[Step 3/5] 📡 Checking MoneyPrinterTurbo AI Engine Status...")
-    health = moneyprinter_client.check_health()
-    print(f"   - Status: {'🟢 ONLINE' if health['online'] else '🟡 STANDBY (Local Canvas Active)'}")
-    print(f"   - Endpoint: {health['api_url']}")
-
-    # 4. Generate Video Reel
-    print("\n[Step 4/5] 🎥 Compiling 9:16 Vertical Video Reel...")
+    # 3. Compile Unified High-Cinematic Video Reel (FLUX.1 + Nanobana 3D + Canvas)
+    print("\n[Step 3/4] 🎥 Compiling 9:16 Vertical Reel (FLUX.1 8K + Nanobana 3D Parallax + Canvas)...")
     local_video_path = None
-    engine_used = "fallback"
+    engine_used = "Unified FLUX.1 + Nanobana 3D + Cinematic Canvas"
 
-    if health["online"]:
-        try:
-            print(f"   - Using MoneyPrinterTurbo AI Sidecar (Voice: {DEFAULT_VOICE})...")
-            terms = [
-                f"{target['island']} caribbean carnival",
-                "caribbean masquerader costume",
-                "soca music festival crowd",
-                "tropical island carnival parade",
-                "steelpan soca dancers"
-            ]
-            script = viral_pkg.get("script") or (
-                f"Get ready for {target['name']}! "
-                "Never lose your squad on the road, track live sound trucks, and lock in your fete tickets on carnival-planner.com. "
-                "Download free and plan your entire trip today!"
-            )
-            
-            task_id = moneyprinter_client.submit_task(
-                video_subject=viral_pkg["title"],
-                video_script=script,
-                video_terms=terms,
-                video_aspect="9:16",
-                voice_name=DEFAULT_VOICE,
-                subtitles_enabled=True
-            )
-            task_result = moneyprinter_client.poll_task(task_id, max_wait_seconds=360)
-            
-            if task_result.get("status") == "completed" and task_result.get("video_url"):
-                local_video_path = moneyprinter_client.save_video_locally(
-                    task_result["video_url"],
-                    filename_prefix=f"reel_{target['key']}"
-                )
-                engine_used = f"MoneyPrinterTurbo AI Engine ({DEFAULT_VOICE})"
-        except Exception as e:
-            print(f"   ⚠️ Sidecar render error: {e}. Switching to cinematic canvas generator.")
-
-    if not local_video_path:
-        print("   - Using High-Performance Cinematic Canvas Studio...")
+    try:
+        from unified_creative_engine import build_unified_cinematic_reel
+        local_video_path, storyboard = build_unified_cinematic_reel(carnival_name, target["key"])
+        if storyboard.get("title"):
+            viral_pkg["title"] = storyboard["title"]
+        if storyboard.get("hook_line"):
+            viral_pkg["hook_line"] = storyboard["hook_line"]
+    except Exception as e:
+        print(f"   ⚠️ Unified engine notice ({e}). Switching to local studio canvas...")
         ad_data = generate_ai_creative_ad(carnival_name)
-        # Use our unique generated title & hook if available
         if viral_pkg.get("title"):
             ad_data["title"] = viral_pkg["title"].replace(" #Shorts", "").upper()
         if viral_pkg.get("hook_line"):
@@ -182,7 +147,7 @@ def run_trigger_autopost(live=True, target_override=None):
     print(f"   - Engine Used: {engine_used}")
     print(f"   - Local Video File: {local_video_path}")
 
-    # 5. Upload to Public CDN & Broadcast
+    # 4. Upload to Public CDN & Broadcast
     print("\n[Step 5/5] 🌐 Uploading Video Asset & Broadcasting Across Channels...")
     public_cdn_url = upload_local_to_public_cdn(local_video_path)
     print(f"   - ✅ Public CDN URL: {public_cdn_url}")
