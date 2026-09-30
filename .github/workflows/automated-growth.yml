@@ -5,6 +5,9 @@ on:
     - cron: '0 5 * * *' # Executes daily at 05:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   growth-pipeline:
     runs-on: ubuntu-latest

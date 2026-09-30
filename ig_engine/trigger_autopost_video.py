@@ -2,6 +2,7 @@
 Carnival Planner - Autonomous Video Reel Generation & Social Auto-Post Runner
 End-to-end execution runner that checks MoneyPrinterTurbo health, selects a target carnival,
 compiles a 9:16 vertical reel, uploads to public CDN, and broadcasts across social channels.
+Enforces strict zero-duplicate protection and dynamic daily shorts content strategy.
 """
 
 import os
@@ -33,52 +34,97 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 DEFAULT_VOICE = os.getenv("VOICE_NAME", "en-NG-EzinneNeural")
 SITE_NAME = os.getenv("SITE_NAME", "carnival-planner.com")
 
+# Comprehensive Calendar of Major Global Caribbean Carnivals
 CARNIVAL_CALENDAR = [
-    {"name": "Tobago Carnival 2026", "date": "October 25 - November 1", "key": "tobago", "island": "Tobago"},
-    {"name": "Sugar Mas (St. Kitts & Nevis)", "date": "December 15 - January 2", "key": "st_kitts", "island": "St. Kitts"},
-    {"name": "Montserrat Carnival", "date": "December 18 - January 2", "key": "montserrat", "island": "Montserrat"},
-    {"name": "Trinidad Carnival 2027", "date": "February 8 - 9", "key": "trinidad", "island": "Trinidad"},
-    {"name": "Dominica Mas Domnik", "date": "February 8 - 9", "key": "dominica", "island": "Dominica"},
-    {"name": "St. Maarten Carnival", "date": "April 15 - May 3", "key": "st_maarten", "island": "St. Maarten"},
-    {"name": "Jamaica Carnival 2027", "date": "April 7 - 12", "key": "jamaica", "island": "Jamaica"},
-    {"name": "St. Thomas Carnival (USVI)", "date": "April 24 - May 2", "key": "st_thomas", "island": "St. Thomas"},
-    {"name": "Bermuda Heroes Weekend", "date": "June 18 - 21", "key": "bermuda", "island": "Bermuda"},
-    {"name": "Vincy Mas (St. Vincent)", "date": "June 25 - July 6", "key": "vincy_mas", "island": "St. Vincent"},
-    {"name": "St. Lucia Carnival", "date": "July 15 - 21", "key": "st_lucia", "island": "St. Lucia"},
-    {"name": "Antigua Carnival", "date": "July 29 - August 3", "key": "antigua", "island": "Antigua"},
-    {"name": "Barbados Crop Over 2027", "date": "July 28 - August 3", "key": "crop_over", "island": "Barbados"},
-    {"name": "Grenada Spicemas 2027", "date": "August 9 - 10", "key": "spicemas", "island": "Grenada"}
+    {"name": "Miami Carnival 2026", "date": "October 9 - 12", "key": "miami", "island": "Miami", "order": 1},
+    {"name": "Dominica World Creole Music Festival", "date": "October 23 - 25", "key": "dominica", "island": "Dominica", "order": 2},
+    {"name": "Tobago Carnival 2026", "date": "October 25 - November 1", "key": "tobago", "island": "Tobago", "order": 3},
+    {"name": "Sugar Mas (St. Kitts & Nevis)", "date": "December 15 - January 2", "key": "st_kitts", "island": "St. Kitts", "order": 4},
+    {"name": "Montserrat Carnival", "date": "December 18 - January 2", "key": "montserrat", "island": "Montserrat", "order": 5},
+    {"name": "Trinidad Carnival 2027", "date": "February 8 - 9", "key": "trinidad", "island": "Trinidad", "order": 6},
+    {"name": "Dominica Mas Domnik 2027", "date": "February 8 - 9", "key": "dominica", "island": "Dominica", "order": 7},
+    {"name": "St. Maarten Carnival 2027", "date": "April 15 - May 3", "key": "st_maarten", "island": "St. Maarten", "order": 8},
+    {"name": "Jamaica Carnival 2027", "date": "April 7 - 12", "key": "jamaica", "island": "Jamaica", "order": 9},
+    {"name": "St. Thomas Carnival (USVI) 2027", "date": "April 24 - May 2", "key": "st_thomas", "island": "St. Thomas", "order": 10},
+    {"name": "CayMAS Carnival (Cayman Islands)", "date": "May 14 - 17", "key": "cayman", "island": "Cayman Islands", "order": 11},
+    {"name": "Bahamas Carnival 2027", "date": "May 20 - 24", "key": "bahamas", "island": "Bahamas", "order": 12},
+    {"name": "Bermuda Heroes Weekend 2027", "date": "June 18 - 21", "key": "bermuda", "island": "Bermuda", "order": 13},
+    {"name": "Vincy Mas (St. Vincent) 2027", "date": "June 25 - July 6", "key": "vincy_mas", "island": "St. Vincent", "order": 14},
+    {"name": "St. Lucia Carnival 2027", "date": "July 15 - 21", "key": "st_lucia", "island": "St. Lucia", "order": 15},
+    {"name": "Barbados Crop Over 2027", "date": "July 28 - August 3", "key": "crop_over", "island": "Barbados", "order": 16},
+    {"name": "Antigua Carnival 2027", "date": "July 29 - August 3", "key": "antigua", "island": "Antigua", "order": 17},
+    {"name": "Caribana (Toronto) 2027", "date": "July 29 - August 2", "key": "toronto", "island": "Toronto", "order": 18},
+    {"name": "Grenada Spicemas 2027", "date": "August 9 - 10", "key": "spicemas", "island": "Grenada", "order": 19},
+    {"name": "Notting Hill Carnival 2027", "date": "August 29 - 30", "key": "notting_hill", "island": "London", "order": 20},
+    {"name": "NYC Labor Day Carnival 2027", "date": "September 3 - 6", "key": "nyc", "island": "New York", "order": 21}
 ]
 
 def select_next_carnival():
+    """
+    Intelligent carnival selector that enforces zero duplicate posts:
+    1. Checks all historical posts.
+    2. Excludes any carnival posted in the last 7 entries.
+    3. Prioritizes upcoming events on the Caribbean calendar.
+    4. Picks the carnival that has gone the longest without being featured.
+    """
     history = load_posted_history()
-    recent_carnivals = [h.get("carnival", "") for h in history[-5:]]
-    candidates = [c for c in CARNIVAL_CALENDAR if not any(c["name"] in rc for rc in recent_carnivals)]
-    if not candidates:
-        candidates = CARNIVAL_CALENDAR
-    return random.choice(candidates)
+    
+    # Track when each carnival was last posted
+    last_posted_index = {}
+    for idx, entry in enumerate(history):
+        c_name = entry.get("carnival", "").lower()
+        for c in CARNIVAL_CALENDAR:
+            if c["key"] in c_name or c["island"].lower() in c_name or c["name"].lower() in c_name:
+                last_posted_index[c["key"]] = idx
+
+    # Enforce minimum cooldown: exclude anything posted in the last 7 posts
+    recent_cutoff = max(0, len(history) - 7)
+    cooldown_keys = set()
+    for entry in history[recent_cutoff:]:
+        c_name = entry.get("carnival", "").lower()
+        for c in CARNIVAL_CALENDAR:
+            if c["key"] in c_name or c["island"].lower() in c_name or c["name"].lower() in c_name:
+                cooldown_keys.add(c["key"])
+
+    eligible = [c for c in CARNIVAL_CALENDAR if c["key"] not in cooldown_keys]
+    if not eligible:
+        eligible = CARNIVAL_CALENDAR
+
+    # Sort eligible carnivals by:
+    # 1. Least recently posted (never posted gets lowest index -1)
+    # 2. Upcoming calendar order
+    eligible.sort(key=lambda c: (last_posted_index.get(c["key"], -1), c.get("order", 99)))
+    
+    chosen = eligible[0]
+    print(f"🎯 [Smart Scheduler] Selected target carnival: '{chosen['name']}' (Last posted index: {last_posted_index.get(chosen['key'], 'NEVER')})")
+    return chosen
 
 def run_trigger_autopost(live=True, target_override=None):
     print("=" * 80)
     print("🎬 CARNIVAL PLANNER: AUTONOMOUS VIDEO REEL GENERATION & SOCIAL AUTO-POST")
     print("=" * 80)
 
-    # 1. Health Check
-    print("\n[Step 1/5] 📡 Checking MoneyPrinterTurbo AI Engine Status...")
-    health = moneyprinter_client.check_health()
-    print(f"   - Status: {'🟢 ONLINE' if health['online'] else '🟡 STANDBY (Fallback Active)'}")
-    print(f"   - Endpoint: {health['api_url']}")
-    print(f"   - Message: {health['message']}")
-
-    # 2. Select Candidate Event
+    # 1. Select Candidate Event
     target = target_override or select_next_carnival()
     carnival_name = f"{target['name']} ({target['date']})"
-    print(f"\n[Step 2/5] 📍 Selected Event: {carnival_name}")
+    print(f"\n[Step 1/5] 📍 Selected Event: {carnival_name}")
     print(f"   - Voice: {DEFAULT_VOICE} (Warm Caribbean/Black Female Neural Voice)")
     print(f"   - Target Site: {SITE_NAME}")
 
-    # 3. Generate Video Reel
-    print("\n[Step 3/5] 🎥 Compiling 9:16 Vertical Video Reel...")
+    # 2. Generate Unique Viral Package & Script (Gemini AI + Deduplication)
+    print("\n[Step 2/5] ✍️ Generating Unique Viral Package & Voiceover Script...")
+    viral_pkg = generate_viral_package(carnival_name, target["key"])
+    print(f"   - Title: {viral_pkg['title']}")
+    print(f"   - Pillar: {viral_pkg.get('pillar', 'standard')}")
+
+    # 3. Check MoneyPrinterTurbo AI Engine Status
+    print("\n[Step 3/5] 📡 Checking MoneyPrinterTurbo AI Engine Status...")
+    health = moneyprinter_client.check_health()
+    print(f"   - Status: {'🟢 ONLINE' if health['online'] else '🟡 STANDBY (Local Canvas Active)'}")
+    print(f"   - Endpoint: {health['api_url']}")
+
+    # 4. Generate Video Reel
+    print("\n[Step 4/5] 🎥 Compiling 9:16 Vertical Video Reel...")
     local_video_path = None
     engine_used = "fallback"
 
@@ -86,20 +132,20 @@ def run_trigger_autopost(live=True, target_override=None):
         try:
             print(f"   - Using MoneyPrinterTurbo AI Sidecar (Voice: {DEFAULT_VOICE})...")
             terms = [
-                f"{target['key']} caribbean carnival",
-                "caribbean masquerader feathers",
+                f"{target['island']} caribbean carnival",
+                "caribbean masquerader costume",
                 "soca music festival crowd",
-                "tropical island carnival dancers",
-                "carnival parade costume"
+                "tropical island carnival parade",
+                "steelpan soca dancers"
             ]
-            script = (
-                f"Get ready for {target['name']} and all the upcoming Caribbean island carnivals! "
-                "Never lose your squad on the road, track live sound trucks, and find costume drops on carnival-planner.com. "
-                "Download free and plan your entire trip at carnival-planner.com today!"
+            script = viral_pkg.get("script") or (
+                f"Get ready for {target['name']}! "
+                "Never lose your squad on the road, track live sound trucks, and lock in your fete tickets on carnival-planner.com. "
+                "Download free and plan your entire trip today!"
             )
             
             task_id = moneyprinter_client.submit_task(
-                video_subject=f"Carnival Planner: {carnival_name} & Caribbean Island Guide",
+                video_subject=viral_pkg["title"],
                 video_script=script,
                 video_terms=terms,
                 video_aspect="9:16",
@@ -118,8 +164,14 @@ def run_trigger_autopost(live=True, target_override=None):
             print(f"   ⚠️ Sidecar render error: {e}. Switching to cinematic canvas generator.")
 
     if not local_video_path:
-        print("   - Using High-Performance Cinematic Canvas Generator...")
+        print("   - Using High-Performance Cinematic Canvas Studio...")
         ad_data = generate_ai_creative_ad(carnival_name)
+        # Use our unique generated title & hook if available
+        if viral_pkg.get("title"):
+            ad_data["title"] = viral_pkg["title"].replace(" #Shorts", "").upper()
+        if viral_pkg.get("hook_line"):
+            ad_data["hook_line"] = viral_pkg["hook_line"]
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_video_name = f"cinematic_{target['key']}_{timestamp}.mp4"
         local_video_path = os.path.join(OUTPUT_DIR, out_video_name)
@@ -130,21 +182,20 @@ def run_trigger_autopost(live=True, target_override=None):
     print(f"   - Engine Used: {engine_used}")
     print(f"   - Local Video File: {local_video_path}")
 
-    # 4. Upload to Public CDN
-    print("\n[Step 4/5] 🌐 Uploading Video Asset to Fast Public CDN...")
+    # 5. Upload to Public CDN & Broadcast
+    print("\n[Step 5/5] 🌐 Uploading Video Asset & Broadcasting Across Channels...")
     public_cdn_url = upload_local_to_public_cdn(local_video_path)
     print(f"   - ✅ Public CDN URL: {public_cdn_url}")
-
-    # 5. Format Copy & Broadcast
-    print("\n[Step 5/5] ✍️ Formatting Social Media Copy & Multi-Channel Broadcast...")
-    viral_pkg = generate_viral_package(carnival_name, target["key"])
 
     campaign_record = {
         "id": f"post_{target['key']}_{int(time.time())}",
         "title": viral_pkg["title"],
+        "hook_line": viral_pkg.get("hook_line", ""),
+        "category": viral_pkg.get("pillar", "general"),
         "carnival": carnival_name,
         "video_url": public_cdn_url,
-        "engine": engine_used
+        "engine": engine_used,
+        "timestamp": datetime.now().isoformat()
     }
 
     if live:
@@ -164,7 +215,7 @@ def run_trigger_autopost(live=True, target_override=None):
         return results
     else:
         print("\nℹ️ Dry-run mode completed. Video asset ready for broadcasting.")
-        return {"status": "success", "video_url": public_cdn_url}
+        return {"status": "success", "video_url": public_cdn_url, "campaign": campaign_record}
 
 if __name__ == "__main__":
     is_live = "--dry-run" not in sys.argv

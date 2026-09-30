@@ -5,6 +5,9 @@ on:
     - cron: '0 9,15,21 * * *' # Runs 3 times a day (9 AM, 3 PM, 9 PM UTC)
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   track-and-publish:
     runs-on: ubuntu-latest
@@ -42,8 +45,24 @@ jobs:
           SOCIAL_WEBHOOK_URL: ${{ secrets.SOCIAL_WEBHOOK_URL }}
           VOICE_NAME: ${{ secrets.VOICE_NAME || 'en-NG-EzinneNeural' }}
           SITE_NAME: ${{ secrets.SITE_NAME || 'carnival-planner.com' }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://yzvhbebyottadfjryeye.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Qo3c6CPx35nHcloN0d_DEQ_Gd4plse1' }}
         run: |
           python ig_engine/auto_daily_poster.py
+
+      - name: Commit and Push Persistent Post History & Campaign Queue
+        if: always()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add ig_engine/posted_history.json ig_engine/ad_campaign_queue.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No changes in social post history or queue."
+          else
+            git commit -m "chore(social): persist social media history & queue [skip ci]"
+            git push
+            echo "Successfully synced social history to repository."
+          fi
 
       - name: Upload Generated Social Videos & Artifacts
         uses: actions/upload-artifact@v4

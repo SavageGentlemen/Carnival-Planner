@@ -25,14 +25,17 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Install Google Chrome (Headless)
+      - name: Verify or Install Google Chrome (Headless)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget gnupg
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+          if ! command -v google-chrome &> /dev/null; then
+            echo "Installing Google Chrome..."
+            sudo apt-get update -y
+            wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            sudo apt-get install -y ./google-chrome-stable_current_amd64.deb || sudo apt-get install -f -y
+          else
+            echo "Google Chrome already present."
+          fi
+          google-chrome --version
 
       - name: Install Python Dependencies
         run: |
