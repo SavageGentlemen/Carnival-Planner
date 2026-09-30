@@ -117,31 +117,26 @@ def run_trigger_autopost(live=True, target_override=None):
     print(f"   - Title: {viral_pkg['title']}")
     print(f"   - Pillar: {viral_pkg.get('pillar', 'standard')}")
 
-    # 3. Compile Unified High-Cinematic Video Reel (FLUX.1 + Nanobana 3D + Canvas)
-    print("\n[Step 3/4] 🎥 Compiling 9:16 Vertical Reel (FLUX.1 8K + Nanobana 3D Parallax + Canvas)...")
+    # 3. Compile 24 FPS Cartoon Episode Video Reel
+    print("\n[Step 3/4] 🎬 Compiling 24 FPS Animated Cartoon Episode (Characters + Sound Truck + Comic Dialogue)...")
     local_video_path = None
-    engine_used = "Unified FLUX.1 + Nanobana 3D + Cinematic Canvas"
+    engine_used = "24 FPS Cartoon Episode Studio (Maya & Tariq)"
 
     try:
-        from unified_creative_engine import build_unified_cinematic_reel
-        local_video_path, storyboard = build_unified_cinematic_reel(carnival_name, target["key"])
-        if storyboard.get("title"):
-            viral_pkg["title"] = storyboard["title"]
-        if storyboard.get("hook_line"):
-            viral_pkg["hook_line"] = storyboard["hook_line"]
+        from cartoon_episode_engine import build_cartoon_episode
+        local_video_path = build_cartoon_episode(carnival_name)
     except Exception as e:
-        print(f"   ⚠️ Unified engine notice ({e}). Switching to local studio canvas...")
-        ad_data = generate_ai_creative_ad(carnival_name)
-        if viral_pkg.get("title"):
-            ad_data["title"] = viral_pkg["title"].replace(" #Shorts", "").upper()
-        if viral_pkg.get("hook_line"):
-            ad_data["hook_line"] = viral_pkg["hook_line"]
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_video_name = f"cinematic_{target['key']}_{timestamp}.mp4"
-        local_video_path = os.path.join(OUTPUT_DIR, out_video_name)
-        build_cinematic_video(ad_data, local_video_path)
-        engine_used = "Local High-Performance Studio Canvas"
+        print(f"   ⚠️ Cartoon engine notice ({e}). Switching to unified studio...")
+        try:
+            from unified_creative_engine import build_unified_cinematic_reel
+            local_video_path, storyboard = build_unified_cinematic_reel(carnival_name, target["key"])
+        except Exception:
+            ad_data = generate_ai_creative_ad(carnival_name)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            out_video_name = f"cinematic_{target['key']}_{timestamp}.mp4"
+            local_video_path = os.path.join(OUTPUT_DIR, out_video_name)
+            build_cinematic_video(ad_data, local_video_path)
+            engine_used = "Local High-Performance Studio Canvas"
 
     print(f"   - ✅ Video Rendered Successfully!")
     print(f"   - Engine Used: {engine_used}")
