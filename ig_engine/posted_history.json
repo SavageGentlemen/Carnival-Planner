@@ -1454,5 +1454,41 @@
       }
     },
     "timestamp": "2026-10-13T16:52:34.429838"
+  },
+  {
+    "id": "post_bermuda_1791936855",
+    "title": "The Ultimate Bermuda Heroes Weekend 2027 (June 18 - 21) Masquerader Survival Playbook 🌴 #Shorts",
+    "hook_line": "The Ultimate Bermuda Heroes Weekend 2027 (June 18 - 21) Masquerader Survival Playbook 🌴",
+    "carnival": "Bermuda Heroes Weekend 2027 (June 18 - 21)",
+    "platform_ids": {
+      "webhook_2hhgb12q": {
+        "status": "success",
+        "code": 200,
+        "response": "Accepted"
+      },
+      "youtube": {
+        "status": "success",
+        "mode": "dry_run",
+        "platform": "youtube",
+        "video_id": "dry_run_yt_id"
+      },
+      "instagram": {
+        "status": "success",
+        "post_id": "18127658020852226"
+      },
+      "facebook": {
+        "status": "success",
+        "mode": "dry_run",
+        "platform": "facebook",
+        "post_id": "dry_run_fb_id"
+      },
+      "tiktok": {
+        "status": "success",
+        "mode": "dry_run",
+        "platform": "tiktok",
+        "post_id": "dry_run_tiktok_id"
+      }
+    },
+    "timestamp": "2026-10-14T00:15:11.839838"
   }
 ]
