@@ -19,6 +19,9 @@ import BandOSApprovals from './BandOSApprovals';
 import PromoterAdminHub from './PromoterAdminHub';
 import MoyAgentDashboard from './travel/MoyAgentDashboard';
 import AutomationManager from './AutomationManager';
+import FeteDropLeadManager from './admin/FeteDropLeadManager';
+import ScraperEventHub from './admin/ScraperEventHub';
+import { Flame, Globe } from 'lucide-react';
 
 export default function AdminDashboard({ user }) {
     const [activeTab, setActiveTab] = useState('Overview');
@@ -48,6 +51,8 @@ export default function AdminDashboard({ user }) {
 
     const tabs = [
         { id: 'Overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'FeteAlerts', label: '🔥 VIP Drops & Leads', icon: Flame },
+        { id: 'EventScraper', label: '🎫 Scraper Hub', icon: Globe },
         { id: 'BandOS', label: '👑 BandOS Hub', icon: Box },
         { id: 'Promoters', label: '🎟️ Promoter Hub', icon: Ticket },
         { id: 'Automations', label: '🤖 Automations', icon: Bot },
@@ -91,6 +96,8 @@ export default function AdminDashboard({ user }) {
             {/* Content Area */}
             <div className="p-6">
                 {activeTab === 'Overview' && <AdminAnalytics />}
+                {activeTab === 'FeteAlerts' && <FeteDropLeadManager />}
+                {activeTab === 'EventScraper' && <ScraperEventHub onSelectForAlert={(evt) => setActiveTab('FeteAlerts')} />}
                 {activeTab === 'BandOS' && <BandOSApprovals user={user} />}
                 {activeTab === 'Promoters' && <PromoterAdminHub />}
                 {activeTab === 'Automations' && <AutomationManager />}

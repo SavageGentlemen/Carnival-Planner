@@ -22,6 +22,8 @@ export default function FeteDropAlertBox() {
           notifyMethod,
           preferredCarnival: carnival,
           source: 'landing_alert_banner',
+          status: 'active',
+          welcomeSent: false,
           createdAt: serverTimestamp()
         });
       }

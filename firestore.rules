@@ -98,8 +98,7 @@ service cloud.firestore {
     // Carnival Events - scraped data only accessible via Cloud Function (premium validation)
     // Direct reads are blocked; use getScrapedEvents Cloud Function instead
     match /carnivalEvents/{carnivalId} {
-      allow read: if false;
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // --- SQUAD MODE RULES ---
@@ -420,6 +419,11 @@ service cloud.firestore {
                        request.resource.data.contact.size() <= 120;
       // Only admins can view, export, or manage lead records
       allow read, update, delete: if isAdmin();
+    }
+
+    // --- FETE DROP CAMPAIGNS (VIP Drop broadcast history & logs) ---
+    match /feteDropCampaigns/{campaignId} {
+      allow read, write: if isAdmin();
     }
   }
 }
