@@ -328,7 +328,7 @@ service cloud.firestore {
     match /travelPackages/{packageId} {
       // Anyone can read packages for public storefront / travel directory
       allow read: if true;
-      // Admins, travel hosts, and verified portal updates
+      // Admins, travel hosts, and verified portal updates only
       allow write: if isAdmin() || (
         request.auth != null && (
           request.auth.token.email in [
@@ -339,11 +339,12 @@ service cloud.firestore {
             'info@moysworld.com'
           ]
         )
-      ) || request.resource.data.title is string;
+      );
 
-      // Revision history for packages
+      // Revision history for packages (admin only write)
       match /revisions/{revId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow write: if isAdmin();
       }
     }
 
@@ -365,29 +366,60 @@ service cloud.firestore {
           ]
         )
       );
-      // Admins can update booking status (confirm, mark paid, cancel) or delete
-      allow update, delete: if true;
+      // Only admins and designated travel hosts can update booking status (confirm, mark paid, cancel) or delete
+      allow update, delete: if isAdmin() || (
+        request.auth != null && (
+          request.auth.token.email in [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+          ]
+        )
+      );
     }
 
     // --- TRAVEL SETTINGS & GATEWAY CONFIG ---
     match /travelSettings/{settingId} {
       // Public read for checkout gateway settings
       allow read: if true;
-      // Admins can save and update payment gateways and concierge numbers
-      allow write: if true;
+      // Admins only can save and update payment gateways and concierge numbers
+      allow write: if isAdmin();
     }
 
     // --- TRAVEL SITE CONTENT (MOY MEETS WORLD HERO, ABOUT, FAQS, PHILOSOPHY) ---
     match /travelSiteContent/{contentId} {
       // Public read so all visitors see the latest dynamic copy
       allow read: if true;
-      // Admins and travel hosts have full permissions to update and autosave site content
-      allow write: if true;
+      // Admins and travel hosts have permissions to update and autosave site content
+      allow write: if isAdmin() || (
+        request.auth != null && (
+          request.auth.token.email in [
+            'djkrss1@gmail.com', 
+            'info@moymeetsworld.com', 
+            'moymeetsworld@gmail.com',
+            'defoursemoy@gmail.com',
+            'info@moysworld.com'
+          ]
+        )
+      );
 
       // Revision history for site copy / FAQs
       match /revisions/{revId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow write: if isAdmin();
       }
+    }
+
+    // --- FETE ALERT LEADS (VIP Flash Ticket Drop Waitlist) ---
+    match /feteAlertLeads/{leadId} {
+      // Anyone can submit contact info, with payload validation to prevent database abuse
+      allow create: if request.resource.data.contact is string &&
+                       request.resource.data.contact.size() >= 3 &&
+                       request.resource.data.contact.size() <= 120;
+      // Only admins can view, export, or manage lead records
+      allow read, update, delete: if isAdmin();
     }
   }
 }

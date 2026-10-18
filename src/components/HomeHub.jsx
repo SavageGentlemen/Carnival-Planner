@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { Calendar, Wallet, Users, MapPin, Zap, ExternalLink, Ticket, ArrowRight, TrendingUp, PartyPopper, Share2, Plane, Sparkles } from 'lucide-react';
 import { HolographicCard, LiquidButton } from './threeui';
+import CarnivalStoryCardModal from './CarnivalStoryCardModal';
 
 const SquadPromoProgressBar = ({ currentMemberCount, shareCode }) => {
     if (currentMemberCount >= 5) {
@@ -80,6 +81,7 @@ export default function HomeHub({
     isPremium,
     onAction
 }) {
+    const [showStoryModal, setShowStoryModal] = useState(false);
     // 1. Calculate "Next Up" Carnival
     const nextCarnival = useMemo(() => {
         if (activeCarnivalId) {
@@ -202,16 +204,26 @@ export default function HomeHub({
                                 <p className="text-slate-300 text-sm font-medium">Get ready for the road.</p>
                             </div>
 
-                            {/* Countdown Box */}
-                            <div className="flex items-center gap-3 bg-slate-950/80 backdrop-blur-md rounded-2xl p-4 border border-cyan-500/30 shadow-[0_0_20px_rgba(0,229,204,0.15)]">
-                                <div className="text-center">
-                                    <span className="block text-2xl sm:text-3xl font-black text-[#00e5cc] font-heading">{timeLeft.days}</span>
-                                    <span className="text-[10px] uppercase font-bold text-slate-400">Days</span>
-                                </div>
-                                <div className="h-8 w-px bg-white/20"></div>
-                                <div className="text-center">
-                                    <span className="block text-2xl sm:text-3xl font-black text-white font-heading">{timeLeft.hours}</span>
-                                    <span className="text-[10px] uppercase font-bold text-slate-400">Hrs</span>
+                            {/* Actions & Countdown Box */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    onClick={() => setShowStoryModal(true)}
+                                    className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-cyan-500/20 hover:from-pink-500/30 hover:to-cyan-500/30 border border-pink-500/40 text-white font-extrabold px-3.5 py-3 rounded-2xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(236,72,153,0.3)] shrink-0 group"
+                                >
+                                    <Sparkles className="w-4 h-4 text-pink-400 group-hover:rotate-12 transition-transform" />
+                                    <span>Export Story Card</span>
+                                </button>
+
+                                <div className="flex items-center gap-3 bg-slate-950/80 backdrop-blur-md rounded-2xl p-4 border border-cyan-500/30 shadow-[0_0_20px_rgba(0,229,204,0.15)]">
+                                    <div className="text-center">
+                                        <span className="block text-2xl sm:text-3xl font-black text-[#00e5cc] font-heading">{timeLeft.days}</span>
+                                        <span className="text-[10px] uppercase font-bold text-slate-400">Days</span>
+                                    </div>
+                                    <div className="h-8 w-px bg-white/20"></div>
+                                    <div className="text-center">
+                                        <span className="block text-2xl sm:text-3xl font-black text-white font-heading">{timeLeft.hours}</span>
+                                        <span className="text-[10px] uppercase font-bold text-slate-400">Hrs</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -391,6 +403,16 @@ export default function HomeHub({
                     </div>
                 </div>
             </HolographicCard>
+
+            {/* 4. VIRAL STORY CARD MODAL */}
+            <CarnivalStoryCardModal
+                isOpen={showStoryModal}
+                onClose={() => setShowStoryModal(false)}
+                user={user}
+                currentCarnival={nextCarnival}
+                events={scrapedEvents}
+                costumeDetails={carnivalData?.costume}
+            />
 
         </div>
     );

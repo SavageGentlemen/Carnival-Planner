@@ -12,7 +12,7 @@ const KEYWORDS_FILE = path.join(CONFIG_DIR, 'keywords.json');
 const SEEN_POSTS_FILE = path.join(OUTPUT_DIR, 'seen_posts.json');
 const RESULTS_FILE = path.join(OUTPUT_DIR, 'scout_results.json');
 
-const SUBREDDITS = ['parenting', 'teachers', 'eventplanning', 'birthday', 'party', 'carnival', 'trinidadandtobago', 'caribbean', 'weddingplanning', 'kidsparties', 'Cooking'];
+const SUBREDDITS = ['trinidadandtobago', 'caribbean', 'Soca', 'Carnival', 'travel', 'solotravel', 'Jamaica', 'Barbados', 'festivals', 'eventplanning'];
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -131,18 +131,22 @@ export async function runScout(isDryRun = false) {
         
         if (!response.ok) {
             console.error(`[Scout] Error fetching: ${response.status} ${response.statusText}`);
+            if (response.status === 429) {
+                console.log(`[Scout] Rate limited by Reddit (429), backing off for 8s...`);
+                await sleep(8000);
+            }
             continue;
         }
         
         const xml = await response.text();
         const entries = parseRedditRSS(xml);
         
-        console.log(`[Scout]   → Found ${entries.length} entries`);
-        
         for (const entry of entries) {
-            // Optional: filter by known subreddits (loose — RSS search spans all subreddits)
-            // if (entry.subreddit && !SUBREDDITS.includes(entry.subreddit.toLowerCase())) continue;
-            
+            const textToMatch = `${entry.title} ${entry.body}`.toLowerCase();
+            const isCarnivalSub = SUBREDDITS.some(s => entry.subreddit && entry.subreddit.toLowerCase().includes(s.toLowerCase()));
+            const hasCarnivalContent = /carnival|soca|fete|masquerad|jouvert|trinidad|crop\s*over|costume|band\s*launch/i.test(textToMatch);
+
+            if (!isCarnivalSub && !hasCarnivalContent) continue;
             if (entry.timestamp < oneDayAgo) continue; // recency check
             if (seenPosts.has(entry.id)) continue; // dedup
             

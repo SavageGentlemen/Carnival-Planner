@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+
+# Specifically invite LLM & Search Crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+Sitemap: https://carnival-planner.web.app/sitemap.xml

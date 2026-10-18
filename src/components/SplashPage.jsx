@@ -25,6 +25,8 @@ import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { supabase } from '../supabaseClient';
 import { LiquidButton, HolographicCard, CostumeStage3D } from './threeui';
+import CarnivalBudgetWidget from './landing/CarnivalBudgetWidget';
+import FeteDropAlertBox from './landing/FeteDropAlertBox';
 
 const TOP_5_FETES = [
   {
@@ -410,6 +412,12 @@ export default function SplashPage({ onGetStarted, logo, onTryDemo, onOpenConcie
 
           </div>
         </div>
+      </section>
+      
+      {/* ── INTERACTIVE BUDGET ESTIMATOR & FLASH LEAD CAPTURE ── */}
+      <section className="relative px-4 sm:px-6 max-w-7xl mx-auto z-20 pb-8 space-y-8">
+        <FeteDropAlertBox />
+        <CarnivalBudgetWidget onGetStarted={onGetStarted} onTryDemo={onTryDemo} />
       </section>
 
       {/* ── SECTION 1: UNLOCK YOUR CARNIVAL ADVENTURE (3 Pillar Cards) ── */}
