@@ -1,62 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://carnival-planner.web.app/</loc>
+    <loc>https://www.carnival-planner.com/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/marketplace</loc>
+    <loc>https://www.carnival-planner.com/marketplace</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/passport</loc>
+    <loc>https://www.carnival-planner.com/passport</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/android</loc>
+    <loc>https://www.carnival-planner.com/android</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/caribbean-carnival-planner-vs-google-sheets</loc>
+    <loc>https://www.carnival-planner.com/blog/caribbean-carnival-planner-vs-google-sheets</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/bandos-vs-airtable-carnival-band-management</loc>
+    <loc>https://www.carnival-planner.com/blog/bandos-vs-airtable-carnival-band-management</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/safe-carnival-costume-resale-marketplace-vs-facebook-groups</loc>
+    <loc>https://www.carnival-planner.com/blog/safe-carnival-costume-resale-marketplace-vs-facebook-groups</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/how-to-track-squad-carnival-road-without-cell-service</loc>
+    <loc>https://www.carnival-planner.com/blog/how-to-track-squad-carnival-road-without-cell-service</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/trinidad-carnival-2026-cost-budget-breakdown</loc>
+    <loc>https://www.carnival-planner.com/blog/trinidad-carnival-2026-cost-budget-breakdown</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/trinidad-carnival-2026-fete-guide</loc>
+    <loc>https://www.carnival-planner.com/blog/trinidad-carnival-2026-fete-guide</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/barbados-crop-over-2026-guide</loc>
+    <loc>https://www.carnival-planner.com/blog/barbados-crop-over-2026-guide</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://carnival-planner.web.app/blog/jamaica-carnival-2026-guide</loc>
+    <loc>https://www.carnival-planner.com/blog/jamaica-carnival-2026-guide</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

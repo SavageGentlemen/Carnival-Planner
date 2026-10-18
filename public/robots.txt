@@ -20,4 +20,5 @@ Allow: /
 User-agent: Applebot
 Allow: /
 
-Sitemap: https://carnival-planner.web.app/sitemap.xml
+Sitemap: https://www.carnival-planner.com/sitemap.xml
+Sitemap: https://carnival-planner.web.app/sitemap-app.xml
